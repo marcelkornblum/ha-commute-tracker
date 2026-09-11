@@ -12,3 +12,10 @@ Do not register intermediary API state. Stick strictly to Master Rollup and Chil
 ## 4. Git Workflow
 - **Starting a Track:** When starting a new track, immediately create and checkout a new git branch off `main` before making any code changes.
 - **Finishing a Track:** When a track is complete, push the branch to `origin` and open a Pull Request back onto `main`.
+- **Never Modify Staged Status:** Agents must never stage or unstage files (`git add`, `git reset`, `git restore --staged`, etc.). The user uses git staging exclusively to track their code review progress.
+
+## 5. Legacy PoC Reference & UI Parity
+- **Proven Reference**: A fully working, highly effective (though unoptimised) YAML proof of concept is dumped in `conductor/legacy_poc/` for direct reference.
+- **Python Replication**: The Python integration is designed to largely replicate that working structure in clean, type-annotated Python, replacing ad-hoc API queries with decoupled `TransitProvider` plugins and optimising intermediate calculations.
+- **Strict UI Parity**: The original frontend UI was proven and must not look different. The custom Lovelace card must achieve complete visual and behavioural parity with the original PoC.
+

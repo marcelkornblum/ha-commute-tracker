@@ -1,6 +1,6 @@
 # Technology Stack
 
-- **Language:** Python 3.12+
+- **Language:** Python 3.14+
 - **Framework:** Home Assistant Custom Component ecosystem
 - **Package Manager / Environment:** `uv`
 - **Testing:** `pytest`, `pytest-asyncio`, `pytest-cov`, `pytest-homeassistant-custom-component`

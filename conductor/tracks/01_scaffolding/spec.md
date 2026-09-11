@@ -5,5 +5,5 @@
 ## Requirements
 - Python `uv` environment initialization.
 - Node.js `npm` initialization for frontend compilation (Vite/Rollup).
-- HACS configuration files (`hacs.json`, `info.md`). Minimum HA Version: 2026.1.0.
+- HACS configuration files (`hacs.json`, `info.md`). Minimum HA Version: 2026.3.0.
 - Ruff & MyPy configured for strict static analysis.
