@@ -1,6 +1,6 @@
 # Tracks Registry
 
-- [ ] **Track: Phase 1: HACS-First Scaffolding & CI/CD** *Link: [./tracks/01_scaffolding/index.md](./tracks/01_scaffolding/index.md)*
+- [~] **Track: Phase 1: HACS-First Scaffolding & CI/CD** *Link: [./tracks/01_scaffolding/index.md](./tracks/01_scaffolding/index.md)*
 - [ ] **Track: Phase 2: Spec Extraction & Data Fixtures** *Link: [./tracks/02_fixtures/index.md](./tracks/02_fixtures/index.md)*
 - [ ] **Track: Phase 3: Core Domain & Universal Provider** *Link: [./tracks/03_core_domain/index.md](./tracks/03_core_domain/index.md)*
 - [ ] **Track: Phase 4: The Commute Engine** *Link: [./tracks/04_engine/index.md](./tracks/04_engine/index.md)*
