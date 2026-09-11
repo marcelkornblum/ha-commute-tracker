@@ -1,12 +1,10 @@
-# Commute Tracker (`ha-commute-tracker`)
+# Commute Tracker
 
 A Home Assistant custom integration and companion dashboard card that removes the stress of timing your daily journeys. It monitors multiple transit options simultaneously, compares route options in real time, and provides clear, glanceable urgency stages so you always leave at the right moment.
 
-## Product Vision
+## Why Commute Tracker?
 
-Make preparing for and catching your commute effortless and worry-free, even when you've got several options.
-
-Whether your commute involves choosing between a train or a local bus, Commute Tracker tracks live departures, computes your arrival time, and distils complex transit feeds into simple, actionable guidance: *Standby*, *Get Ready*, or *Leave Now*.
+Whether your commute involves choosing between buses or trains, Commute Tracker tracks live departures, computes your arrival time, and distils complex transit feeds into simple, actionable guidance: *Standby*, *Get Ready*, or *Leave Now*.
 
 ## Key Features
 

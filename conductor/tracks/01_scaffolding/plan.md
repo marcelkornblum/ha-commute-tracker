@@ -1,7 +1,7 @@
 # Implementation Plan
 
-- [ ] Setup Git repository
-- [ ] Initialize Python environment (`uv`, dependencies)
-- [ ] Initialize Node environment (`package.json`, Vite)
-- [ ] Create HACS `.json` and Markdown files
-- [ ] Create GitHub Actions for Ruff, MyPy, and Pytest
+- [x] Setup Git repository
+- [x] Initialize Python environment (`uv`, dependencies)
+- [x] Initialize Node environment (`package.json`, Vite)
+- [x] Create HACS `.json` and Markdown files
+- [x] Create GitHub Actions for Ruff, MyPy, and Pytest

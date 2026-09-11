@@ -12,3 +12,5 @@ Do not register intermediary API state. Stick strictly to Master Rollup and Chil
 ## 4. Git Workflow
 - **Starting a Track:** When starting a new track, immediately create and checkout a new git branch off `main` before making any code changes.
 - **Finishing a Track:** When a track is complete, push the branch to `origin` and open a Pull Request back onto `main`.
+- **Never Modify Staged Status:** Agents must never stage or unstage files (`git add`, `git reset`, `git restore --staged`, etc.). The user uses git staging exclusively to track their code review progress.
+
