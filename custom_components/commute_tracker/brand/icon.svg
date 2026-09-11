@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Red horizontal transit corridor line running edge to edge -->
+  <line x1="-10" y1="128" x2="266" y2="128" stroke="#DC241F" stroke-width="96"/>
+
+  <!-- Base Stop Circle on the line (r=98, pure red) -->
+  <circle cx="128" cy="128" r="98" fill="#DC241F"/>
+
+  <!-- Bus Marker Circle (white border, red interior, no shadow) -->
+  <circle cx="128" cy="128" r="80" fill="#DC241F" stroke="#FFFFFF" stroke-width="10"/>
+
+  <!-- Bus Icon Silhouette (pure white) -->
+  <g transform="translate(128, 128) scale(4.35) translate(-12, -11.5)">
+    <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z" fill="#FFFFFF"/>
+  </g>
+</svg>
