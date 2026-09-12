@@ -117,6 +117,32 @@ def test_fetch_journey_success() -> None:
         assert request.full_url == expected_url
 
 
+def test_fetch_journey_pagination_success() -> None:
+    """Verify fetch_journey consolidates multiple schedule pages."""
+    client = TfLCaptureClient()
+    page1 = {
+        "journeys": [{"startDateTime": "2026-09-12T08:00:00"}],
+        "searchCriteria": {
+            "timeAdjustments": {"later": {"uri": "/Journey/LaterPage"}}
+        },
+    }
+    page2 = {
+        "journeys": [{"startDateTime": "2026-09-12T08:15:00"}],
+    }
+
+    mock_responses = [create_mock_response(page1), create_mock_response(page2)]
+    with patch("urllib.request.urlopen", side_effect=mock_responses) as mock_urlopen:
+        result = client.fetch_journey(
+            origin_id="910GCHRX",
+            destination_id="910GLNDNBDC",
+            max_pages=2,
+        )
+        assert len(result["journeys"]) == 2
+        assert result["journeys"][0]["startDateTime"] == "2026-09-12T08:00:00"
+        assert result["journeys"][1]["startDateTime"] == "2026-09-12T08:15:00"
+        assert mock_urlopen.call_count == 2
+
+
 def test_execute_request_http_error() -> None:
     """Verify HTTPError is captured and wrapped into TransitCaptureError."""
     client = TfLCaptureClient()
@@ -172,7 +198,7 @@ def test_save_fixture_creates_file_and_directories(tmp_path: Path) -> None:
 
 
 def test_capture_poc_bus_discrete(tmp_path: Path) -> None:
-    """Verify capture_poc_bus_discrete creates all 6 stop fixtures and status."""
+    """Verify capture_poc_bus_discrete creates all 8 stop fixtures and status."""
     mock_client = MagicMock(spec=TfLCaptureClient)
     mock_client.fetch_stop_arrivals.return_value = [{"id": "arr"}]
     mock_client.fetch_line_status.return_value = SAMPLE_GOOD_STATUS
@@ -183,10 +209,11 @@ def test_capture_poc_bus_discrete(tmp_path: Path) -> None:
         bus_line="26",
     )
 
-    assert len(results) == 7
+    assert len(results) == 10
     assert (tmp_path / "01_terminus_victoria.json").exists()
-    assert (tmp_path / "05_target_trafalgar_square.json").exists()
-    assert (tmp_path / "07_line_status.json").exists()
+    assert (tmp_path / "08_target_trafalgar_square.json").exists()
+    assert (tmp_path / "09_destination_shoreditch_high_st.json").exists()
+    assert (tmp_path / "10_line_status.json").exists()
 
 
 def test_capture_poc_train_discrete(tmp_path: Path) -> None:
@@ -245,33 +272,34 @@ def test_capture_poc_tube_discrete(tmp_path: Path) -> None:
     mock_client = MagicMock(spec=TfLCaptureClient)
     mock_client.fetch_stop_arrivals.return_value = [{"vehicleId": "T1"}]
     mock_client.fetch_line_status.return_value = SAMPLE_GOOD_STATUS
-    mock_client.fetch_journey.return_value = {"journeys": [{"duration": 13}]}
+    mock_client.fetch_journey.return_value = {"journeys": [{"duration": 8}]}
 
     results = capture_poc_tube_discrete(
         client=mock_client,
         output_dir=tmp_path,
-        tube_line="district",
+        tube_line="central",
     )
 
-    assert len(results) == 7
-    assert (tmp_path / "01_intermediate_victoria.json").exists()
-    assert (tmp_path / "04_target_embankment.json").exists()
-    assert (tmp_path / "05_destination_aldgate_east.json").exists()
-    assert (tmp_path / "06_line_status.json").exists()
-    assert (tmp_path / "07_journey_results.json").exists()
+    assert len(results) == 15
+    assert (tmp_path / "01_intermediate_north_acton.json").exists()
+    assert (tmp_path / "11_intermediate_oxford_circus.json").exists()
+    assert (tmp_path / "12_target_tottenham_court_road.json").exists()
+    assert (tmp_path / "13_destination_liverpool_street.json").exists()
+    assert (tmp_path / "14_line_status.json").exists()
+    assert (tmp_path / "15_journey_results.json").exists()
 
 
 def test_capture_consolidated_tube(tmp_path: Path) -> None:
     """Verify capture_consolidated_tube creates arrivals, journey, and status."""
     mock_client = MagicMock(spec=TfLCaptureClient)
     mock_client.fetch_arrivals.return_value = [{"vehicleId": "T1"}]
-    mock_client.fetch_journey.return_value = {"journeys": [{"duration": 13}]}
+    mock_client.fetch_journey.return_value = {"journeys": [{"duration": 8}]}
     mock_client.fetch_line_status.return_value = SAMPLE_GOOD_STATUS
 
     results = capture_consolidated_tube(
         client=mock_client,
         output_dir=tmp_path,
-        tube_line="district",
+        tube_line="central",
     )
 
     assert len(results) == 3
@@ -342,13 +370,17 @@ def test_main_success_flow(tmp_path: Path) -> None:
         nelson_dir = tmp_path / "commute_nelson_to_brick_lane"
         poc_bus = nelson_dir / "set1_poc_bus_discrete"
         assert (poc_bus / "01_terminus_victoria.json").exists()
+        assert (poc_bus / "08_target_trafalgar_square.json").exists()
+        assert (poc_bus / "10_line_status.json").exists()
         poc_train = nelson_dir / "set2_poc_train_discrete"
         assert (poc_train / "01_journey_results.json").exists()
         assert (nelson_dir / "set3_consolidated_bus" / "line_arrivals.json").exists()
         train_con = nelson_dir / "set4_consolidated_train"
         assert (train_con / "journey_results.json").exists()
         poc_tube = nelson_dir / "set5_poc_tube_discrete"
-        assert (poc_tube / "04_target_embankment.json").exists()
+        assert (poc_tube / "01_intermediate_north_acton.json").exists()
+        assert (poc_tube / "12_target_tottenham_court_road.json").exists()
+        assert (poc_tube / "15_journey_results.json").exists()
         tube_con = nelson_dir / "set6_consolidated_tube"
         assert (tube_con / "line_arrivals.json").exists()
         assert (nelson_dir / "time_series" / "series_manifest.json").exists()

@@ -13,25 +13,23 @@ To ensure reproducibility while maintaining commuter privacy, all integration te
 
 ### Multiple Route Options
 
-1. **Primary Bus Option**: Daytime TfL Bus Line **26** (Victoria $\rightarrow$ Waterloo $\rightarrow$ Shoreditch High Street)
+1. **Surface Bus Option**: Daytime TfL Bus Line **26** (Victoria $\rightarrow$ Waterloo $\rightarrow$ Shoreditch High Street)
    - **Boarding Stop**: Charing Cross Stn / Trafalgar Square (`490013766F`, Stop F)
    - **Alighting Stop**: Shoreditch High Street Station (`490005524F`, Stop L)
-   - **Approach Corridor Stops**: Victoria (`490000248H`), St James's Park (`490010260SC`), Westminster (`490015048A`), Horse Guards (`490008376N`)
    - **Headway / Frequency**: ~8–10 minutes
+   - **Approach Corridor Stops**: Victoria (`490000248H`), Westminster Cathedral (`490014496N`), Westminster City Hall (`490003384SA`), St James's Park (`490010260SC`), Westminster Abbey (`490014495R`), Westminster (`490015048A`), Horse Guards (`490008376N`)
 
-2. **Terminus Rail Option**: Southeastern National Rail
+2. **Terminus Rail Option**: Southeastern National Rail (Charing Cross $\rightarrow$ London Bridge)
    - **Boarding Station**: London Charing Cross Rail Station (`910GCHRX`, rail terminus)
    - **Alighting Station**: London Bridge Rail Station (`910GLNDNBDC`)
    - **Headway / Frequency**: ~15 minutes
+   - **Corridor Tracking Model**: Originates from terminus buffer stops at London Charing Cross without upstream intermediate stations; tracking observes scheduled platform departure countdowns and gate status rather than multi-station progression. Follows forward schedule pagination (`timeAdjustments.later`) to secure a 45–60 minute departure horizon (8–10 scheduled services).
 
-3. **Non-Terminus Rail / Tube Option**: London Underground District Line
-   - **Boarding Station**: Embankment Underground Station (`940GZZLUEMB`, through-station)
-   - **Alighting Station**: Aldgate East Underground Station (`940GZZLUADE`, foot of Brick Lane)
-   - **Approach Corridor Stations**: Victoria (`940GZZLUVIC`), St James's Park (`940GZZLUSJP`), Westminster (`940GZZLUWSM`)
-   - **Headway / Frequency**: ~4–5 minutes (12–14 trains/hour)
-   - **Why this route was added**:
-     - Unlike Charing Cross which terminates at the station buffers, Embankment is a through-running station. Trains approach along an active underground tunnel corridor from upstream stations (`Victoria` $\rightarrow$ `St James` $\rightarrow$ `Westminster` $\rightarrow$ `Embankment`), allowing the corridor tracking engine to observe multi-station train progress.
-     - Operates with a high-frequency headway (~4–5 min) distinct from both Bus 26 (~8–10 min) and Southeastern rail (~15 min).
+3. **Through-Corridor Tube Option**: London Underground Central Line (North Acton $\rightarrow$ Liverpool Street)
+   - **Boarding Station**: Tottenham Court Road Underground Station (`940GZZLUTCR`, through-station)
+   - **Alighting Station**: Liverpool Street Underground Station (`940GZZLULVT`, foot of Brick Lane / Spitalfields)
+   - **Headway / Frequency**: ~2–3 minutes (24–30 trains/hour)
+   - **Approach Corridor Stations**: North Acton (`940GZZLUNAN`), East Acton (`940GZZLUEAN`), White City (`940GZZLUWCY`), Shepherd's Bush (`940GZZLUSBC`), Holland Park (`940GZZLUHPK`), Notting Hill Gate (`940GZZLUNHG`), Queensway (`940GZZLUQWY`), Lancaster Gate (`940GZZLULGT`), Marble Arch (`940GZZLUMBA`), Bond Street (`940GZZLUBND`), Oxford Circus (`940GZZLUOXC`)
 
 ---
 
@@ -41,16 +39,16 @@ Live TfL arrival predictions are generated strictly from active vehicle Automati
 
 ### Recommended Timing Windows
 - **Optimal Daytime Window**: **Monday to Saturday between 10:00 and 16:00 BST**
-  - Continuous headway across all 3 routes (District line ~4-5m, Bus 26 ~8-10m, Southeastern ~15m).
+  - Continuous headway across all 3 routes (Central line ~2-3m, Bus 26 ~8-10m, Southeastern ~15m).
   - Regular Southeastern train departures from Charing Cross to London Bridge.
-  - Stable progression along the Westminster corridor without excessive disruption.
+  - Stable progression along both Oxford Street/Central and Whitehall/Bus corridors without excessive disruption.
 - **Alternative Peak Windows**:
   - **Morning Peak**: **07:30 – 09:30 BST** (high frequency, multiple vehicles simultaneously approaching the target stops).
   - **Evening Peak**: **16:30 – 18:30 BST** (heavy traffic and variable transit progression testing).
 
 ### Times to Avoid
 - **Night Hours (00:30 – 05:45 BST)**: Daytime Route 26 does not run overnight. Calling `/Line/26/Arrivals` during these hours returns empty arrays (`[]`).
-- **Major Network Closures**: National rail strikes or planned weekend engineering closures on the Charing Cross or District line corridors.
+- **Major Network Closures**: National rail strikes or planned engineering closures on the active corridors.
 
 ---
 
@@ -59,13 +57,13 @@ Live TfL arrival predictions are generated strictly from active vehicle Automati
 Run the automated capture script using `uv`:
 
 ```bash
-uv run python scripts/capture_tfl.py --time-series-count 30 --time-series-interval 30.0
+uv run python scripts/capture_tfl.py --time-series-count 90 --time-series-interval 30.0
 ```
 
 ### Execution Details
-- **Duration**: ~15 minutes total.
+- **Duration**: ~45 minutes total.
 - **Poll Interval**: 30 seconds.
-- **Snapshot Count**: 30 multi-modal snapshots capturing real-time approach progression, ETA evolution, and vehicle arrivals for both surface road and underground rail corridors.
+- **Snapshot Count**: 90 multi-modal snapshots capturing multiple full vehicle arrival cycles, doorstep reachability rollovers, approach progression, and multi-vehicle headway tracking for both surface road and underground rail corridors.
 
 ---
 
@@ -78,14 +76,17 @@ tests/fixtures/
 ├── README.md                                  # This guide
 ├── tfl_arrivals.json                          # Root backwards-compatibility snapshot
 └── commute_nelson_to_brick_lane/
-    ├── set1_poc_bus_discrete/                 # Legacy PoC multi-request stop arrivals
+    ├── set1_poc_bus_discrete/                 # PoC multi-request stop arrivals
     │   ├── 01_terminus_victoria.json
-    │   ├── 02_intermediate_st_james_park.json
-    │   ├── 03_intermediate_westminster.json
-    │   ├── 04_intermediate_horse_guards.json
-    │   ├── 05_target_trafalgar_square.json
-    │   ├── 06_destination_shoreditch_high_st.json
-    │   └── 07_line_status.json
+    │   ├── 02_intermediate_westminster_cathedral.json
+    │   ├── 03_intermediate_westminster_city_hall.json
+    │   ├── 04_intermediate_st_james_park.json
+    │   ├── 05_intermediate_westminster_abbey.json
+    │   ├── 06_intermediate_westminster.json
+    │   ├── 07_intermediate_horse_guards.json
+    │   ├── 08_target_trafalgar_square.json
+    │   ├── 09_destination_shoreditch_high_st.json
+    │   └── 10_line_status.json
     ├── set2_poc_train_discrete/               # Legacy PoC rail journey results (terminus)
     │   ├── 01_journey_results.json
     │   └── 02_line_status.json
@@ -96,21 +97,29 @@ tests/fixtures/
     │   ├── journey_results.json
     │   └── line_status.json
     ├── set5_poc_tube_discrete/                # Discrete tube station arrivals (non-terminus)
-    │   ├── 01_intermediate_victoria.json
-    │   ├── 02_intermediate_st_james_park.json
-    │   ├── 03_intermediate_westminster.json
-    │   ├── 04_target_embankment.json
-    │   ├── 05_destination_aldgate_east.json
-    │   ├── 06_line_status.json
-    │   └── 07_journey_results.json
+    │   ├── 01_intermediate_north_acton.json
+    │   ├── 02_intermediate_east_acton.json
+    │   ├── 03_intermediate_white_city.json
+    │   ├── 04_intermediate_shepherds_bush.json
+    │   ├── 05_intermediate_holland_park.json
+    │   ├── 06_intermediate_notting_hill_gate.json
+    │   ├── 07_intermediate_queensway.json
+    │   ├── 08_intermediate_lancaster_gate.json
+    │   ├── 09_intermediate_marble_arch.json
+    │   ├── 10_intermediate_bond_street.json
+    │   ├── 11_intermediate_oxford_circus.json
+    │   ├── 12_target_tottenham_court_road.json
+    │   ├── 13_destination_liverpool_street.json
+    │   ├── 14_line_status.json
+    │   └── 15_journey_results.json
     ├── set6_consolidated_tube/                # Consolidated tube line arrivals & journey
     │   ├── line_arrivals.json
     │   ├── journey_results.json
     │   └── line_status.json
-    └── time_series/                           # 15-minute multi-modal corridor progression
+    └── time_series/                           # 45-minute multi-modal corridor progression
         ├── snapshot_001.json                  # Combined bus + tube corridor snapshot
         ├── ...
-        ├── snapshot_030.json
+        ├── snapshot_090.json
         └── series_manifest.json               # Index of all snapshots and vehicle IDs
 ```
 

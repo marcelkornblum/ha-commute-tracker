@@ -7,7 +7,7 @@
 - **Destination**: Brick Lane, London E1
 - **Bus Option**: Daytime Bus 26 (Victoria to Shoreditch)
 - **Train Option (Terminus)**: Southeastern Rail (Charing Cross to London Bridge)
-- **Train Option (Non-Terminus Corridor)**: District Line Tube (Embankment to Aldgate East)
+- **Train Option (Non-Terminus Corridor)**: Central Line Tube (Tottenham Court Road to Liverpool Street)
 
 ## Requirements
 1. **Six Fixture Sets**:
@@ -16,7 +16,7 @@
    - `set3_consolidated_bus`: Unified line arrivals (`/Line/{line}/Arrivals`) + line status in minimal requests.
    - `set4_consolidated_train`: Point-to-point journey results + line status.
    - `set5_poc_tube_discrete`: Discrete tube station arrivals across approach corridor + destination + line status + journey results.
-   - `set6_consolidated_tube`: Unified tube arrivals (`/Line/district/Arrivals`) + journey results + line status.
+   - `set6_consolidated_tube`: Unified tube arrivals (`/Line/central/Arrivals`) + journey results + line status.
 2. **Time-Series Corridor Snapshots**:
    - Reusable script capable of capturing consecutive snapshots over time showing vehicle progression across both surface bus and underground rail corridors.
 3. **Sensor Contract & Walking Offsets**:

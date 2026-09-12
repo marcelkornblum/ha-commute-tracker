@@ -23,28 +23,53 @@ DEFAULT_TIMEOUT_SECONDS = 15
 
 # Exemplar Commute: Nelson's Column (Trafalgar Square) to Brick Lane (Shoreditch)
 BUS_LINE_DEFAULT = "26"  # Daytime line 26 connecting Victoria to Shoreditch
-BUS_TERMINUS_STOP = "490000248H"  # Victoria Station
-BUS_INTERMEDIATE_1 = "490010260SC"  # St James's Park Station
-BUS_INTERMEDIATE_2 = "490015048A"  # Westminster Station / Parliament Square
-BUS_INTERMEDIATE_3 = "490008376N"  # Horse Guards Parade
+BUS_STOP_1_VICTORIA = "490000248H"  # Victoria Station
+BUS_STOP_2_WESTMINSTER_CATHEDRAL = "490014496N"  # Westminster Cathedral
+BUS_STOP_3_CITY_HALL = "490003384SA"  # Westminster City Hall
+BUS_STOP_4_ST_JAMES = "490010260SC"  # St James's Park Station
+BUS_STOP_5_ABBEY = "490014495R"  # Westminster Abbey
+BUS_STOP_6_WESTMINSTER = "490015048A"  # Westminster Station
+BUS_STOP_7_HORSE_GUARDS = "490008376N"  # Horse Guards Parade
 BUS_TARGET_STOP = "490013766F"  # Charing Cross Stn / Trafalgar Square (Boarding)
 BUS_DESTINATION_STOP = "490005524F"  # Shoreditch High Street Station (Brick Lane)
+
+# Aliases for backwards compatibility
+BUS_TERMINUS_STOP = BUS_STOP_1_VICTORIA
+BUS_INTERMEDIATE_1 = BUS_STOP_4_ST_JAMES
+BUS_INTERMEDIATE_2 = BUS_STOP_6_WESTMINSTER
+BUS_INTERMEDIATE_3 = BUS_STOP_7_HORSE_GUARDS
 
 TRAIN_LINE_DEFAULT = "southeastern"
 TRAIN_ORIGIN_STATION = "910GCHRX"  # London Charing Cross Rail Station
 TRAIN_DESTINATION_STATION = "910GLNDNBDC"  # London Bridge Rail Station
 
-# Non-Terminus Rail/Tube Option: District Line (Embankment to Aldgate East)
-TUBE_LINE_DEFAULT = "district"
-TUBE_ORIGIN_STATION = "940GZZLUEMB"  # Embankment Underground Station (Boarding)
-TUBE_DESTINATION_STATION = (
-    "940GZZLUADE"  # Aldgate East Underground Station (Brick Lane)
+# Non-Terminus Rail/Tube Option: Central Line (Tottenham Court Road to Liverpool Street)
+TUBE_LINE_DEFAULT = "central"
+TUBE_ORIGIN_STATION = (
+    "940GZZLUTCR"  # Tottenham Court Road Underground Station (Boarding)
 )
-TUBE_APPROACH_1 = "940GZZLUVIC"  # Victoria Underground Station
-TUBE_APPROACH_2 = "940GZZLUSJP"  # St James's Park Underground Station
-TUBE_APPROACH_3 = "940GZZLUWSM"  # Westminster Underground Station
+TUBE_DESTINATION_STATION = (
+    "940GZZLULVT"  # Liverpool Street Underground Station (Brick Lane)
+)
+TUBE_STOP_1_NORTH_ACTON = "940GZZLUNAN"
+TUBE_STOP_2_EAST_ACTON = "940GZZLUEAN"
+TUBE_STOP_3_WHITE_CITY = "940GZZLUWCY"
+TUBE_STOP_4_SHEPHERDS_BUSH = "940GZZLUSBC"
+TUBE_STOP_5_HOLLAND_PARK = "940GZZLUHPK"
+TUBE_STOP_6_NOTTING_HILL_GATE = "940GZZLUNHG"
+TUBE_STOP_7_QUEENSWAY = "940GZZLUQWY"
+TUBE_STOP_8_LANCASTER_GATE = "940GZZLULGT"
+TUBE_STOP_9_MARBLE_ARCH = "940GZZLUMBA"
+TUBE_STOP_10_BOND_STREET = "940GZZLUBND"
+TUBE_STOP_11_OXFORD_CIRCUS = "940GZZLUOXC"
 
-DEFAULT_TIME_SERIES_COUNT = 30  # 15 minutes total coverage
+# Aliases for backwards compatibility
+TUBE_APPROACH_1 = TUBE_STOP_1_NORTH_ACTON
+TUBE_APPROACH_2 = TUBE_STOP_3_WHITE_CITY
+TUBE_APPROACH_3 = TUBE_STOP_6_NOTTING_HILL_GATE
+TUBE_APPROACH_4 = TUBE_STOP_9_MARBLE_ARCH
+
+DEFAULT_TIME_SERIES_COUNT = 90  # 45 minutes total coverage
 DEFAULT_TIME_SERIES_INTERVAL = 30.0  # 30-second polling interval
 
 
@@ -74,17 +99,21 @@ class TransitCaptureClient(ABC):
         destination_id: str,
         mode: str = "national-rail",
         journey_preference: str = "LeastInterchange",
+        max_pages: int = 3,
     ) -> Any:
         """Fetch journey planner results between two stations."""
 
 
-@dataclass(frozen=True)
+@dataclass
 class TfLCaptureClient(TransitCaptureClient):
     """Transport for London (TfL) Unified API capture client."""
 
     base_url: str = TFL_API_BASE_URL
     user_agent: str = DEFAULT_USER_AGENT
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
+    min_interval_seconds: float = 0.35
+    max_retries: int = 4
+    _last_request_time: float = 0.0
 
     def _execute_request(self, endpoint_path: str) -> Any:
         """Execute HTTP GET request against TfL API and return parsed JSON.
@@ -99,25 +128,49 @@ class TfLCaptureClient(TransitCaptureClient):
             headers={"User-Agent": self.user_agent, "Accept": "application/json"},
         )
 
-        try:
-            with urllib.request.urlopen(
-                url=request,
-                timeout=self.timeout_seconds,
-            ) as response:
-                response_bytes = response.read()
-                return json.loads(response_bytes.decode("utf-8"))
-        except urllib.error.HTTPError as error:
-            raise TransitCaptureError(
-                f"HTTP error {error.code} fetching from {request_url}: {error.reason}"
-            ) from error
-        except urllib.error.URLError as error:
-            raise TransitCaptureError(
-                f"Network connection error fetching from {request_url}: {error.reason}"
-            ) from error
-        except json.JSONDecodeError as error:
-            raise TransitCaptureError(
-                f"Failed to decode JSON payload from {request_url}: {error}"
-            ) from error
+        backoff = 2.0
+        for attempt in range(self.max_retries):
+            elapsed = time.monotonic() - self._last_request_time
+            if elapsed < self.min_interval_seconds:
+                time.sleep(self.min_interval_seconds - elapsed)
+
+            try:
+                self._last_request_time = time.monotonic()
+                with urllib.request.urlopen(
+                    url=request,
+                    timeout=self.timeout_seconds,
+                ) as response:
+                    response_bytes = response.read()
+                    return json.loads(response_bytes.decode("utf-8"))
+            except urllib.error.HTTPError as error:
+                if error.code == 429 and attempt < self.max_retries - 1:
+                    retry_header = (
+                        error.headers.get("Retry-After") if error.headers else None
+                    )
+                    sleep_time = float(retry_header) if retry_header else backoff
+                    print(
+                        f"Rate limit hit (HTTP 429) fetching {endpoint_path}; "
+                        f"retrying in {sleep_time:.1f}s "
+                        f"(attempt {attempt + 1}/{self.max_retries})...",
+                        file=sys.stderr,
+                    )
+                    time.sleep(sleep_time)
+                    backoff *= 2
+                    continue
+                message = (
+                    f"HTTP error {error.code} fetching from {request_url}: "
+                    f"{error.reason}"
+                )
+                raise TransitCaptureError(message) from error
+            except urllib.error.URLError as error:
+                message = (
+                    f"Network connection error fetching from {request_url}: "
+                    f"{error.reason}"
+                )
+                raise TransitCaptureError(message) from error
+            except json.JSONDecodeError as error:
+                message = f"Failed to decode JSON payload from {request_url}: {error}"
+                raise TransitCaptureError(message) from error
 
     def fetch_arrivals(self, line_id: str) -> Any:
         """Fetch unified line arrivals for all stops along a given line.
@@ -149,20 +202,48 @@ class TfLCaptureClient(TransitCaptureClient):
         destination_id: str,
         mode: str = "national-rail",
         journey_preference: str = "LeastInterchange",
+        max_pages: int = 3,
     ) -> Any:
-        """Fetch journey planner results between two stations.
+        """Fetch journey planner results across forward schedule pages.
 
         :param origin_id: NaPTAN or station code of journey start.
         :param destination_id: NaPTAN or station code of journey terminus.
         :param mode: Transit mode filter (e.g. 'national-rail').
         :param journey_preference: Routing preference (e.g. 'LeastInterchange').
-        :return: Journey planner payload dictionary.
+        :param max_pages: Maximum pagination iterations to follow via later departures.
+        :return: Consolidated journey planner payload dictionary.
         """
         endpoint = (
             f"/Journey/JourneyResults/{origin_id}/to/{destination_id}"
             f"?mode={mode}&journeyPreference={journey_preference}"
         )
-        return self._execute_request(endpoint)
+        first_payload = self._execute_request(endpoint)
+        if not isinstance(first_payload, dict) or max_pages <= 1:
+            return first_payload
+
+        consolidated = dict(first_payload)
+        journeys: list[Any] = list(first_payload.get("journeys", []))
+
+        current_payload = first_payload
+        for _ in range(max_pages - 1):
+            time_adjustments = (
+                current_payload.get("searchCriteria", {})
+                .get("timeAdjustments", {})
+            )
+            later_uri = time_adjustments.get("later", {}).get("uri")
+            if not later_uri:
+                break
+            later_payload = self._execute_request(later_uri)
+            if not isinstance(later_payload, dict):
+                break
+            later_journeys = later_payload.get("journeys", [])
+            if not later_journeys:
+                break
+            journeys.extend(later_journeys)
+            current_payload = later_payload
+
+        consolidated["journeys"] = journeys
+        return consolidated
 
 
 @dataclass
@@ -204,12 +285,15 @@ def capture_poc_bus_discrete(
     """
     results: dict[str, Path] = {}
     stops = [
-        ("01_terminus_victoria", BUS_TERMINUS_STOP),
-        ("02_intermediate_st_james_park", BUS_INTERMEDIATE_1),
-        ("03_intermediate_westminster", BUS_INTERMEDIATE_2),
-        ("04_intermediate_horse_guards", BUS_INTERMEDIATE_3),
-        ("05_target_trafalgar_square", BUS_TARGET_STOP),
-        ("06_destination_shoreditch_high_st", BUS_DESTINATION_STOP),
+        ("01_terminus_victoria", BUS_STOP_1_VICTORIA),
+        ("02_intermediate_westminster_cathedral", BUS_STOP_2_WESTMINSTER_CATHEDRAL),
+        ("03_intermediate_westminster_city_hall", BUS_STOP_3_CITY_HALL),
+        ("04_intermediate_st_james_park", BUS_STOP_4_ST_JAMES),
+        ("05_intermediate_westminster_abbey", BUS_STOP_5_ABBEY),
+        ("06_intermediate_westminster", BUS_STOP_6_WESTMINSTER),
+        ("07_intermediate_horse_guards", BUS_STOP_7_HORSE_GUARDS),
+        ("08_target_trafalgar_square", BUS_TARGET_STOP),
+        ("09_destination_shoreditch_high_st", BUS_DESTINATION_STOP),
     ]
 
     for filename, stop_id in stops:
@@ -221,7 +305,7 @@ def capture_poc_bus_discrete(
 
     status_payload = client.fetch_line_status(line_id=bus_line)
     status_path = save_fixture(
-        payload=status_payload, destination_path=output_dir / "07_line_status.json"
+        payload=status_payload, destination_path=output_dir / "10_line_status.json"
     )
     results["line_status"] = status_path
     return results
@@ -333,11 +417,19 @@ def capture_poc_tube_discrete(
     """
     results: dict[str, Path] = {}
     stops = [
-        ("01_intermediate_victoria", TUBE_APPROACH_1),
-        ("02_intermediate_st_james_park", TUBE_APPROACH_2),
-        ("03_intermediate_westminster", TUBE_APPROACH_3),
-        ("04_target_embankment", origin_station),
-        ("05_destination_aldgate_east", destination_station),
+        ("01_intermediate_north_acton", TUBE_STOP_1_NORTH_ACTON),
+        ("02_intermediate_east_acton", TUBE_STOP_2_EAST_ACTON),
+        ("03_intermediate_white_city", TUBE_STOP_3_WHITE_CITY),
+        ("04_intermediate_shepherds_bush", TUBE_STOP_4_SHEPHERDS_BUSH),
+        ("05_intermediate_holland_park", TUBE_STOP_5_HOLLAND_PARK),
+        ("06_intermediate_notting_hill_gate", TUBE_STOP_6_NOTTING_HILL_GATE),
+        ("07_intermediate_queensway", TUBE_STOP_7_QUEENSWAY),
+        ("08_intermediate_lancaster_gate", TUBE_STOP_8_LANCASTER_GATE),
+        ("09_intermediate_marble_arch", TUBE_STOP_9_MARBLE_ARCH),
+        ("10_intermediate_bond_street", TUBE_STOP_10_BOND_STREET),
+        ("11_intermediate_oxford_circus", TUBE_STOP_11_OXFORD_CIRCUS),
+        ("12_target_tottenham_court_road", origin_station),
+        ("13_destination_liverpool_street", destination_station),
     ]
 
     for filename, stop_id in stops:
@@ -349,7 +441,7 @@ def capture_poc_tube_discrete(
 
     status_payload = client.fetch_line_status(line_id=tube_line)
     results["line_status"] = save_fixture(
-        payload=status_payload, destination_path=output_dir / "06_line_status.json"
+        payload=status_payload, destination_path=output_dir / "14_line_status.json"
     )
 
     journey_payload = client.fetch_journey(
@@ -358,7 +450,7 @@ def capture_poc_tube_discrete(
         mode="tube",
     )
     results["journey_results"] = save_fixture(
-        payload=journey_payload, destination_path=output_dir / "07_journey_results.json"
+        payload=journey_payload, destination_path=output_dir / "15_journey_results.json"
     )
     return results
 
@@ -424,19 +516,30 @@ def capture_time_series(
     start_time = time.monotonic()
 
     bus_corridor_stops = {
-        "terminus_victoria": BUS_TERMINUS_STOP,
-        "st_james_park": BUS_INTERMEDIATE_1,
-        "westminster": BUS_INTERMEDIATE_2,
-        "horse_guards": BUS_INTERMEDIATE_3,
+        "terminus_victoria": BUS_STOP_1_VICTORIA,
+        "westminster_cathedral": BUS_STOP_2_WESTMINSTER_CATHEDRAL,
+        "westminster_city_hall": BUS_STOP_3_CITY_HALL,
+        "st_james_park": BUS_STOP_4_ST_JAMES,
+        "westminster_abbey": BUS_STOP_5_ABBEY,
+        "westminster": BUS_STOP_6_WESTMINSTER,
+        "horse_guards": BUS_STOP_7_HORSE_GUARDS,
         "target_trafalgar_square": BUS_TARGET_STOP,
         "destination_shoreditch": BUS_DESTINATION_STOP,
     }
     tube_corridor_stops = {
-        "victoria": TUBE_APPROACH_1,
-        "st_james_park": TUBE_APPROACH_2,
-        "westminster": TUBE_APPROACH_3,
-        "target_embankment": TUBE_ORIGIN_STATION,
-        "destination_aldgate_east": TUBE_DESTINATION_STATION,
+        "north_acton": TUBE_STOP_1_NORTH_ACTON,
+        "east_acton": TUBE_STOP_2_EAST_ACTON,
+        "white_city": TUBE_STOP_3_WHITE_CITY,
+        "shepherds_bush": TUBE_STOP_4_SHEPHERDS_BUSH,
+        "holland_park": TUBE_STOP_5_HOLLAND_PARK,
+        "notting_hill_gate": TUBE_STOP_6_NOTTING_HILL_GATE,
+        "queensway": TUBE_STOP_7_QUEENSWAY,
+        "lancaster_gate": TUBE_STOP_8_LANCASTER_GATE,
+        "marble_arch": TUBE_STOP_9_MARBLE_ARCH,
+        "bond_street": TUBE_STOP_10_BOND_STREET,
+        "oxford_circus": TUBE_STOP_11_OXFORD_CIRCUS,
+        "target_tottenham_court_road": TUBE_ORIGIN_STATION,
+        "destination_liverpool_street": TUBE_DESTINATION_STATION,
     }
 
     for index in range(1, iterations + 1):
@@ -450,15 +553,29 @@ def capture_time_series(
 
         bus_stop_predictions: dict[str, Any] = {}
         for stop_key, stop_id in bus_corridor_stops.items():
-            bus_stop_predictions[stop_key] = client.fetch_stop_arrivals(
-                stop_point_id=stop_id
-            )
+            if isinstance(bus_arrivals, list):
+                bus_stop_predictions[stop_key] = [
+                    item
+                    for item in bus_arrivals
+                    if isinstance(item, dict) and item.get("naptanId") == stop_id
+                ]
+            else:
+                bus_stop_predictions[stop_key] = client.fetch_stop_arrivals(
+                    stop_point_id=stop_id
+                )
 
         tube_stop_predictions: dict[str, Any] = {}
         for stop_key, stop_id in tube_corridor_stops.items():
-            tube_stop_predictions[stop_key] = client.fetch_stop_arrivals(
-                stop_point_id=stop_id
-            )
+            if isinstance(tube_arrivals, list):
+                tube_stop_predictions[stop_key] = [
+                    item
+                    for item in tube_arrivals
+                    if isinstance(item, dict) and item.get("naptanId") == stop_id
+                ]
+            else:
+                tube_stop_predictions[stop_key] = client.fetch_stop_arrivals(
+                    stop_point_id=stop_id
+                )
 
         snapshot_payload = {
             "snapshot_index": index,

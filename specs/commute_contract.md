@@ -36,16 +36,16 @@ To protect user privacy and eliminate personal commute data from the test suite 
                                 (Trafalgar Sq)
                                       |
                      +----------------+----------------+
-                     | (4m walk + 2m) | (4m walk + 2m) | (6m walk + 2m)
+                     | (4m walk + 2m) | (4m walk + 2m) | (10m walk + 2m)
                      v                v                v
-              [Bus Line 26]   [Southeastern Rail] [District Line Tube]
-           Victoria->Trafalgar Charing X->London Bdg Victoria->Embankment
+              [Bus Line 26]   [Southeastern Rail] [Central Line Tube]
+           Victoria->Trafalgar Charing X->London Bdg North Acton->Tottenham Ct Rd
                      |                |                |
-                 (32m bus)        (8m train)       (13m tube)
+                 (32m bus)        (8m train)       (8m tube)
                      v                v                v
-               Shoreditch Stn    London Bridge     Aldgate East Stn
+               Shoreditch Stn    London Bridge     Liverpool Street
                      |                |                |
-                 (10m walk)       (15m walk)       (3m walk)
+                 (10m walk)       (15m walk)       (8m walk)
                      +----------------+----------------+
                                       v
                                   Brick Lane
@@ -56,6 +56,7 @@ To protect user privacy and eliminate personal commute data from the test suite 
 - **Line Code**: `"26"` (Daytime service)
 - **Operator**: `"TfL"`
 - **Route Colour**: `"#DC241F"` (London Bus Red)
+- **Headway / Frequency**: ~8–10 minutes
 - **Boarding Stop**: `Charing Cross Stn / Trafalgar Square` (Stop F, NaPTAN `490013766F`)
 - **Destination / Alighting Stop**: `Shoreditch High Street Station` (Stop F, NaPTAN `490005524F`)
 - **Walking Offsets**:
@@ -65,50 +66,62 @@ To protect user privacy and eliminate personal commute data from the test suite 
   - Walk from Shoreditch High St to Brick Lane: `10` minutes
   - In-bus journey duration: `32` minutes
 - **Corridor Stop Geometry** (approaching boarding stop):
-  1. Terminus: Victoria Station (`490000248H`, `"Victoria"`)
-  2. Intermediate 1: St James's Park Station (`490010260SC`, `"St James"`)
-  3. Intermediate 2: Westminster Station (`490015048A`, `"Westminster"`)
-  4. Intermediate 3: Horse Guards Parade (`490008376N`, `"Horse Guards"`)
-  5. Boarding Target: Charing Cross Stn / Trafalgar Square (`490013766F`, `"Trafalgar Sq"`, `is_target: true`)
+  1. Terminus: Victoria Station (`490000248H`, `"Victoria"`, ~20–25m transit to target, ~14–19m advance warning before doorstep threshold)
+  2. Intermediate 1: Westminster Cathedral (`490014496N`, `"Westminster Cathedral"`)
+  3. Intermediate 2: Westminster City Hall (`490003384SA`, `"Westminster City Hall"`)
+  4. Intermediate 3: St James's Park Station (`490010260SC`, `"St James"`)
+  5. Intermediate 4: Westminster Abbey (`490014495R`, `"Westminster Abbey"`)
+  6. Intermediate 5: Westminster Stn / Parliament Square (`490015048A`, `"Westminster"`)
+  7. Intermediate 6: Horse Guards Parade (`490008376N`, `"Horse Guards"`)
+  8. Boarding Target: Charing Cross Stn / Trafalgar Square (`490013766F`, `"Trafalgar Sq"`, `is_target: true`)
 
 ### Route 2: Train (Southeastern Rail)
 - **Mode**: `train` (vehicle type: `train`)
 - **Line Code**: `"southeastern"`
 - **Operator**: `"Southeastern"`
 - **Route Colour**: `"#0019A8"` (Southeastern Blue)
+- **Headway / Frequency**: ~15 minutes
 - **Boarding Station**: `London Charing Cross Rail Station` (NaPTAN `910GCHRX`, terminus station)
 - **Alighting Station**: `London Bridge Rail Station` (NaPTAN `910GLNDNBDC`)
-- **Headway / Frequency**: ~15 minutes
 - **Walking Offsets**:
   - Walk from Nelson's Column to station concourse: `4` minutes
   - Prep buffer: `2` minutes
   - Doorstep leave threshold: $\text{departureCountdown} - (4 + 2) \times 60$ seconds
   - Scheduled rail transit duration: `8` minutes
   - Walk / transfer from London Bridge to Brick Lane: `15` minutes
-
-### Route 3: Sub-Surface Rail / Tube (District Line)
-- **Mode**: `tube` (vehicle type: `tube`)
-- **Line Code**: `"district"`
-- **Operator**: `"London Underground"`
-- **Route Colour**: `"#00782A"` (District Line Green)
-- **Boarding Station**: `Embankment Underground Station` (NaPTAN `940GZZLUEMB`, through-station)
-- **Alighting Station**: `Aldgate East Underground Station` (NaPTAN `940GZZLUADE`)
-- **Headway / Frequency**: ~4–5 minutes (12–14 trains/hour)
-- **Rationale for Inclusion**:
-  1. **Non-Terminus Corridor Tracking**: Unlike Charing Cross rail station which terminates at the concourse, Embankment is a through-running station. Trains approach along an active underground tunnel corridor from upstream stations (`Victoria` $\rightarrow$ `St James's Park` $\rightarrow$ `Westminster` $\rightarrow$ `Embankment`), allowing the corridor tracking engine to observe multi-station train progress.
-  2. **Distinct Frequency Profile**: Operates with a rapid 4–5 minute headway, distinct from Bus 26 (~8–10 min) and Southeastern rail (~15 min).
-  3. **Direct Alighting at Brick Lane**: Aldgate East station sits directly at the southern entrance of Brick Lane (Osborn Street / Whitechapel High Street).
-- **Walking Offsets**:
-  - Walk from Nelson's Column to Embankment station concourse: `6` minutes (450m via Villiers Street)
-  - Prep buffer: `2` minutes
-  - Doorstep leave threshold: $\text{departureCountdown} - (6 + 2) \times 60$ seconds
-  - Scheduled transit duration: `13` minutes (7 intermediate stations direct)
-  - Walk from Aldgate East to Brick Lane: `3` minutes (250m up Osborn Street)
 - **Corridor Stop Geometry** (approaching boarding station):
-  1. Approach 1: Victoria Underground Station (`940GZZLUVIC`, `"Victoria"`)
-  2. Approach 2: St James's Park Underground Station (`940GZZLUSJP`, `"St James"`)
-  3. Approach 3: Westminster Underground Station (`940GZZLUWSM`, `"Westminster"`)
-  4. Boarding Target: Embankment Underground Station (`940GZZLUEMB`, `"Embankment"`, `is_target: true`)
+  - *Terminus Concourse Tracking Model*: Because London Charing Cross is a buffer-stop rail terminus where trains originate from the platform, there is no upstream approach corridor of pre-boarding stations. The tracking model evaluates scheduled platform departure boards and gate status rather than multi-station progression. To ensure the commuter receives sufficient advance warning prior to the doorstep threshold (4m walk + 2m prep = 6m), the journey planner query evaluates forward schedule pagination (`timeAdjustments.later`), maintaining a 45–60 minute forward departure horizon (minimum 8–10 scheduled services).
+  1. Origin & Boarding Target: London Charing Cross Rail Station (`910GCHRX`, `"Charing Cross"`, `is_target: true`, terminus concourse)
+  2. Direct Rail Transit: London Charing Cross $\rightarrow$ London Bridge (non-stop direct line)
+  3. Alighting Destination: London Bridge Rail Station (`910GLNDNBDC`, `"London Bridge"`)
+
+### Route 3: Deep Underground Tube (Central Line)
+- **Mode**: `tube` (vehicle type: `tube`)
+- **Line Code**: `"central"`
+- **Operator**: `"London Underground"`
+- **Route Colour**: `"#E32017"` (Central Line Red)
+- **Headway / Frequency**: ~2–3 minutes (24–30 trains/hour)
+- **Boarding Station**: `Tottenham Court Road Underground Station` (NaPTAN `940GZZLUTCR`, through-station)
+- **Alighting Station**: `Liverpool Street Underground Station` (NaPTAN `940GZZLULVT`)
+- **Walking Offsets**:
+  - Walk from Nelson's Column to Tottenham Court Road station concourse: `10` minutes (750m north via Charing Cross Road)
+  - Prep buffer: `2` minutes
+  - Doorstep leave threshold: $\text{departureCountdown} - (10 + 2) \times 60$ seconds
+  - Scheduled transit duration: `8` minutes (5 intermediate stations direct)
+  - Walk from Liverpool Street to Brick Lane: `8` minutes (650m east via Spitalfields)
+- **Corridor Stop Geometry** (approaching boarding station):
+  1. Approach 1: North Acton Underground Station (`940GZZLUNAN`, `"North Acton"`, trunk merge, ~24m transit to target, ~12m advance warning before doorstep threshold)
+  2. Approach 2: East Acton Underground Station (`940GZZLUEAN`, `"East Acton"`, ~20m transit to target)
+  3. Approach 3: White City Underground Station (`940GZZLUWCY`, `"White City"`, ~16m transit to target, ~4m advance warning)
+  4. Approach 4: Shepherd's Bush (Central) Underground Station (`940GZZLUSBC`, `"Shepherd's Bush"`, ~14m transit to target)
+  5. Approach 5: Holland Park Underground Station (`940GZZLUHPK`, `"Holland Park"`, ~12m transit to target, doorstep leave threshold)
+  6. Approach 6: Notting Hill Gate Underground Station (`940GZZLUNHG`, `"Notting Hill Gate"`, ~10m transit to target)
+  7. Approach 7: Queensway Underground Station (`940GZZLUQWY`, `"Queensway"`, ~8m transit to target)
+  8. Approach 8: Lancaster Gate Underground Station (`940GZZLULGT`, `"Lancaster Gate"`, ~6.5m transit to target)
+  9. Approach 9: Marble Arch Underground Station (`940GZZLUMBA`, `"Marble Arch"`, ~5m transit to target)
+  10. Approach 10: Bond Street Underground Station (`940GZZLUBND`, `"Bond Street"`, ~3.5m transit to target)
+  11. Approach 11: Oxford Circus Underground Station (`940GZZLUOXC`, `"Oxford Circus"`, ~1.5m transit to target)
+  12. Boarding Target: Tottenham Court Road Underground Station (`940GZZLUTCR`, `"Tottenham Court Rd"`, `is_target: true`)
 
 ---
 
@@ -146,16 +159,16 @@ All departure times and countdown metrics are provided via attributes (`expected
 | `person_name` | `str` | Name of the commuter | `"Commuter"` |
 | `person_picture` | `str` | URL or local path to person image | `""` |
 | `active_option` | `str` | ID of the currently selected optimal route | `"bus_26"` |
-| `options` | `list[str]` | List of all configured child route option IDs | `["bus_26", "train_southeastern"]` |
+| `options` | `list[str]` | List of all configured child route option IDs | `["bus_26", "train_southeastern", "tube_central"]` |
 | `is_relevant` | `bool` | Whether the commute is currently active | `true` |
 | `urgency_stage` | `str` | Commute urgency lifecycle phase | `"standby"` \| `"relaxed"` \| `"prepare"` \| `"leave_now"` |
 | `pill_label` | `str` | Header badge text | `"Standby"` \| `"Leave in 4m"` \| `"🚨 LEAVE NOW"` |
 | `pill_color` | `str` | Hex colour code for badge text and accent | `"#4CAF50"` \| `"#FF9800"` \| `"#FF5252"` \| `"#8E8E93"` |
 | `pill_bg` | `str` | RGBA colour for badge background | `"rgba(76, 175, 80, 0.15)"` |
 | `pill_border` | `str` | Border colour for badge | `"#4CAF50"` |
-| `route_label` | `str` | Line or route short identifier | `"26"` \| `"Southeastern"` |
-| `route_color` | `str` | Primary branding colour of active route | `"#DC241F"` \| `"#0019A8"` |
-| `route_destination` | `str` | Final destination of active route transit | `"Shoreditch"` \| `"London Bridge"` |
+| `route_label` | `str` | Line or route short identifier | `"26"` \| `"Southeastern"` \| `"Central"` |
+| `route_color` | `str` | Primary branding colour of active route | `"#DC241F"` \| `"#0019A8"` \| `"#E32017"` |
+| `route_destination` | `str` | Final destination of active route transit | `"Shoreditch"` \| `"London Bridge"` \| `"Liverpool Street"` |
 | `line_status` | `str` | TfL / Operator service status description | `"Good Service"` \| `"Minor Delays"` |
 | `line_status_icon` | `str` | Status icon symbol | `"✓"` \| `"⚠"` |
 | `line_status_color` | `str` | Status icon colour hex | `"#4CAF50"` \| `"#FF9800"` \| `"#F44336"` |
@@ -183,60 +196,83 @@ All departure times and countdown metrics are provided via attributes (`expected
 ### Entity Identifiers
 - Bus: `sensor.commute_nelson_to_brick_lane_bus_26`
 - Train: `sensor.commute_nelson_to_brick_lane_train_southeastern`
+- Tube: `sensor.commute_nelson_to_brick_lane_tube_central`
 
 ### State & Additional Attributes
 Same format as Master Rollup, plus:
-- `option_id`: `"bus_26"` or `"train_southeastern"`
-- `mode`: `"bus"` or `"train"`
-- `vehicle_type`: `"bus"` or `"train"`
-- `journey_duration_minutes`: `32` (bus) or `8` (train)
-- `estimated_transit_arrival`: `"08:56"` (Shoreditch) or `"08:38"` (London Bridge)
-- `estimated_destination_arrival`: `"09:06"` (Brick Lane via bus) or `"08:53"` (Brick Lane via rail)
-- `corridor_stage_id`: e.g. `"transit:horse_guards_to_trafalgar"`
+- `option_id`: `"bus_26"`, `"train_southeastern"`, or `"tube_central"`
+- `mode`: `"bus"`, `"train"`, or `"tube"`
+- `vehicle_type`: `"bus"`, `"train"`, or `"tube"`
+- `journey_duration_minutes`: `32` (bus), `8` (train), or `8` (tube)
+- `estimated_transit_arrival`: `"08:56"` (Shoreditch), `"08:38"` (London Bridge), or `"08:38"` (Liverpool Street)
+- `estimated_destination_arrival`: `"09:06"` (Brick Lane via bus), `"08:53"` (Brick Lane via rail), or `"08:46"` (Brick Lane via tube)
+- `corridor_stage_id`: e.g. `"transit:horse_guards_to_trafalgar"` or `"transit:oxford_circus_to_tottenham_court_road"`
 
 ---
 
 ## 5. Fixture Sets & Testing Directory Layout
 
-To support both **legacy PoC replication (discrete stop queries)** and **modernised architecture (consolidated line queries)**, `tests/fixtures/commute_nelson_to_brick_lane/` provides 4 distinct fixture sets:
+To support both **legacy PoC replication (discrete stop queries)** and **modernised architecture (consolidated line queries)** across all three transit modes, `tests/fixtures/commute_nelson_to_brick_lane/` provides 6 distinct fixture sets:
 
 ```
 tests/fixtures/commute_nelson_to_brick_lane/
-├── set1_poc_bus_discrete/          # Mirrors PoC commute_package.yaml lines 1-140
+├── set1_poc_bus_discrete/                 # PoC discrete stop arrivals across full approach corridor
 │   ├── 01_terminus_victoria.json
-│   ├── 02_intermediate_st_james_park.json
-│   ├── 03_intermediate_westminster.json
-│   ├── 04_intermediate_horse_guards.json
-│   ├── 05_target_trafalgar_square.json
-│   ├── 06_destination_shoreditch_high_st.json
-│   └── 07_line_status.json
-├── set2_poc_train_discrete/        # Mirrors PoC commute_package.yaml lines 141-185
+│   ├── 02_intermediate_westminster_cathedral.json
+│   ├── 03_intermediate_westminster_city_hall.json
+│   ├── 04_intermediate_st_james_park.json
+│   ├── 05_intermediate_westminster_abbey.json
+│   ├── 06_intermediate_westminster.json
+│   ├── 07_intermediate_horse_guards.json
+│   ├── 08_target_trafalgar_square.json
+│   ├── 09_destination_shoreditch_high_st.json
+│   └── 10_line_status.json
+├── set2_poc_train_discrete/               # Legacy PoC rail journey results (terminus model)
 │   ├── 01_journey_results.json
 │   └── 02_line_status.json
-├── set3_consolidated_bus/          # 2 optimised calls replacing 7 discrete calls
-│   ├── line_arrivals.json          # /Line/26/Arrivals (all stops & vehicles)
-│   └── line_status.json            # /Line/26/Status
-├── set4_consolidated_train/        # Point-to-point journey & status
-│   ├── journey_results.json        # /Journey/JourneyResults/910GCHRX/to/910GLNDNBDC
-│   └── line_status.json            # /Line/southeastern/Status
-└── time_series/                    # Snapshots over time showing vehicle progression
-    ├── snapshot_001.json
-    ├── snapshot_002.json
-    ├── snapshot_003.json
-    ├── snapshot_004.json
-    ├── snapshot_005.json
-    └── series_manifest.json
+├── set3_consolidated_bus/                 # Optimised line-wide arrivals (replaces discrete calls)
+│   ├── line_arrivals.json                 # /Line/26/Arrivals (all stops & vehicles)
+│   └── line_status.json                   # /Line/26/Status
+├── set4_consolidated_train/               # Consolidated rail journey results (45m+ forward horizon)
+│   ├── journey_results.json               # /Journey/JourneyResults/910GCHRX/to/910GLNDNBDC
+│   └── line_status.json                   # /Line/southeastern/Status
+├── set5_poc_tube_discrete/                # Discrete tube station arrivals across full approach corridor
+│   ├── 01_intermediate_north_acton.json
+│   ├── 02_intermediate_east_acton.json
+│   ├── 03_intermediate_white_city.json
+│   ├── 04_intermediate_shepherds_bush.json
+│   ├── 05_intermediate_holland_park.json
+│   ├── 06_intermediate_notting_hill_gate.json
+│   ├── 07_intermediate_queensway.json
+│   ├── 08_intermediate_lancaster_gate.json
+│   ├── 09_intermediate_marble_arch.json
+│   ├── 10_intermediate_bond_street.json
+│   ├── 11_intermediate_oxford_circus.json
+│   ├── 12_target_tottenham_court_road.json
+│   ├── 13_destination_liverpool_street.json
+│   ├── 14_line_status.json
+│   └── 15_journey_results.json
+├── set6_consolidated_tube/                # Consolidated tube arrivals, status & journey
+│   ├── line_arrivals.json                 # /Line/central/Arrivals
+│   ├── journey_results.json
+│   └── line_status.json
+└── time_series/                           # 45-minute multi-modal corridor snapshots (90 iterations @ 30s)
+    ├── snapshot_001.json                  # Multi-modal bus + tube corridor snapshot
+    ├── ...
+    ├── snapshot_090.json
+    └── series_manifest.json               # Index of all snapshots and tracked vehicle IDs
 ```
 
 ### Running the Live Capture Utility
-The script `scripts/capture_tfl.py` can be executed during morning or evening peak hours to capture rush-hour transit dynamics:
+The script `scripts/capture_tfl.py` captures all 6 fixture sets and executes the 45-minute time-series capture:
 
 ```bash
 uv run python scripts/capture_tfl.py \
   --bus-line 26 \
   --train-line southeastern \
-  --time-series-count 10 \
-  --time-series-interval 15.0
+  --tube-line central \
+  --time-series-count 90 \
+  --time-series-interval 30.0
 ```
 
 ---
