@@ -7,6 +7,7 @@ discrete stop fixtures, modern consolidated line fixtures, and time-series captu
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -109,11 +110,17 @@ class TfLCaptureClient(TransitCaptureClient):
     """Transport for London (TfL) Unified API capture client."""
 
     base_url: str = TFL_API_BASE_URL
+    app_key: str | None = None
     user_agent: str = DEFAULT_USER_AGENT
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
-    min_interval_seconds: float = 0.35
+    min_interval_seconds: float = 0.25
     max_retries: int = 4
     _last_request_time: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Initialise app_key from environment if not explicitly provided."""
+        if self.app_key is None:
+            self.app_key = os.environ.get("TFL_APP_KEY")
 
     def _execute_request(self, endpoint_path: str) -> Any:
         """Execute HTTP GET request against TfL API and return parsed JSON.
@@ -122,7 +129,9 @@ class TfLCaptureClient(TransitCaptureClient):
         :return: Decoded JSON response payload.
         :raises TransitCaptureError: On network, HTTP, or JSON parsing failure.
         """
-        request_url = f"{self.base_url}{endpoint_path}"
+        separator = "&" if "?" in endpoint_path else "?"
+        auth_param = f"{separator}app_key={self.app_key}" if self.app_key else ""
+        request_url = f"{self.base_url}{endpoint_path}{auth_param}"
         request = urllib.request.Request(
             url=request_url,
             headers={"User-Agent": self.user_agent, "Accept": "application/json"},
@@ -497,16 +506,26 @@ def capture_time_series(
     client: TransitCaptureClient,
     output_dir: Path,
     bus_line: str = BUS_LINE_DEFAULT,
+    train_line: str = TRAIN_LINE_DEFAULT,
+    train_origin: str = TRAIN_ORIGIN_STATION,
+    train_destination: str = TRAIN_DESTINATION_STATION,
     tube_line: str = TUBE_LINE_DEFAULT,
+    tube_origin: str = TUBE_ORIGIN_STATION,
+    tube_destination: str = TUBE_DESTINATION_STATION,
     iterations: int = DEFAULT_TIME_SERIES_COUNT,
     interval_seconds: float = DEFAULT_TIME_SERIES_INTERVAL,
 ) -> Path:
-    """Capture a time-series sequence of corridor snapshots at regular intervals.
+    """Capture multi-modal time-series snapshots for all 3 routes and both paradigms.
 
     :param client: Transit capture client.
     :param output_dir: Directory to store snapshots.
     :param bus_line: Bus line identifier.
-    :param tube_line: Tube line identifier.
+    :param train_line: Train line identifier.
+    :param train_origin: Train departure station code.
+    :param train_destination: Train destination station code.
+    :param tube_line: Underground line identifier.
+    :param tube_origin: Tube boarding station code.
+    :param tube_destination: Tube destination station code.
     :param iterations: Number of snapshot iterations.
     :param interval_seconds: Delay between snapshots.
     :return: Path to generated manifest file.
@@ -538,59 +557,94 @@ def capture_time_series(
         "marble_arch": TUBE_STOP_9_MARBLE_ARCH,
         "bond_street": TUBE_STOP_10_BOND_STREET,
         "oxford_circus": TUBE_STOP_11_OXFORD_CIRCUS,
-        "target_tottenham_court_road": TUBE_ORIGIN_STATION,
-        "destination_liverpool_street": TUBE_DESTINATION_STATION,
+        "target_tottenham_court_road": tube_origin,
+        "destination_liverpool_street": tube_destination,
     }
 
     for index in range(1, iterations + 1):
+        loop_start = time.monotonic()
         timestamp_now = datetime.now(timezone.utc)
         elapsed = round(time.monotonic() - start_time, 1)
         iso_str = timestamp_now.isoformat()
         file_name = f"snapshot_{index:03d}.json"
 
+        # 1. Route 1: Bus 26 (Consolidated & Discrete)
         bus_arrivals = client.fetch_arrivals(line_id=bus_line)
-        tube_arrivals = client.fetch_arrivals(line_id=tube_line)
-
-        bus_stop_predictions: dict[str, Any] = {}
+        bus_status = client.fetch_line_status(line_id=bus_line)
+        bus_discrete_predictions: dict[str, Any] = {}
         for stop_key, stop_id in bus_corridor_stops.items():
-            if isinstance(bus_arrivals, list):
-                bus_stop_predictions[stop_key] = [
-                    item
-                    for item in bus_arrivals
-                    if isinstance(item, dict) and item.get("naptanId") == stop_id
-                ]
-            else:
-                bus_stop_predictions[stop_key] = client.fetch_stop_arrivals(
-                    stop_point_id=stop_id
-                )
+            bus_discrete_predictions[stop_key] = client.fetch_stop_arrivals(
+                stop_point_id=stop_id
+            )
 
-        tube_stop_predictions: dict[str, Any] = {}
+        # 2. Route 2: Southeastern Rail (Forward Journey Results & Status)
+        train_journey = client.fetch_journey(
+            origin_id=train_origin,
+            destination_id=train_destination,
+            mode="national-rail",
+            max_pages=3,
+        )
+        train_status = client.fetch_line_status(line_id=train_line)
+
+        # 3. Route 3: Central Line Tube (Consolidated, Discrete & Journey)
+        tube_arrivals = client.fetch_arrivals(line_id=tube_line)
+        tube_status = client.fetch_line_status(line_id=tube_line)
+        tube_journey = client.fetch_journey(
+            origin_id=tube_origin,
+            destination_id=tube_destination,
+            mode="tube",
+            max_pages=1,
+        )
+        tube_discrete_predictions: dict[str, Any] = {}
         for stop_key, stop_id in tube_corridor_stops.items():
-            if isinstance(tube_arrivals, list):
-                tube_stop_predictions[stop_key] = [
-                    item
-                    for item in tube_arrivals
-                    if isinstance(item, dict) and item.get("naptanId") == stop_id
-                ]
-            else:
-                tube_stop_predictions[stop_key] = client.fetch_stop_arrivals(
-                    stop_point_id=stop_id
-                )
+            tube_discrete_predictions[stop_key] = client.fetch_stop_arrivals(
+                stop_point_id=stop_id
+            )
 
         snapshot_payload = {
             "snapshot_index": index,
             "elapsed_seconds": elapsed,
             "timestamp": iso_str,
+            # Structured Route Objects (supporting both API paradigms)
+            "bus": {
+                "line": bus_line,
+                "line_arrivals": bus_arrivals,
+                "line_status": bus_status,
+                "discrete_stop_arrivals": bus_discrete_predictions,
+            },
+            "train": {
+                "line": train_line,
+                "origin": train_origin,
+                "destination": train_destination,
+                "journey_results": train_journey,
+                "line_status": train_status,
+            },
+            "tube": {
+                "line": tube_line,
+                "origin": tube_origin,
+                "destination": tube_destination,
+                "line_arrivals": tube_arrivals,
+                "line_status": tube_status,
+                "journey_results": tube_journey,
+                "discrete_stop_arrivals": tube_discrete_predictions,
+            },
+            # Top-level keys for backwards compatibility
             "bus_line": bus_line,
-            "tube_line": tube_line,
             "bus_line_arrivals": bus_arrivals,
-            "bus_corridor_stop_arrivals": bus_stop_predictions,
+            "bus_line_status": bus_status,
+            "bus_corridor_stop_arrivals": bus_discrete_predictions,
+            "train_line": train_line,
+            "train_journey_results": train_journey,
+            "train_line_status": train_status,
+            "tube_line": tube_line,
             "tube_line_arrivals": tube_arrivals,
-            "tube_corridor_stop_arrivals": tube_stop_predictions,
-            # Top-level aliases for backwards compatibility
+            "tube_line_status": tube_status,
+            "tube_journey_results": tube_journey,
+            "tube_corridor_stop_arrivals": tube_discrete_predictions,
+            # Legacy aliases
             "line": bus_line,
             "line_arrivals": bus_arrivals,
-            "corridor_stop_arrivals": bus_stop_predictions,
+            "corridor_stop_arrivals": bus_discrete_predictions,
         }
 
         save_fixture(
@@ -619,11 +673,14 @@ def capture_time_series(
             )
         )
 
+        loop_duration = time.monotonic() - loop_start
+        remaining_interval = max(0.0, interval_seconds - loop_duration)
         if index < iterations:
-            time.sleep(interval_seconds)
+            time.sleep(remaining_interval)
 
     manifest_payload = {
         "bus_line": bus_line,
+        "train_line": train_line,
         "tube_line": tube_line,
         "line": bus_line,
         "iterations": iterations,
@@ -663,9 +720,35 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
         help=f"Train line identifier (default: '{TRAIN_LINE_DEFAULT}')",
     )
     parser.add_argument(
+        "--train-origin",
+        default=TRAIN_ORIGIN_STATION,
+        help=f"Train origin station code (default: '{TRAIN_ORIGIN_STATION}')",
+    )
+    parser.add_argument(
+        "--train-destination",
+        default=TRAIN_DESTINATION_STATION,
+        help=(
+            "Train destination station code "
+            f"(default: '{TRAIN_DESTINATION_STATION}')"
+        ),
+    )
+    parser.add_argument(
         "--tube-line",
         default=TUBE_LINE_DEFAULT,
         help=f"Underground line identifier (default: '{TUBE_LINE_DEFAULT}')",
+    )
+    parser.add_argument(
+        "--tube-origin",
+        default=TUBE_ORIGIN_STATION,
+        help=f"Tube boarding station code (default: '{TUBE_ORIGIN_STATION}')",
+    )
+    parser.add_argument(
+        "--tube-destination",
+        default=TUBE_DESTINATION_STATION,
+        help=(
+            "Tube destination station code "
+            f"(default: '{TUBE_DESTINATION_STATION}')"
+        ),
     )
     parser.add_argument(
         "--time-series-count",
@@ -712,6 +795,8 @@ def main(arguments: list[str] | None = None) -> int:
             client=client,
             output_dir=nelson_dir / "set2_poc_train_discrete",
             train_line=args.train_line,
+            origin_station=args.train_origin,
+            destination_station=args.train_destination,
         )
 
         print("Capturing Set 3: Consolidated Bus...")
@@ -733,6 +818,8 @@ def main(arguments: list[str] | None = None) -> int:
             client=client,
             output_dir=nelson_dir / "set4_consolidated_train",
             train_line=args.train_line,
+            origin_station=args.train_origin,
+            destination_station=args.train_destination,
         )
 
         print("Capturing Set 5: PoC Tube Discrete...")
@@ -740,6 +827,8 @@ def main(arguments: list[str] | None = None) -> int:
             client=client,
             output_dir=nelson_dir / "set5_poc_tube_discrete",
             tube_line=args.tube_line,
+            origin_station=args.tube_origin,
+            destination_station=args.tube_destination,
         )
 
         print("Capturing Set 6: Consolidated Tube...")
@@ -747,6 +836,8 @@ def main(arguments: list[str] | None = None) -> int:
             client=client,
             output_dir=nelson_dir / "set6_consolidated_tube",
             tube_line=args.tube_line,
+            origin_station=args.tube_origin,
+            destination_station=args.tube_destination,
         )
 
         print(
@@ -757,7 +848,12 @@ def main(arguments: list[str] | None = None) -> int:
             client=client,
             output_dir=nelson_dir / "time_series",
             bus_line=args.bus_line,
+            train_line=args.train_line,
+            train_origin=args.train_origin,
+            train_destination=args.train_destination,
             tube_line=args.tube_line,
+            tube_origin=args.tube_origin,
+            tube_destination=args.tube_destination,
             iterations=args.time_series_count,
             interval_seconds=args.time_series_interval,
         )

@@ -309,18 +309,22 @@ def test_capture_consolidated_tube(tmp_path: Path) -> None:
 
 
 def test_capture_time_series(tmp_path: Path) -> None:
-    """Verify capture_time_series generates multiple snapshots and manifest."""
+    """Verify capture_time_series generates snapshots containing all 3 routes."""
     mock_client = MagicMock(spec=TfLCaptureClient)
     mock_client.fetch_arrivals.return_value = [
         {"vehicleId": "V1"},
         {"vehicleId": "V2"},
     ]
     mock_client.fetch_stop_arrivals.return_value = [{"vehicleId": "V1"}]
+    mock_client.fetch_line_status.return_value = SAMPLE_GOOD_STATUS
+    mock_client.fetch_journey.return_value = {"journeys": [{"duration": 8}]}
 
     manifest_path = capture_time_series(
         client=mock_client,
         output_dir=tmp_path,
         bus_line="26",
+        train_line="southeastern",
+        tube_line="central",
         iterations=3,
         interval_seconds=0.01,
     )
@@ -330,10 +334,20 @@ def test_capture_time_series(tmp_path: Path) -> None:
     assert (tmp_path / "snapshot_002.json").exists()
     assert (tmp_path / "snapshot_003.json").exists()
 
+    snap1 = json.loads((tmp_path / "snapshot_001.json").read_text(encoding="utf-8"))
+    assert "bus" in snap1
+    assert "train" in snap1
+    assert "tube" in snap1
+    assert "discrete_stop_arrivals" in snap1["bus"]
+    assert "journey_results" in snap1["train"]
+    assert "discrete_stop_arrivals" in snap1["tube"]
+
     manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest_data["iterations"] == 3
     assert len(manifest_data["snapshots"]) == 3
-    assert manifest_data["snapshots"][0]["vehicle_count"] == 2
+    assert manifest_data["bus_line"] == "26"
+    assert manifest_data["train_line"] == "southeastern"
+    assert manifest_data["tube_line"] == "central"
 
 
 def test_parse_arguments_defaults() -> None:
@@ -342,7 +356,11 @@ def test_parse_arguments_defaults() -> None:
     assert args.output_dir == Path("tests/fixtures")
     assert args.bus_line == BUS_LINE_DEFAULT
     assert args.train_line == TRAIN_LINE_DEFAULT
+    assert args.train_origin == "910GCHRX"
+    assert args.train_destination == "910GLNDNBDC"
     assert args.tube_line == TUBE_LINE_DEFAULT
+    assert args.tube_origin == "940GZZLUTCR"
+    assert args.tube_destination == "940GZZLULVT"
     assert args.time_series_count == DEFAULT_TIME_SERIES_COUNT
     assert args.time_series_interval == DEFAULT_TIME_SERIES_INTERVAL
 
