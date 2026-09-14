@@ -123,9 +123,7 @@ def test_fetch_journey_pagination_success() -> None:
     client = TfLCaptureClient()
     page1 = {
         "journeys": [{"startDateTime": "2026-09-12T08:00:00"}],
-        "searchCriteria": {
-            "timeAdjustments": {"later": {"uri": "/Journey/LaterPage"}}
-        },
+        "searchCriteria": {"timeAdjustments": {"later": {"uri": "/Journey/LaterPage"}}},
     }
     page2 = {
         "journeys": [{"startDateTime": "2026-09-12T08:15:00"}],

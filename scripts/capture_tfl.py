@@ -261,9 +261,8 @@ class TfLCaptureClient(TransitCaptureClient):
 
         current_payload = first_payload
         for _ in range(max_pages - 1):
-            time_adjustments = (
-                current_payload.get("searchCriteria", {})
-                .get("timeAdjustments", {})
+            time_adjustments = current_payload.get("searchCriteria", {}).get(
+                "timeAdjustments", {}
             )
             later_uri = time_adjustments.get("later", {}).get("uri")
             if not later_uri:
@@ -912,8 +911,7 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
         "--train-destination",
         default=TRAIN_DESTINATION_STATION,
         help=(
-            "Train destination station code "
-            f"(default: '{TRAIN_DESTINATION_STATION}')"
+            f"Train destination station code (default: '{TRAIN_DESTINATION_STATION}')"
         ),
     )
     parser.add_argument(
@@ -929,10 +927,7 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--tube-destination",
         default=TUBE_DESTINATION_STATION,
-        help=(
-            "Tube destination station code "
-            f"(default: '{TUBE_DESTINATION_STATION}')"
-        ),
+        help=(f"Tube destination station code (default: '{TUBE_DESTINATION_STATION}')"),
     )
     parser.add_argument(
         "--time-series-count",

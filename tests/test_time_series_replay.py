@@ -77,9 +77,7 @@ def test_synchronised_initial_fixture_sets_consistency(
     snap1 = json.loads(snap1_file.read_text(encoding="utf-8"))
 
     set1_target = (
-        nelson_commute_dir
-        / "set1_poc_bus_discrete"
-        / "08_target_trafalgar_square.json"
+        nelson_commute_dir / "set1_poc_bus_discrete" / "08_target_trafalgar_square.json"
     )
     assert set1_target.exists()
     set1_data = json.loads(set1_target.read_text(encoding="utf-8"))
@@ -99,9 +97,7 @@ def test_synchronised_initial_fixture_sets_consistency(
     assert set2_data == snap1["train"]["journey_results"]
     assert set4_data == snap1["train"]["journey_results"]
 
-    set3_arrivals = (
-        nelson_commute_dir / "set3_consolidated_bus" / "line_arrivals.json"
-    )
+    set3_arrivals = nelson_commute_dir / "set3_consolidated_bus" / "line_arrivals.json"
     assert set3_arrivals.exists()
     set3_data = json.loads(set3_arrivals.read_text(encoding="utf-8"))
     assert set3_data == snap1["bus"]["line_arrivals"]
@@ -119,9 +115,7 @@ def test_synchronised_initial_fixture_sets_consistency(
     assert set5_data == snap1["tube"]["journey_results"]
     assert set6_data == snap1["tube"]["journey_results"]
 
-    set6_arrivals = (
-        nelson_commute_dir / "set6_consolidated_tube" / "line_arrivals.json"
-    )
+    set6_arrivals = nelson_commute_dir / "set6_consolidated_tube" / "line_arrivals.json"
     assert set6_arrivals.exists()
     set6_arrivals_data = json.loads(set6_arrivals.read_text(encoding="utf-8"))
     assert set6_arrivals_data == snap1["tube"]["line_arrivals"]

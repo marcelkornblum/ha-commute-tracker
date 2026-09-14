@@ -139,13 +139,10 @@ def analyse_snapshots() -> tuple[list[SnapshotTelemetry], dict[str, Any]]:
         timestamp: str = snap["timestamp"]
 
         # 1. Bus 26 arrivals at Trafalgar Square
-        bus_arrivals = (
-            snap.get("bus", {})
-            .get("discrete_stop_arrivals", {})
-            .get("target_trafalgar_square")
-            or snap.get("bus_corridor_stop_arrivals", {}).get(
-                "target_trafalgar_square", []
-            )
+        bus_arrivals = snap.get("bus", {}).get("discrete_stop_arrivals", {}).get(
+            "target_trafalgar_square"
+        ) or snap.get("bus_corridor_stop_arrivals", {}).get(
+            "target_trafalgar_square", []
         )
         sorted_buses = sorted(bus_arrivals, key=lambda x: x.get("timeToStation", 9999))
 
@@ -184,19 +181,16 @@ def analyse_snapshots() -> tuple[list[SnapshotTelemetry], dict[str, Any]]:
         next_bus_tts = next_bus.get("timeToStation") if next_bus else None
 
         # 2. Southeastern Rail Journeys
-        train_journeys = (
-            snap.get("train", {}).get("journey_results", {}).get("journeys", [])
-            or snap.get("train_journey_results", {}).get("journeys", [])
-        )
+        train_journeys = snap.get("train", {}).get("journey_results", {}).get(
+            "journeys", []
+        ) or snap.get("train_journey_results", {}).get("journeys", [])
 
         active_train: dict[str, Any] | None = None
         for journey in train_journeys:
             start_iso = journey.get("startDateTime")
             if not start_iso:
                 continue
-            tts = calculate_train_tts(
-                departure_iso=start_iso, snapshot_iso=timestamp
-            )
+            tts = calculate_train_tts(departure_iso=start_iso, snapshot_iso=timestamp)
             leave_in = tts - TRAIN_BUFFER_SECONDS
             if leave_in >= -TRAIN_GRACE_SECONDS:
                 active_train = journey
@@ -218,9 +212,7 @@ def analyse_snapshots() -> tuple[list[SnapshotTelemetry], dict[str, Any]]:
                 train_stage = compute_stage(train_leave_in, TRAIN_GRACE_SECONDS)
             legs = active_train.get("legs", [])
             if legs:
-                train_destination = (
-                    legs[0].get("instruction", {}).get("summary")
-                )
+                train_destination = legs[0].get("instruction", {}).get("summary")
 
         if train_departure and not any(
             t["departure"] == train_departure for t in train_departures_seen
@@ -234,13 +226,10 @@ def analyse_snapshots() -> tuple[list[SnapshotTelemetry], dict[str, Any]]:
             )
 
         # 3. Central Line Tube arrivals at Tottenham Court Road (Eastbound)
-        tube_arrivals = (
-            snap.get("tube", {})
-            .get("discrete_stop_arrivals", {})
-            .get("target_tottenham_court_road")
-            or snap.get("tube_corridor_stop_arrivals", {}).get(
-                "target_tottenham_court_road", []
-            )
+        tube_arrivals = snap.get("tube", {}).get("discrete_stop_arrivals", {}).get(
+            "target_tottenham_court_road"
+        ) or snap.get("tube_corridor_stop_arrivals", {}).get(
+            "target_tottenham_court_road", []
         )
         eastbound_tubes = [
             t
@@ -289,9 +278,7 @@ def analyse_snapshots() -> tuple[list[SnapshotTelemetry], dict[str, Any]]:
         active_tube_id = active_tube.get("vehicleId") if active_tube else None
         tube_dest = active_tube.get("destinationName") if active_tube else None
         tube_tts = active_tube.get("timeToStation") if active_tube else None
-        tube_leave_in = (
-            tube_tts - TUBE_BUFFER_SECONDS if tube_tts is not None else None
-        )
+        tube_leave_in = tube_tts - TUBE_BUFFER_SECONDS if tube_tts is not None else None
         tube_stage = compute_stage(tube_leave_in, TUBE_GRACE_SECONDS)
         next_tube_id = next_tube.get("vehicleId") if next_tube else None
         next_tube_tts = next_tube.get("timeToStation") if next_tube else None

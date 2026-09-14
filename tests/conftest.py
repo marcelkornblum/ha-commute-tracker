@@ -42,6 +42,7 @@ def series_manifest(time_series_dir: Path) -> dict[str, Any]:
 @pytest.fixture
 def snapshot_loader(time_series_dir: Path) -> Callable[[int], dict[str, Any]]:
     """Return a callable that loads a snapshot by 1-indexed number."""
+
     def _load(index: int) -> dict[str, Any]:
         snapshot_file = time_series_dir / f"snapshot_{index:03d}.json"
         return cast(
