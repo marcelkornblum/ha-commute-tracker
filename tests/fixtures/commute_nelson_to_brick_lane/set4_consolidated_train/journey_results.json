@@ -1,0 +1,1646 @@
+{
+  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.ItineraryResult, Tfl.Api.Presentation.Entities",
+  "journeyVector": {
+    "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyVector, Tfl.Api.Presentation.Entities",
+    "from": "1000045",
+    "to": "1000139",
+    "uri": "/journey/journeyresults/910gchrx/to/910glndnbdc?mode=national-rail&journeypreference=leastinterchange",
+    "via": ""
+  },
+  "journeys": [
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:02:00",
+      "duration": 7,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T14:55:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:02:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:02:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T13:55:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 7,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Dartford",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Outbound",
+              "directions": [
+                "Dartford Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:02:00",
+          "scheduledDepartureTime": "2026-09-14T13:55:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T13:55:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:08:00",
+      "duration": 7,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:01:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:08:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:08:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:01:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 7,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Sevenoaks",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Outbound",
+              "directions": [
+                "Sevenoaks Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:08:00",
+          "scheduledDepartureTime": "2026-09-14T14:01:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:01:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:11:00",
+      "duration": 7,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:04:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:11:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:11:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:04:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 7,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Ramsgate",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Inbound",
+              "directions": [
+                "Ramsgate Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:11:00",
+          "scheduledDepartureTime": "2026-09-14T14:04:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:04:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:13:00",
+      "duration": 7,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:06:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:13:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:13:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:06:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 7,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Dartford",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Inbound",
+              "directions": [
+                "Dartford Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:13:00",
+          "scheduledDepartureTime": "2026-09-14T14:06:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:06:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:16:00",
+      "duration": 8,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:08:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:16:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:16:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:08:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 8,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Hayes (Kent)",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Outbound",
+              "directions": [
+                "Hayes (Kent) Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:16:00",
+          "scheduledDepartureTime": "2026-09-14T14:08:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:08:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:27:00",
+      "duration": 7,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:20:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:27:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:27:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:20:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 7,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Gravesend",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Inbound",
+              "directions": [
+                "Gravesend Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:27:00",
+          "scheduledDepartureTime": "2026-09-14T14:20:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:20:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:29:00",
+      "duration": 8,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:21:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:29:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:29:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:21:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 8,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Hayes (Kent)",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Outbound",
+              "directions": [
+                "Hayes (Kent) Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:29:00",
+          "scheduledDepartureTime": "2026-09-14T14:21:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:21:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:36:00",
+      "duration": 7,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:29:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:36:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:36:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:29:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 7,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Ashford International",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Outbound",
+              "directions": [
+                "Ashford International Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:36:00",
+          "scheduledDepartureTime": "2026-09-14T14:29:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:29:00"
+    },
+    {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Journey, Tfl.Api.Presentation.Entities",
+      "alternativeRoute": false,
+      "arrivalDateTime": "2026-09-14T14:38:00",
+      "duration": 7,
+      "fare": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.JourneyFare, Tfl.Api.Presentation.Entities",
+        "caveats": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "<p>Fares between two stations may vary depending on the direction of travel, time of day and day of the week.</p><p>We charge higher fares at the busiest times of the day (usually between 06:30 and 09:30, and between 16:00 and 19:00, Monday to Friday).</p><p>When you pay as you go, you must touch your contactless or Oyster card on a yellow reader at the start and end of your journey.</p><p>Some journeys are charged via Zone 1 regardless of the route taken.</p><p>If your journey avoids Zone 1 and you see a pink card reader when changing trains, touch your contactless or Oyster card on it to pay the right fare.</p>",
+            "type": "allRailModes"
+          },
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareCaveat, Tfl.Api.Presentation.Entities",
+            "text": "The price shown is a single adult pay as you go fare.",
+            "type": "generic"
+          }
+        ],
+        "fares": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Fare, Tfl.Api.Presentation.Entities",
+            "chargeLevel": "Off Peak",
+            "chargeProfileName": "Normal",
+            "cost": 300,
+            "highZone": 1,
+            "isHopperFare": false,
+            "lowZone": 1,
+            "offPeak": 300,
+            "peak": 370,
+            "taps": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GCHRX",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5143,
+                  "tapTimestamp": "2026-09-14T15:31:00+01:00",
+                  "validationType": "None"
+                }
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTap, Tfl.Api.Presentation.Entities",
+                "atcoCode": "910GLNDNBDC",
+                "tapDetails": {
+                  "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.FareTapDetails, Tfl.Api.Presentation.Entities",
+                  "hostDeviceType": "Gate",
+                  "modeType": "Rail",
+                  "nationalLocationCode": 5148,
+                  "tapTimestamp": "2026-09-14T15:38:00+01:00",
+                  "validationType": "None"
+                }
+              }
+            ]
+          }
+        ],
+        "totalCost": 300
+      },
+      "legs": [
+        {
+          "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Leg, Tfl.Api.Presentation.Entities",
+          "arrivalPoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Bridge Rail Station",
+            "icsCode": "1000139",
+            "individualStopId": "9100LNDNBDE1",
+            "lat": 51.505132574005,
+            "lon": -0.08543882633500001,
+            "naptanId": "910GLNDNBDC",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "arrivalTime": "2026-09-14T14:38:00",
+          "departurePoint": {
+            "$type": "Tfl.Api.Presentation.Entities.StopPoint, Tfl.Api.Presentation.Entities",
+            "additionalProperties": [],
+            "commonName": "London Charing Cross Rail Station",
+            "icsCode": "1000045",
+            "individualStopId": "9100CHRX0",
+            "lat": 51.507618537328,
+            "lon": -0.12408398059,
+            "naptanId": "910GCHRX",
+            "placeType": "StopPoint",
+            "platformName": ""
+          },
+          "departureTime": "2026-09-14T14:31:00",
+          "disruptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+              "additionalInfo": "",
+              "category": "RealTime",
+              "categoryDescription": "RealTime",
+              "created": "2026-09-14T01:00:00",
+              "description": "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse.",
+              "lastUpdate": "2026-09-14T01:00:00",
+              "summary": "",
+              "type": "stopInfo"
+            }
+          ],
+          "distance": 3.0,
+          "duration": 7,
+          "hasFixedLocations": true,
+          "instruction": {
+            "$type": "Tfl.Api.Presentation.Entities.Instruction, Tfl.Api.Presentation.Entities",
+            "detailed": "Southeastern towards Sevenoaks",
+            "steps": [],
+            "summary": "Southeastern to London Bridge"
+          },
+          "isDisrupted": true,
+          "mode": {
+            "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+            "id": "national-rail",
+            "motType": "6",
+            "name": "national-rail",
+            "network": "nrc",
+            "routeType": "Unknown",
+            "status": "Unknown",
+            "type": "Mode"
+          },
+          "obstacles": [],
+          "path": {
+            "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.Path, Tfl.Api.Presentation.Entities",
+            "elevation": [],
+            "lineString": "[[51.50761609540, -0.12409368750],[51.50715009540, -0.12322828750],[51.50710239540, -0.12313008750],[51.50692529540, -0.12273998750],[51.50683039540, -0.12251758749],[51.50676069540, -0.12234788749],[51.50668439540, -0.12214378749],[51.50664449540, -0.12202668749],[51.50623159540, -0.12074718749],[51.50577199540, -0.11924168749],[51.50560219540, -0.11855978749],[51.50537099539, -0.11781898749],[51.50530699539, -0.11760458749],[51.50529419539, -0.11755618749],[51.50522119539, -0.11732948749],[51.50515989539, -0.11712048749],[51.50507549539, -0.11682078749],[51.50501009539, -0.11653818749],[51.50497309539, -0.11639968749],[51.50493949539, -0.11628168749],[51.50486329539, -0.11604378749],[51.50471189539, -0.11554958749],[51.50455239539, -0.11506268749],[51.50442489539, -0.11466038749],[51.50430359539, -0.11424958749],[51.50416579539, -0.11381048749],[51.50411449539, -0.11363908749],[51.50407739539, -0.11349478749],[51.50403589539, -0.11332508749],[51.50398449539, -0.11308538749],[51.50394209539, -0.11287678749],[51.50390949539, -0.11269528749],[51.50388689539, -0.11255478749],[51.50387099539, -0.11240808749],[51.50383409539, -0.11201868749],[51.50382409539, -0.11180198749],[51.50381429539, -0.11153798749],[51.50380889539, -0.11123978749],[51.50381119539, -0.11067888749],[51.50381819539, -0.11049718749],[51.50383449539, -0.11032428749],[51.50387679539, -0.10994968749],[51.50390559539, -0.10969768749],[51.50398809539, -0.10904018749],[51.50403789539, -0.10871418749],[51.50415939539, -0.10802638749],[51.50419149539, -0.10783618749],[51.50420769539, -0.10772428749],[51.50422259539, -0.10759408749],[51.50423549539, -0.10744188749],[51.50424479539, -0.10726658749],[51.50425079539, -0.10709048749],[51.50425409539, -0.10689368749],[51.50423779539, -0.10636308749],[51.50422459539, -0.10604738749],[51.50421339539, -0.10564828749],[51.50420309539, -0.10539998749],[51.50418719539, -0.10520698749],[51.50417399539, -0.10499668749],[51.50411809539, -0.10373508749],[51.50406179539, -0.10207488749],[51.50402599539, -0.10157228749],[51.50396559539, -0.10092218749],[51.50395799539, -0.10076418749],[51.50395739539, -0.10062228749],[51.50396039539, -0.10043408749],[51.50399649539, -0.09968438749],[51.50412999539, -0.09582738748],[51.50415279539, -0.09547738748],[51.50415229539, -0.09555668748],[51.50417309539, -0.09636358749],[51.50417439539, -0.09666788749],[51.50420889539, -0.09586978748],[51.50427099539, -0.09485458748],[51.50428979539, -0.09464498748],[51.50430939539, -0.09440088748],[51.50433709539, -0.09411928748],[51.50437419539, -0.09385038748],[51.50442379539, -0.09362298748],[51.50450939539, -0.09334248748],[51.50444359539, -0.09362778748],[51.50441099539, -0.09385308748],[51.50438299539, -0.09412888748],[51.50441679539, -0.09388658748],[51.50446459539, -0.09365328748],[51.50454119539, -0.09337468748],[51.50461269539, -0.09315448748],[51.50465799539, -0.09302528748],[51.50478259539, -0.09267588748],[51.50492589540, -0.09229078748],[51.50496789540, -0.09217148748],[51.50500629540, -0.09204938748],[51.50507879540, -0.09178838748],[51.50548299540, -0.09028488748],[51.50550979540, -0.09016388748],[51.50554109540, -0.08998808748],[51.50555379540, -0.08988278748],[51.50556969540, -0.08967688748],[51.50558629540, -0.08949998748],[51.50560559540, -0.08933378748],[51.50564859540, -0.08905588748],[51.50574609540, -0.08855118748],[51.50578059540, -0.08828608748],[51.50578819540, -0.08806498748],[51.50578249540, -0.08783348748],[51.50576659540, -0.08750998748],[51.50573719540, -0.08724888748],[51.50570889540, -0.08703788748],[51.50567389540, -0.08680028748],[51.50562769540, -0.08658968748],[51.50556089540, -0.08632388748],[51.50549589540, -0.08611898748],[51.50544589540, -0.08598038748],[51.50532989540, -0.08570888748],[51.50519379540, -0.08542788748],[51.50517369540, -0.08539078748]]",
+            "stopPoints": [
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GWLOE",
+                "name": "London Waterloo East Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GWLOE"
+              },
+              {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "id": "910GLNDNBDC",
+                "name": "London Bridge Rail Station",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "StopPoint",
+                "uri": "/StopPoint/910GLNDNBDC"
+              }
+            ]
+          },
+          "plannedWorks": [],
+          "routeOptions": [
+            {
+              "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.RouteOption, Tfl.Api.Presentation.Entities",
+              "direction": "Outbound",
+              "directions": [
+                "Sevenoaks Rail Station"
+              ],
+              "lineIdentifier": {
+                "$type": "Tfl.Api.Presentation.Entities.Identifier, Tfl.Api.Presentation.Entities",
+                "crowding": {
+                  "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+                },
+                "id": "southeastern",
+                "name": "Southeastern",
+                "routeType": "Unknown",
+                "status": "Unknown",
+                "type": "Line",
+                "uri": "/Line/southeastern"
+              },
+              "name": "Southeastern"
+            }
+          ],
+          "scheduledArrivalTime": "2026-09-14T14:38:00",
+          "scheduledDepartureTime": "2026-09-14T14:31:00"
+        }
+      ],
+      "startDateTime": "2026-09-14T14:31:00"
+    }
+  ],
+  "lines": [],
+  "recommendedMaxAgeMinutes": 0,
+  "searchCriteria": {
+    "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.SearchCriteria, Tfl.Api.Presentation.Entities",
+    "dateTime": "2026-09-14T13:54:00",
+    "dateTimeType": "Departing",
+    "timeAdjustments": {
+      "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.TimeAdjustments, Tfl.Api.Presentation.Entities",
+      "earlier": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.TimeAdjustment, Tfl.Api.Presentation.Entities",
+        "date": "20260914",
+        "time": "1339",
+        "timeIs": "departing",
+        "uri": "/journey/journeyresults/910gchrx/to/910glndnbdc?mode=national-rail&journeypreference=leastinterchange&time=1339&date=20260914&timeIs=departing"
+      },
+      "earliest": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.TimeAdjustment, Tfl.Api.Presentation.Entities",
+        "date": "20260914",
+        "time": "0300",
+        "timeIs": "departing",
+        "uri": "/journey/journeyresults/910gchrx/to/910glndnbdc?mode=national-rail&journeypreference=leastinterchange&time=0300&date=20260914&timeIs=departing"
+      },
+      "later": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.TimeAdjustment, Tfl.Api.Presentation.Entities",
+        "date": "20260914",
+        "time": "1405",
+        "timeIs": "departing",
+        "uri": "/journey/journeyresults/910gchrx/to/910glndnbdc?mode=national-rail&journeypreference=leastinterchange&time=1405&date=20260914&timeIs=departing"
+      },
+      "latest": {
+        "$type": "Tfl.Api.Presentation.Entities.JourneyPlanner.TimeAdjustment, Tfl.Api.Presentation.Entities",
+        "date": "20260915",
+        "time": "0300",
+        "timeIs": "departing",
+        "uri": "/journey/journeyresults/910gchrx/to/910glndnbdc?mode=national-rail&journeypreference=leastinterchange&time=0300&date=20260915&timeIs=departing"
+      }
+    }
+  },
+  "stopMessages": [
+    "London Bridge: No Step Free Access - Step free access is not available to/from the Borough High Street entrance and to the Northern line due to a faulty lift. For step free access to the Jubilee line, enter via the National Rail concourse."
+  ]
+}

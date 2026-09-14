@@ -20,7 +20,7 @@ from typing import Any
 
 TFL_API_BASE_URL = "https://api.tfl.gov.uk"
 DEFAULT_USER_AGENT = "HomeAssistant-CommuteTracker-FixtureCapture/1.0"
-DEFAULT_TIMEOUT_SECONDS = 15
+DEFAULT_TIMEOUT_SECONDS = 35
 
 # Exemplar Commute: Nelson's Column (Trafalgar Square) to Brick Lane (Shoreditch)
 BUS_LINE_DEFAULT = "26"  # Daytime line 26 connecting Victoria to Shoreditch
@@ -113,8 +113,8 @@ class TfLCaptureClient(TransitCaptureClient):
     app_key: str | None = None
     user_agent: str = DEFAULT_USER_AGENT
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
-    min_interval_seconds: float = 0.25
-    max_retries: int = 4
+    min_interval_seconds: float = 0.5
+    max_retries: int = 5
     _last_request_time: float = 0.0
 
     def __post_init__(self) -> None:
@@ -152,13 +152,16 @@ class TfLCaptureClient(TransitCaptureClient):
                     response_bytes = response.read()
                     return json.loads(response_bytes.decode("utf-8"))
             except urllib.error.HTTPError as error:
-                if error.code == 429 and attempt < self.max_retries - 1:
+                if (
+                    error.code in (429, 500, 502, 503, 504)
+                    and attempt < self.max_retries - 1
+                ):
                     retry_header = (
                         error.headers.get("Retry-After") if error.headers else None
                     )
                     sleep_time = float(retry_header) if retry_header else backoff
                     print(
-                        f"Rate limit hit (HTTP 429) fetching {endpoint_path}; "
+                        f"Transient HTTP {error.code} fetching {endpoint_path}; "
                         f"retrying in {sleep_time:.1f}s "
                         f"(attempt {attempt + 1}/{self.max_retries})...",
                         file=sys.stderr,
@@ -171,7 +174,30 @@ class TfLCaptureClient(TransitCaptureClient):
                     f"{error.reason}"
                 )
                 raise TransitCaptureError(message) from error
+            except TimeoutError as error:
+                if attempt < self.max_retries - 1:
+                    print(
+                        f"Timeout fetching {endpoint_path}; "
+                        f"retrying in {backoff:.1f}s "
+                        f"(attempt {attempt + 1}/{self.max_retries})...",
+                        file=sys.stderr,
+                    )
+                    time.sleep(backoff)
+                    backoff *= 2
+                    continue
+                message = f"Timeout error fetching from {request_url}: {error}"
+                raise TransitCaptureError(message) from error
             except urllib.error.URLError as error:
+                if attempt < self.max_retries - 1:
+                    print(
+                        f"Network connection error fetching {endpoint_path}; "
+                        f"retrying in {backoff:.1f}s "
+                        f"(attempt {attempt + 1}/{self.max_retries})...",
+                        file=sys.stderr,
+                    )
+                    time.sleep(backoff)
+                    backoff *= 2
+                    continue
                 message = (
                     f"Network connection error fetching from {request_url}: "
                     f"{error.reason}"
@@ -242,7 +268,15 @@ class TfLCaptureClient(TransitCaptureClient):
             later_uri = time_adjustments.get("later", {}).get("uri")
             if not later_uri:
                 break
-            later_payload = self._execute_request(later_uri)
+            try:
+                later_payload = self._execute_request(later_uri)
+            except TransitCaptureError as error:
+                print(
+                    "Warning: Failed fetching subsequent journey page "
+                    f"({later_uri}): {error}",
+                    file=sys.stderr,
+                )
+                break
             if not isinstance(later_payload, dict):
                 break
             later_journeys = later_payload.get("journeys", [])
@@ -502,6 +536,133 @@ def capture_consolidated_tube(
     return results
 
 
+def export_fixture_sets_from_snapshot(
+    snapshot_payload: dict[str, Any],
+    nelson_dir: Path,
+    fixtures_root: Path,
+) -> None:
+    """Export Sets 1-6 directly from the unified Snapshot 001 collection.
+
+    Guarantees 100% temporal consistency across both PoC discrete and modern
+    consolidated API paradigms and aligns them identically with time-series baseline.
+
+    :param snapshot_payload: Complete Snapshot 001 payload dictionary.
+    :param nelson_dir: Target directory for Nelson commute fixture sets.
+    :param fixtures_root: Root tests/fixtures directory.
+    """
+    bus_data = snapshot_payload.get("bus", {})
+    train_data = snapshot_payload.get("train", {})
+    tube_data = snapshot_payload.get("tube", {})
+
+    # Set 1: PoC Bus Discrete
+    set1_dir = nelson_dir / "set1_poc_bus_discrete"
+    bus_discrete = bus_data.get("discrete_stop_arrivals", {})
+    bus_filenames = {
+        "terminus_victoria": "01_terminus_victoria",
+        "westminster_cathedral": "02_intermediate_westminster_cathedral",
+        "westminster_city_hall": "03_intermediate_westminster_city_hall",
+        "st_james_park": "04_intermediate_st_james_park",
+        "westminster_abbey": "05_intermediate_westminster_abbey",
+        "westminster": "06_intermediate_westminster",
+        "horse_guards": "07_intermediate_horse_guards",
+        "target_trafalgar_square": "08_target_trafalgar_square",
+        "destination_shoreditch": "09_destination_shoreditch_high_st",
+    }
+    for stop_key, filename in bus_filenames.items():
+        save_fixture(
+            payload=bus_discrete.get(stop_key, []),
+            destination_path=set1_dir / f"{filename}.json",
+        )
+    save_fixture(
+        payload=bus_data.get("line_status", []),
+        destination_path=set1_dir / "10_line_status.json",
+    )
+
+    # Set 2: PoC Train Discrete
+    set2_dir = nelson_dir / "set2_poc_train_discrete"
+    save_fixture(
+        payload=train_data.get("journey_results", {}),
+        destination_path=set2_dir / "01_journey_results.json",
+    )
+    save_fixture(
+        payload=train_data.get("line_status", []),
+        destination_path=set2_dir / "02_line_status.json",
+    )
+
+    # Set 3: Consolidated Bus
+    set3_dir = nelson_dir / "set3_consolidated_bus"
+    save_fixture(
+        payload=bus_data.get("line_arrivals", []),
+        destination_path=set3_dir / "line_arrivals.json",
+    )
+    save_fixture(
+        payload=bus_data.get("line_status", []),
+        destination_path=set3_dir / "line_status.json",
+    )
+    save_fixture(
+        payload=bus_data.get("line_arrivals", []),
+        destination_path=fixtures_root / "tfl_arrivals.json",
+    )
+
+    # Set 4: Consolidated Train
+    set4_dir = nelson_dir / "set4_consolidated_train"
+    save_fixture(
+        payload=train_data.get("journey_results", {}),
+        destination_path=set4_dir / "journey_results.json",
+    )
+    save_fixture(
+        payload=train_data.get("line_status", []),
+        destination_path=set4_dir / "line_status.json",
+    )
+
+    # Set 5: PoC Tube Discrete
+    set5_dir = nelson_dir / "set5_poc_tube_discrete"
+    tube_discrete = tube_data.get("discrete_stop_arrivals", {})
+    tube_filenames = {
+        "north_acton": "01_intermediate_north_acton",
+        "east_acton": "02_intermediate_east_acton",
+        "white_city": "03_intermediate_white_city",
+        "shepherds_bush": "04_intermediate_shepherds_bush",
+        "holland_park": "05_intermediate_holland_park",
+        "notting_hill_gate": "06_intermediate_notting_hill_gate",
+        "queensway": "07_intermediate_queensway",
+        "lancaster_gate": "08_intermediate_lancaster_gate",
+        "marble_arch": "09_intermediate_marble_arch",
+        "bond_street": "10_intermediate_bond_street",
+        "oxford_circus": "11_intermediate_oxford_circus",
+        "target_tottenham_court_road": "12_target_tottenham_court_road",
+        "destination_liverpool_street": "13_destination_liverpool_street",
+    }
+    for stop_key, filename in tube_filenames.items():
+        save_fixture(
+            payload=tube_discrete.get(stop_key, []),
+            destination_path=set5_dir / f"{filename}.json",
+        )
+    save_fixture(
+        payload=tube_data.get("line_status", []),
+        destination_path=set5_dir / "14_line_status.json",
+    )
+    save_fixture(
+        payload=tube_data.get("journey_results", {}),
+        destination_path=set5_dir / "15_journey_results.json",
+    )
+
+    # Set 6: Consolidated Tube
+    set6_dir = nelson_dir / "set6_consolidated_tube"
+    save_fixture(
+        payload=tube_data.get("line_arrivals", []),
+        destination_path=set6_dir / "line_arrivals.json",
+    )
+    save_fixture(
+        payload=tube_data.get("journey_results", {}),
+        destination_path=set6_dir / "journey_results.json",
+    )
+    save_fixture(
+        payload=tube_data.get("line_status", []),
+        destination_path=set6_dir / "line_status.json",
+    )
+
+
 def capture_time_series(
     client: TransitCaptureClient,
     output_dir: Path,
@@ -514,6 +675,7 @@ def capture_time_series(
     tube_destination: str = TUBE_DESTINATION_STATION,
     iterations: int = DEFAULT_TIME_SERIES_COUNT,
     interval_seconds: float = DEFAULT_TIME_SERIES_INTERVAL,
+    export_initial_sets: bool = True,
 ) -> Path:
     """Capture multi-modal time-series snapshots for all 3 routes and both paradigms.
 
@@ -528,6 +690,7 @@ def capture_time_series(
     :param tube_destination: Tube destination station code.
     :param iterations: Number of snapshot iterations.
     :param interval_seconds: Delay between snapshots.
+    :param export_initial_sets: If True, export Sets 1-6 directly from Snapshot 001.
     :return: Path to generated manifest file.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -573,9 +736,16 @@ def capture_time_series(
         bus_status = client.fetch_line_status(line_id=bus_line)
         bus_discrete_predictions: dict[str, Any] = {}
         for stop_key, stop_id in bus_corridor_stops.items():
-            bus_discrete_predictions[stop_key] = client.fetch_stop_arrivals(
-                stop_point_id=stop_id
-            )
+            try:
+                bus_discrete_predictions[stop_key] = client.fetch_stop_arrivals(
+                    stop_point_id=stop_id
+                )
+            except TransitCaptureError as error:
+                print(
+                    f"Warning: Failed fetching stop {stop_key} arrivals: {error}",
+                    file=sys.stderr,
+                )
+                bus_discrete_predictions[stop_key] = []
 
         # 2. Route 2: Southeastern Rail (Forward Journey Results & Status)
         train_journey = client.fetch_journey(
@@ -597,9 +767,16 @@ def capture_time_series(
         )
         tube_discrete_predictions: dict[str, Any] = {}
         for stop_key, stop_id in tube_corridor_stops.items():
-            tube_discrete_predictions[stop_key] = client.fetch_stop_arrivals(
-                stop_point_id=stop_id
-            )
+            try:
+                tube_discrete_predictions[stop_key] = client.fetch_stop_arrivals(
+                    stop_point_id=stop_id
+                )
+            except TransitCaptureError as error:
+                print(
+                    f"Warning: Failed fetching tube stop {stop_key} arrivals: {error}",
+                    file=sys.stderr,
+                )
+                tube_discrete_predictions[stop_key] = []
 
         snapshot_payload = {
             "snapshot_index": index,
@@ -651,6 +828,13 @@ def capture_time_series(
             payload=snapshot_payload,
             destination_path=output_dir / file_name,
         )
+
+        if index == 1 and export_initial_sets:
+            export_fixture_sets_from_snapshot(
+                snapshot_payload=snapshot_payload,
+                nelson_dir=output_dir.parent,
+                fixtures_root=output_dir.parent.parent,
+            )
 
         vehicles: set[str] = set()
         if isinstance(bus_arrivals, list):
@@ -772,7 +956,7 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(arguments: list[str] | None = None) -> int:
-    """Entrypoint executing comprehensive fixture capture.
+    """Entrypoint executing unified multi-modal fixture capture.
 
     :param arguments: Command-line arguments list or None for sys.argv.
     :return: Exit code.
@@ -783,66 +967,9 @@ def main(arguments: list[str] | None = None) -> int:
     nelson_dir = fixtures_root / "commute_nelson_to_brick_lane"
 
     try:
-        print("Capturing Set 1: PoC Bus Discrete stops...")
-        capture_poc_bus_discrete(
-            client=client,
-            output_dir=nelson_dir / "set1_poc_bus_discrete",
-            bus_line=args.bus_line,
-        )
-
-        print("Capturing Set 2: PoC Train Discrete...")
-        capture_poc_train_discrete(
-            client=client,
-            output_dir=nelson_dir / "set2_poc_train_discrete",
-            train_line=args.train_line,
-            origin_station=args.train_origin,
-            destination_station=args.train_destination,
-        )
-
-        print("Capturing Set 3: Consolidated Bus...")
-        capture_consolidated_bus(
-            client=client,
-            output_dir=nelson_dir / "set3_consolidated_bus",
-            bus_line=args.bus_line,
-        )
-
-        # Mirror root tfl_arrivals.json for backwards compatibility
-        arrivals_payload = client.fetch_arrivals(line_id=args.bus_line)
-        save_fixture(
-            payload=arrivals_payload,
-            destination_path=fixtures_root / "tfl_arrivals.json",
-        )
-
-        print("Capturing Set 4: Consolidated Train...")
-        capture_consolidated_train(
-            client=client,
-            output_dir=nelson_dir / "set4_consolidated_train",
-            train_line=args.train_line,
-            origin_station=args.train_origin,
-            destination_station=args.train_destination,
-        )
-
-        print("Capturing Set 5: PoC Tube Discrete...")
-        capture_poc_tube_discrete(
-            client=client,
-            output_dir=nelson_dir / "set5_poc_tube_discrete",
-            tube_line=args.tube_line,
-            origin_station=args.tube_origin,
-            destination_station=args.tube_destination,
-        )
-
-        print("Capturing Set 6: Consolidated Tube...")
-        capture_consolidated_tube(
-            client=client,
-            output_dir=nelson_dir / "set6_consolidated_tube",
-            tube_line=args.tube_line,
-            origin_station=args.tube_origin,
-            destination_station=args.tube_destination,
-        )
-
         print(
-            f"Capturing Time Series ({args.time_series_count} iterations, "
-            f"interval {args.time_series_interval}s)..."
+            f"Capturing Multi-Modal Time Series ({args.time_series_count} iterations, "
+            f"interval {args.time_series_interval}s) with synchronised Sets 1-6..."
         )
         capture_time_series(
             client=client,
@@ -856,6 +983,7 @@ def main(arguments: list[str] | None = None) -> int:
             tube_destination=args.tube_destination,
             iterations=args.time_series_count,
             interval_seconds=args.time_series_interval,
+            export_initial_sets=True,
         )
 
         print("All fixture sets and time series successfully captured and saved!")

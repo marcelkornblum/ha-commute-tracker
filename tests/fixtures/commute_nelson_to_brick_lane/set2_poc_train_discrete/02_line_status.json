@@ -1,0 +1,32 @@
+[
+  {
+    "$type": "Tfl.Api.Presentation.Entities.Line, Tfl.Api.Presentation.Entities",
+    "created": "2026-09-08T10:49:45.36Z",
+    "crowding": {
+      "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+    },
+    "disruptions": [],
+    "id": "southeastern",
+    "lineStatuses": [
+      {
+        "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+        "created": "0001-01-01T00:00:00",
+        "id": 0,
+        "statusSeverity": 10,
+        "statusSeverityDescription": "Good Service",
+        "validityPeriods": []
+      }
+    ],
+    "modeName": "national-rail",
+    "modified": "2026-09-08T10:49:45.36Z",
+    "name": "Southeastern",
+    "routeSections": [],
+    "serviceTypes": [
+      {
+        "$type": "Tfl.Api.Presentation.Entities.LineServiceTypeInfo, Tfl.Api.Presentation.Entities",
+        "name": "Regular",
+        "uri": "/Line/Route?ids=Southeastern&serviceTypes=Regular"
+      }
+    ]
+  }
+]

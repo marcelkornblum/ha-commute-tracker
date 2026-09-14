@@ -25,6 +25,7 @@ from scripts.capture_tfl import (
     capture_poc_train_discrete,
     capture_poc_tube_discrete,
     capture_time_series,
+    export_fixture_sets_from_snapshot,
     main,
     parse_arguments,
     save_fixture,
@@ -162,13 +163,24 @@ def test_execute_request_http_error() -> None:
 
 def test_execute_request_network_error() -> None:
     """Verify URLError is captured and wrapped into TransitCaptureError."""
-    client = TfLCaptureClient()
+    client = TfLCaptureClient(max_retries=1)
     mock_error = urllib.error.URLError(reason="Name resolution failure")
 
     with patch("urllib.request.urlopen", side_effect=mock_error):
         with pytest.raises(TransitCaptureError) as exc_info:
             client.fetch_arrivals(line_id="26")
         assert "Network connection error" in str(exc_info.value)
+
+
+def test_execute_request_timeout_error() -> None:
+    """Verify TimeoutError is captured and wrapped into TransitCaptureError."""
+    client = TfLCaptureClient(max_retries=1)
+    mock_error = TimeoutError("The read operation timed out")
+
+    with patch("urllib.request.urlopen", side_effect=mock_error):
+        with pytest.raises(TransitCaptureError) as exc_info:
+            client.fetch_arrivals(line_id="26")
+        assert "Timeout error" in str(exc_info.value)
 
 
 def test_execute_request_invalid_json() -> None:
@@ -350,6 +362,66 @@ def test_capture_time_series(tmp_path: Path) -> None:
     assert manifest_data["tube_line"] == "central"
 
 
+def test_export_fixture_sets_from_snapshot(tmp_path: Path) -> None:
+    """Verify export_fixture_sets_from_snapshot extracts all sets consistently."""
+    fake_snapshot = {
+        "snapshot_index": 1,
+        "elapsed_seconds": 0.0,
+        "timestamp": "2026-09-14T12:00:00Z",
+        "bus": {
+            "line": "26",
+            "line_arrivals": [{"vehicleId": "BUS_A", "timeToStation": 100}],
+            "line_status": [{"statusSeverityDescription": "Good Service"}],
+            "discrete_stop_arrivals": {
+                "terminus_victoria": [{"vehicleId": "BUS_A"}],
+                "target_trafalgar_square": [{"vehicleId": "BUS_A"}],
+            },
+        },
+        "train": {
+            "line": "southeastern",
+            "journey_results": {"journeys": [{"duration": 10}]},
+            "line_status": [{"statusSeverityDescription": "Good Service"}],
+        },
+        "tube": {
+            "line": "central",
+            "line_arrivals": [{"vehicleId": "TUBE_1", "timeToStation": 60}],
+            "line_status": [{"statusSeverityDescription": "Good Service"}],
+            "journey_results": {"journeys": [{"duration": 12}]},
+            "discrete_stop_arrivals": {
+                "north_acton": [{"vehicleId": "TUBE_1"}],
+                "target_tottenham_court_road": [{"vehicleId": "TUBE_1"}],
+            },
+        },
+    }
+
+    nelson_dir = tmp_path / "commute_nelson_to_brick_lane"
+    export_fixture_sets_from_snapshot(
+        snapshot_payload=fake_snapshot,
+        nelson_dir=nelson_dir,
+        fixtures_root=tmp_path,
+    )
+
+    # Set 1
+    poc_bus_dir = nelson_dir / "set1_poc_bus_discrete"
+    assert (poc_bus_dir / "01_terminus_victoria.json").exists()
+    assert (poc_bus_dir / "08_target_trafalgar_square.json").exists()
+    # Set 2
+    assert (nelson_dir / "set2_poc_train_discrete" / "01_journey_results.json").exists()
+    # Set 3
+    assert (nelson_dir / "set3_consolidated_bus" / "line_arrivals.json").exists()
+    # Root mirror
+    assert (tmp_path / "tfl_arrivals.json").exists()
+    # Set 4
+    assert (nelson_dir / "set4_consolidated_train" / "journey_results.json").exists()
+    # Set 5
+    poc_tube_dir = nelson_dir / "set5_poc_tube_discrete"
+    assert (poc_tube_dir / "01_intermediate_north_acton.json").exists()
+    assert (poc_tube_dir / "12_target_tottenham_court_road.json").exists()
+    # Set 6
+    assert (nelson_dir / "set6_consolidated_tube" / "line_arrivals.json").exists()
+    assert (nelson_dir / "set6_consolidated_tube" / "journey_results.json").exists()
+
+
 def test_parse_arguments_defaults() -> None:
     """Verify default CLI argument values."""
     args = parse_arguments(arguments=[])
@@ -410,7 +482,7 @@ def test_main_handles_transit_capture_error(
 ) -> None:
     """Verify main traps TransitCaptureError and exits with code 1."""
     with patch(
-        "scripts.capture_tfl.capture_poc_bus_discrete",
+        "scripts.capture_tfl.capture_time_series",
         side_effect=TransitCaptureError("Outage detected"),
     ):
         exit_code = main(arguments=[])

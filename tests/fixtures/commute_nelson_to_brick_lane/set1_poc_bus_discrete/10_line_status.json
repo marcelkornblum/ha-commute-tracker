@@ -1,0 +1,76 @@
+[
+  {
+    "$type": "Tfl.Api.Presentation.Entities.Line, Tfl.Api.Presentation.Entities",
+    "created": "2026-09-08T10:49:45.393Z",
+    "crowding": {
+      "$type": "Tfl.Api.Presentation.Entities.Crowding, Tfl.Api.Presentation.Entities"
+    },
+    "disruptions": [],
+    "id": "26",
+    "lineStatuses": [
+      {
+        "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+        "created": "0001-01-01T00:00:00",
+        "disruption": {
+          "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+          "affectedRoutes": [],
+          "affectedStops": [],
+          "category": "RealTime",
+          "categoryDescription": "RealTime",
+          "created": "2026-09-12T11:02:00Z",
+          "description": "STRAND, WC2: Routes 26 87 N26 N44 N87 N155 towards Victoria, Wandsworth, Sutton, Kingston, or Morden are on diversion due to roadworks at the junction of Lancaster Place. Buses are not serving stops from \u2018Savoy Street\u2019 to \u2018Westminster Stn/Parliament Square\u2019."
+        },
+        "id": 0,
+        "lineId": "26",
+        "reason": "STRAND, WC2: Routes 26 87 N26 N44 N87 N155 towards Victoria, Wandsworth, Sutton, Kingston, or Morden are on diversion due to roadworks at the junction of Lancaster Place. Buses are not serving stops from \u2018Savoy Street\u2019 to \u2018Westminster Stn/Parliament Square\u2019.",
+        "statusSeverity": 0,
+        "statusSeverityDescription": "Special Service",
+        "validityPeriods": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.ValidityPeriod, Tfl.Api.Presentation.Entities",
+            "fromDate": "2026-09-12T09:20:00Z",
+            "isNow": true,
+            "toDate": "2026-09-18T00:29:00Z"
+          }
+        ]
+      },
+      {
+        "$type": "Tfl.Api.Presentation.Entities.LineStatus, Tfl.Api.Presentation.Entities",
+        "created": "0001-01-01T00:00:00",
+        "disruption": {
+          "$type": "Tfl.Api.Presentation.Entities.Disruption, Tfl.Api.Presentation.Entities",
+          "affectedRoutes": [],
+          "affectedStops": [],
+          "category": "PlannedWork",
+          "categoryDescription": "PlannedWork",
+          "created": "2026-09-14T11:44:00Z",
+          "description": "Road will be closed northbound due to water works from 21 Nov 08:00 until 22 Nov 18:00. Buses will be diverted. 8, 26, N8, N26, N242 towards Bow Church, Hackney Wick Hainault, Chingford and Homerton Hospital will miss stop Threadneedle Street."
+        },
+        "id": 0,
+        "lineId": "26",
+        "reason": "Road will be closed northbound due to water works from 21 Nov 08:00 until 22 Nov 18:00. Buses will be diverted. 8, 26, N8, N26, N242 towards Bow Church, Hackney Wick Hainault, Chingford and Homerton Hospital will miss stop Threadneedle Street.",
+        "statusSeverity": 0,
+        "statusSeverityDescription": "Special Service",
+        "validityPeriods": [
+          {
+            "$type": "Tfl.Api.Presentation.Entities.ValidityPeriod, Tfl.Api.Presentation.Entities",
+            "fromDate": "2026-09-14T10:44:00Z",
+            "isNow": false,
+            "toDate": "2026-11-22T18:00:00Z"
+          }
+        ]
+      }
+    ],
+    "modeName": "bus",
+    "modified": "2026-09-08T10:49:45.393Z",
+    "name": "26",
+    "routeSections": [],
+    "serviceTypes": [
+      {
+        "$type": "Tfl.Api.Presentation.Entities.LineServiceTypeInfo, Tfl.Api.Presentation.Entities",
+        "name": "Regular",
+        "uri": "/Line/Route?ids=26&serviceTypes=Regular"
+      }
+    ]
+  }
+]
