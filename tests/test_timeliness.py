@@ -138,7 +138,9 @@ def test_commute_config_from_dict_cascading_fallbacks() -> None:
 
 def test_leave_countdown_and_reachability() -> None:
     """Verify doorstep leave countdown math and physical reachability filter."""
-    buffer_seconds = 360
+    walk_seconds = 240
+    prep_seconds = 120
+    buffer_seconds = walk_seconds + prep_seconds
     grace_seconds = 180
 
     leave_in = calculate_leave_countdown(
@@ -146,7 +148,7 @@ def test_leave_countdown_and_reachability() -> None:
     )
     assert leave_in == 40
     assert is_departure_reachable(
-        leave_in_seconds=leave_in, grace_seconds=grace_seconds
+        seconds_to_arrival=400, walk_seconds=walk_seconds, grace_seconds=grace_seconds
     )
 
     leave_in = calculate_leave_countdown(
@@ -154,58 +156,34 @@ def test_leave_countdown_and_reachability() -> None:
     )
     assert leave_in == 0
     assert is_departure_reachable(
-        leave_in_seconds=leave_in, grace_seconds=grace_seconds
+        seconds_to_arrival=360, walk_seconds=walk_seconds, grace_seconds=grace_seconds
     )
 
     leave_in = calculate_leave_countdown(
-        seconds_to_arrival=200, buffer_seconds=buffer_seconds
+        seconds_to_arrival=100, buffer_seconds=buffer_seconds
     )
-    assert leave_in == -160
+    assert leave_in == -260
     assert is_departure_reachable(
-        leave_in_seconds=leave_in, grace_seconds=grace_seconds
+        seconds_to_arrival=100, walk_seconds=walk_seconds, grace_seconds=grace_seconds
     )
 
     leave_in = calculate_leave_countdown(
-        seconds_to_arrival=170, buffer_seconds=buffer_seconds
+        seconds_to_arrival=50, buffer_seconds=buffer_seconds
     )
-    assert leave_in == -190
+    assert leave_in == -310
     assert not is_departure_reachable(
-        leave_in_seconds=leave_in, grace_seconds=grace_seconds
+        seconds_to_arrival=50, walk_seconds=walk_seconds, grace_seconds=grace_seconds
     )
 
 
 def test_urgency_stage_boundaries() -> None:
     """Verify urgency state transitions at exact boundary points."""
-    grace = 180
-
-    assert (
-        calculate_urgency_stage(leave_in_seconds=None, grace_seconds=grace)
-        == UrgencyStage.STANDBY
-    )
-    assert (
-        calculate_urgency_stage(leave_in_seconds=481, grace_seconds=grace)
-        == UrgencyStage.RELAXED
-    )
-    assert (
-        calculate_urgency_stage(leave_in_seconds=480, grace_seconds=grace)
-        == UrgencyStage.PREPARE
-    )
-    assert (
-        calculate_urgency_stage(leave_in_seconds=1, grace_seconds=grace)
-        == UrgencyStage.PREPARE
-    )
-    assert (
-        calculate_urgency_stage(leave_in_seconds=0, grace_seconds=grace)
-        == UrgencyStage.LEAVE_NOW
-    )
-    assert (
-        calculate_urgency_stage(leave_in_seconds=-180, grace_seconds=grace)
-        == UrgencyStage.LEAVE_NOW
-    )
-    assert (
-        calculate_urgency_stage(leave_in_seconds=-181, grace_seconds=grace)
-        == UrgencyStage.STANDBY
-    )
+    assert calculate_urgency_stage(leave_in_seconds=None) == UrgencyStage.STANDBY
+    assert calculate_urgency_stage(leave_in_seconds=481) == UrgencyStage.RELAXED
+    assert calculate_urgency_stage(leave_in_seconds=480) == UrgencyStage.PREPARE
+    assert calculate_urgency_stage(leave_in_seconds=1) == UrgencyStage.PREPARE
+    assert calculate_urgency_stage(leave_in_seconds=0) == UrgencyStage.LEAVE_NOW
+    assert calculate_urgency_stage(leave_in_seconds=-180) == UrgencyStage.LEAVE_NOW
 
 
 def test_calculate_target_slack_and_timeliness() -> None:

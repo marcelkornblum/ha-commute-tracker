@@ -1,8 +1,6 @@
 """Constants for the Commute Tracker integration."""
 
 DOMAIN = "commute_tracker"
-
-BUS_DWELL_SECONDS = 45
 DEFAULT_WALK_SECONDS = 240
 DEFAULT_PREP_SECONDS = 120
 DEFAULT_GRACE_SECONDS = 180

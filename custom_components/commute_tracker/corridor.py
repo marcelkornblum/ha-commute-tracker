@@ -1,15 +1,12 @@
 """Domain service for corridor trajectory evaluation, filtering, and progression."""
 
 from custom_components.commute_tracker.const import (
-    BUS_DWELL_SECONDS,
     CORRIDOR_UPSTREAM_HORIZON_SECONDS,
 )
 from custom_components.commute_tracker.models import (
     DeparturePrediction,
-    TransitMode,
 )
 from custom_components.commute_tracker.timeliness import (
-    calculate_leave_countdown,
     is_departure_reachable,
 )
 
@@ -81,7 +78,7 @@ def calculate_corridor_progression(
     corridor_departures: dict[str, list[DeparturePrediction]],
     stop_names: dict[str, str],
     boarding_stop: str | None = None,
-    bus_dwell_seconds: int = BUS_DWELL_SECONDS,
+    at_stop_threshold_seconds: int = 45,
 ) -> tuple[str, float]:
     """Synthesise natural language location and SVG fractional progression ratio.
 
@@ -90,7 +87,7 @@ def calculate_corridor_progression(
     :param corridor_departures: Map of stop identifier to departure predictions.
     :param stop_names: Map of stop identifier to friendly name string.
     :param boarding_stop: Optional boarding stop identifier for empty corridors.
-    :param bus_dwell_seconds: Dwell threshold in seconds for stop arrival.
+    :param at_stop_threshold_seconds: Threshold in seconds for stop arrival.
     :return: Tuple of (location_description, fractional_progress_index).
     """
     if departure.location:
@@ -115,7 +112,7 @@ def calculate_corridor_progression(
 
     if not corridor_stops:
         b_name = stop_names.get(boarding_stop or "", boarding_stop or "Boarding Stop")
-        if departure.seconds_to_arrival <= bus_dwell_seconds:
+        if departure.seconds_to_arrival <= at_stop_threshold_seconds:
             return f"At {b_name}", 0.0
         return f"Approaching {b_name}", 0.0
 
@@ -126,7 +123,7 @@ def calculate_corridor_progression(
             None,
         )
         if match_dep is not None:
-            if match_dep.seconds_to_arrival <= bus_dwell_seconds:
+            if match_dep.seconds_to_arrival <= at_stop_threshold_seconds:
                 return f"At {stop_name}", float(idx)
             prev_sid = corridor_stops[idx - 1] if idx > 0 else sid
             prev_name = stop_names.get(prev_sid, prev_sid)
@@ -135,7 +132,7 @@ def calculate_corridor_progression(
     target_sid = corridor_stops[-1]
     target_name = stop_names.get(target_sid, target_sid)
     target_idx = len(corridor_stops) - 1
-    if departure.seconds_to_arrival <= bus_dwell_seconds:
+    if departure.seconds_to_arrival <= at_stop_threshold_seconds:
         return f"At {target_name}", float(target_idx)
 
     prev_sid = corridor_stops[-2] if len(corridor_stops) > 1 else target_sid
@@ -144,41 +141,29 @@ def calculate_corridor_progression(
 
 
 def select_active_departures(
-    mode: TransitMode,
     departures: list[DeparturePrediction],
-    total_buffer_seconds: int,
+    walk_seconds: int,
     grace_seconds: int,
-    dwell_seconds: int = BUS_DWELL_SECONDS,
 ) -> tuple[DeparturePrediction | None, DeparturePrediction | None]:
     """Select the lead viable departure and its subsequent follower departure.
 
-    :param mode: Transit mode of the route.
+    A departure is skipped if it is physically unreachable within the
+    walk and grace window.
+
     :param departures: Sorted candidate departure predictions.
-    :param total_buffer_seconds: Combined walk and preparation threshold.
+    :param walk_seconds: Doorstep walking duration in seconds.
     :param grace_seconds: Grace leeway period in seconds.
-    :param dwell_seconds: Stop dwell buffer threshold in seconds.
     :return: Tuple of (active_departure, follower_departure).
     """
-    if not departures:
-        return None, None
-
-    if mode == TransitMode.BUS:
-        for idx, dep in enumerate(departures):
-            if dep.seconds_to_arrival > dwell_seconds:
-                follower = departures[idx + 1] if idx + 1 < len(departures) else None
-                return dep, follower
-        return None, None
-
     for idx, dep in enumerate(departures):
-        leave_in_sec = calculate_leave_countdown(
+        if not is_departure_reachable(
             seconds_to_arrival=dep.seconds_to_arrival,
-            buffer_seconds=total_buffer_seconds,
-        )
-        if is_departure_reachable(
-            leave_in_seconds=leave_in_sec,
+            walk_seconds=walk_seconds,
             grace_seconds=grace_seconds,
         ):
-            follower = departures[idx + 1] if idx + 1 < len(departures) else None
-            return dep, follower
+            continue
+
+        follower = departures[idx + 1] if idx + 1 < len(departures) else None
+        return dep, follower
 
     return None, None

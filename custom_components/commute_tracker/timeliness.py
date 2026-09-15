@@ -141,33 +141,36 @@ def calculate_leave_countdown(seconds_to_arrival: int, buffer_seconds: int) -> i
     return seconds_to_arrival - buffer_seconds
 
 
-def is_departure_reachable(leave_in_seconds: int, grace_seconds: int) -> bool:
+def is_departure_reachable(
+    seconds_to_arrival: int,
+    walk_seconds: int,
+    grace_seconds: int = DEFAULT_GRACE_SECONDS,
+) -> bool:
     """Determine whether transit departure is physically reachable within grace window.
 
-    :param leave_in_seconds: Seconds until doorstep departure deadline.
-    :param grace_seconds: Leeway buffer allowing commuter to run/rush to stop.
-    :return: True if departure can still be caught, False if mathematically missed.
+    A departure is reachable if the arrival time satisfies:
+    `seconds_to_arrival >= walk_seconds - grace_seconds`
+
+    :param seconds_to_arrival: Countdown to transit arrival at boarding stop.
+    :param walk_seconds: Doorstep walking duration in seconds.
+    :param grace_seconds: Leeway buffer allowing commuter to sprint to stop.
+    :return: True if departure can still be caught, False if missed.
     """
-    return leave_in_seconds >= -grace_seconds
+    return seconds_to_arrival >= (walk_seconds - grace_seconds)
 
 
 def calculate_urgency_stage(
     leave_in_seconds: int | None,
-    grace_seconds: int,
     prepare_threshold_seconds: int = DEFAULT_PREPARE_THRESHOLD_SECONDS,
-    is_live_approaching: bool = False,
 ) -> UrgencyStage:
     """Determine the active urgency lifecycle stage from leave countdown.
 
-    :param leave_in_seconds: Seconds until doorstep departure deadline.
-    :param grace_seconds: Leeway buffer for leave_now window.
+    :param leave_in_seconds: Seconds until doorstep departure deadline
+        (None if no active departure).
     :param prepare_threshold_seconds: Relaxed-to-prepare transition threshold.
-    :param is_live_approaching: Whether vehicle is actively approaching boarding stop.
     :return: UrgencyStage enum instance.
     """
     if leave_in_seconds is None:
-        return UrgencyStage.STANDBY
-    if leave_in_seconds < -grace_seconds and not is_live_approaching:
         return UrgencyStage.STANDBY
     if leave_in_seconds <= 0:
         return UrgencyStage.LEAVE_NOW
@@ -227,9 +230,7 @@ def calculate_target_slack(
 
     if (est_arrival_dt - target_dt).total_seconds() > MIDNIGHT_WRAP_THRESHOLD_SECONDS:
         target_dt += timedelta(days=1)
-    elif (
-        target_dt - est_arrival_dt
-    ).total_seconds() > MIDNIGHT_WRAP_THRESHOLD_SECONDS:
+    elif (target_dt - est_arrival_dt).total_seconds() > MIDNIGHT_WRAP_THRESHOLD_SECONDS:
         target_dt -= timedelta(days=1)
 
     slack_seconds = (target_dt - est_arrival_dt).total_seconds()

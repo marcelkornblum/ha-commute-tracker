@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-from custom_components.commute_tracker.const import BUS_DWELL_SECONDS
 from custom_components.commute_tracker.corridor import (
     calculate_corridor_progression,
     filter_approaching_departures,
@@ -26,6 +25,7 @@ from custom_components.commute_tracker.providers.base import (
     TransitProviderRegistry,
 )
 from custom_components.commute_tracker.timeliness import (
+    ResolvedThresholds,
     calculate_leave_countdown,
     calculate_target_slack,
     calculate_urgency_stage,
@@ -115,26 +115,58 @@ class CommuteEngine:
         self._routes: dict[str, RouteConfig] = {
             r.route_id: r for r in self._config.routes
         }
+        self._cached_thresholds: dict[str, ResolvedThresholds] = {}
+        self._last_helper_overrides: dict[str, Any] | None = None
 
-    def process_telemetry(
+    def _get_resolved_thresholds(
+        self,
+        route_id: str,
+        route_cfg: RouteConfig,
+        helper_overrides: dict[str, Any] | None = None,
+    ) -> ResolvedThresholds:
+        """Retrieve cached thresholds or resolve cascading threshold hierarchy."""
+        if (
+            helper_overrides == self._last_helper_overrides
+            and route_id in self._cached_thresholds
+        ):
+            return self._cached_thresholds[route_id]
+
+        thresholds = resolve_route_thresholds(
+            route_config=route_cfg,
+            helper_overrides=helper_overrides,
+            default_target_arrival_time=self._target_arrival_time,
+        )
+        self._cached_thresholds[route_id] = thresholds
+        return thresholds
+
+    def evaluate_commute(
         self,
         telemetries: dict[str, RouteTelemetry],
         reference_time: datetime | None = None,
+        helper_overrides: dict[str, Any] | None = None,
     ) -> CommuteState:
         """Evaluate pre-fetched route telemetries and produce unified commute state.
 
         :param telemetries: Map of route_id to RouteTelemetry instances.
         :param reference_time: Optional datetime reference (defaults to now).
+        :param helper_overrides: Optional runtime threshold overrides from HA helpers.
         :return: Evaluated CommuteState object.
         """
         child_states: dict[str, ChildRouteState] = {}
         ref_dt = reference_time or datetime.now()
         candidates: list[CandidateRoute] = []
 
+        if helper_overrides != self._last_helper_overrides:
+            self._cached_thresholds.clear()
+            self._last_helper_overrides = (
+                dict(helper_overrides) if helper_overrides is not None else None
+            )
+
         for route_id, route_cfg in self._routes.items():
-            thresholds = resolve_route_thresholds(
-                route_config=route_cfg,
-                default_target_arrival_time=self._target_arrival_time,
+            thresholds = self._get_resolved_thresholds(
+                route_id=route_id,
+                route_cfg=route_cfg,
+                helper_overrides=helper_overrides,
             )
 
             telemetry = telemetries.get(route_id)
@@ -154,11 +186,9 @@ class CommuteEngine:
             )
 
             active_dep, follower_dep = select_active_departures(
-                mode=route_cfg.mode,
                 departures=viable_departures,
-                total_buffer_seconds=thresholds.total_buffer_seconds,
+                walk_seconds=thresholds.walk_seconds,
                 grace_seconds=thresholds.grace_seconds,
-                dwell_seconds=BUS_DWELL_SECONDS,
             )
 
             if active_dep is None:
@@ -173,14 +203,8 @@ class CommuteEngine:
                 seconds_to_arrival=active_dep.seconds_to_arrival,
                 buffer_seconds=thresholds.total_buffer_seconds,
             )
-            is_live_approaching = (
-                route_cfg.mode == TransitMode.BUS
-                and active_dep.seconds_to_arrival > BUS_DWELL_SECONDS
-            )
             stage = calculate_urgency_stage(
                 leave_in_seconds=leave_in_sec,
-                grace_seconds=thresholds.grace_seconds,
-                is_live_approaching=is_live_approaching,
             )
 
             corridor_loc, progress = calculate_corridor_progression(
@@ -189,7 +213,6 @@ class CommuteEngine:
                 corridor_departures=telemetry.corridor_departures,
                 stop_names=telemetry.stop_names,
                 boarding_stop=route_cfg.boarding_stop,
-                bus_dwell_seconds=BUS_DWELL_SECONDS,
             )
 
             child_states[route_id] = ChildRouteState(
@@ -235,16 +258,28 @@ class CommuteEngine:
             child_routes=child_states,
         )
 
-    def process_snapshot(self, snapshot: dict[str, Any]) -> CommuteState:
+    def process_snapshot(
+        self,
+        snapshot: dict[str, Any],
+        reference_time: datetime | None = None,
+        helper_overrides: dict[str, Any] | None = None,
+    ) -> CommuteState:
         """Evaluate raw transit snapshot payload and produce unified commute state.
 
         :param snapshot: Multi-modal snapshot payload dictionary.
+        :param reference_time: Optional explicit reference datetime.
+        :param helper_overrides: Optional runtime threshold overrides from HA helpers.
         :return: Evaluated CommuteState object.
         """
-        ref_timestamp: str = snapshot.get("timestamp", "")
-        ref_dt: datetime = (
-            datetime.fromisoformat(ref_timestamp) if ref_timestamp else datetime.now()
-        )
+        if reference_time is not None:
+            ref_dt = reference_time
+        else:
+            ref_timestamp: str = snapshot.get("timestamp", "")
+            ref_dt = (
+                datetime.fromisoformat(ref_timestamp)
+                if ref_timestamp
+                else datetime.now()
+            )
 
         telemetries: dict[str, RouteTelemetry] = {}
         for route_id, route_cfg in self._routes.items():
@@ -254,9 +289,10 @@ class CommuteEngine:
                 snapshot=snapshot,
             )
 
-        return self.process_telemetry(
+        return self.evaluate_commute(
             telemetries=telemetries,
             reference_time=ref_dt,
+            helper_overrides=helper_overrides,
         )
 
     def _arbitrate_master_rollup(

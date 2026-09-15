@@ -21,7 +21,7 @@ sequenceDiagram
     HA->>Prov: async_get_telemetry(route)
     Prov-->>HA: RouteTelemetry (departures, corridor_arrivals, line_status)
 
-    HA->>Eng: process_telemetry(telemetries, reference_time)
+    HA->>Eng: evaluate_commute(telemetries, reference_time)
 
     loop For each Route in Commute
         Eng->>Time: resolve_route_thresholds(route_cfg, helpers)
@@ -31,14 +31,14 @@ sequenceDiagram
         Note over Corr: Filters opposite direction & ghost vehicles
         Corr-->>Eng: viable_departures
 
-        Eng->>Corr: select_active_departures(viable_departures, buffer, grace)
-        Note over Corr: Evaluates doorstep reachability or bus dwell rollover
+        Eng->>Corr: select_active_departures(viable_departures, walk_seconds, grace_seconds)
+        Note over Corr: Evaluates physical reachability across all modes
         Corr-->>Eng: active_departure, follower_departure
 
         Eng->>Time: calculate_leave_countdown(tts, total_buffer)
         Time-->>Eng: leave_in_seconds
 
-        Eng->>Time: calculate_urgency_stage(leave_in_seconds, grace, ...)
+        Eng->>Time: calculate_urgency_stage(leave_in_seconds)
         Time-->>Eng: UrgencyStage (standby, relaxed, prepare, leave_now)
 
         Eng->>Corr: calculate_corridor_progression(active_departure, corridor_stops, ...)
@@ -57,20 +57,20 @@ sequenceDiagram
 
 ---
 
-## 2. Understanding `CommuteEngine.process_telemetry`
+## 2. Understanding `CommuteEngine.evaluate_commute`
 
 ### Context and Purpose
-[`CommuteEngine.process_telemetry`](../custom_components/commute_tracker/engine.py) is the pure, deterministic heart of the integration:
+[`CommuteEngine.evaluate_commute`](../custom_components/commute_tracker/engine.py) is the pure, deterministic heart of the integration:
 - **Input**: A dictionary of pre-fetched [`RouteTelemetry`](../custom_components/commute_tracker/models.py) instances mapped by `route_id`, and an optional `reference_time`.
 - **Output**: A comprehensive [`CommuteState`](../custom_components/commute_tracker/models.py) containing the arbitrated master state and individual child states.
 
-### Why `process_snapshot` Delegates to `process_telemetry`
+### Why `process_snapshot` Delegates to `evaluate_commute`
 In testing, 45-minute continuous transit feeds are stored as static JSON fixtures. [`CommuteEngine.process_snapshot`](../custom_components/commute_tracker/engine.py) acts as an adapter:
 1. Looks up the configured provider for each route via [`TransitProviderRegistry`](../custom_components/commute_tracker/providers/base.py).
 2. Calls `provider.extract_telemetry_from_snapshot(route, snapshot)` to construct standard `RouteTelemetry` objects.
-3. Passes those normalised objects directly into `process_telemetry`.
+3. Passes those normalised objects directly into `evaluate_commute`.
 
-In live operation, Home Assistant's `DataUpdateCoordinator` performs async network queries via `provider.async_get_telemetry(route)`, and passes the resulting telemetry mapping directly into `process_telemetry`. This guarantees that **production Home Assistant polling and offline test replays execute the exact same decision logic**.
+In live operation, Home Assistant's `DataUpdateCoordinator` performs async network queries via `provider.async_get_telemetry(route)`, and passes the resulting telemetry mapping directly into `evaluate_commute`. This guarantees that **production Home Assistant polling and offline test replays execute the exact same decision logic**.
 
 ---
 
@@ -95,14 +95,16 @@ A common failure in public transit APIs is receiving departures at a boarding st
 ### C. Active Departure Selection & Reachability ([`corridor.select_active_departures`](../custom_components/commute_tracker/corridor.py))
 *Responsibility: Decide which departure is the active focus and identify its queue follower.*
 
-1. **Scheduled Modes (Train & Tube)**:
-   - Doorstep departure deadline: `leave_in_seconds = seconds_to_arrival - (walk_seconds + prep_seconds)`.
-   - Reachability check: `leave_in_seconds >= -grace_seconds`.
-   - If `leave_in_seconds < -grace_seconds`, the commuter has physically missed the departure. The engine advances to the next viable departure in the list.
-2. **Frequency Modes (Bus)**:
-   - Bus tracking maintains the lead vehicle until arrival: `seconds_to_arrival > BUS_DWELL_SECONDS` (45 seconds).
-   - Once `seconds_to_arrival <= 45s`, the bus is considered departed/dwelling, and the engine automatically rolls over to the follower bus.
-3. Returns `(active_departure, follower_departure)` where `follower_departure` powers the "Next Bus" or "Subsequent Departure" preview.
+Selection operates uniformly across all transit modes without mode-specific carve-outs:
+1. **Physical Reachability ([`timeliness.is_departure_reachable`](../custom_components/commute_tracker/timeliness.py))**:
+   - `seconds_to_arrival >= walk_seconds - grace_seconds`
+   - A commuter leaving immediately requires `walk_seconds` to walk to the stop.
+   - `grace_seconds` provides a leeway buffer allowing the commuter to sprint or catch the service while boarding doors are open.
+   - If `seconds_to_arrival < walk_seconds - grace_seconds`, the vehicle is mathematically unreachable.
+2. **Sequential Selection**:
+   - The engine iterates through the candidate departures sorted by arrival time and selects the first departure satisfying `is_departure_reachable`.
+   - The subsequent departure in the sorted list (if available) is assigned as `follower_departure` to power the "Next Bus" or "Subsequent Departure" preview.
+   - If no departures are reachable, `(None, None)` is returned and the route enters `STANDBY`.
 
 ### D. Natural Language Location & Corridor Progression ([`corridor.calculate_corridor_progression`](../custom_components/commute_tracker/corridor.py))
 *Responsibility: Generate glanceable position descriptions and SVG animation coordinates.*
@@ -121,16 +123,16 @@ A common failure in public transit APIs is receiving departures at a boarding st
 
 ```text
 Countdown (leave_in_seconds):
-     > 480s          480s down to 0s        0s down to -grace
- ─────────────┬───────────────────────────┬──────────────────────┬─────────────►
-   RELAXED    │          PREPARE          │      LEAVE NOW       │   STANDBY
-  (Green UI)  │        (Amber UI)         │       (Red UI)       │  (Grey UI)
+     > 480s               0s < leave_in <= 480s               <= 0s
+ ─────────────┬─────────────────────────────────────────┬───────────────►
+   RELAXED    │                 PREPARE                 │   LEAVE NOW
+  (Green UI)  │               (Amber UI)                │    (Red UI)
 ```
 
-- **`STANDBY`**: No active departures, or missed beyond grace without an approaching vehicle.
-- **`RELAXED`**: Transit option is viable but departure time is distant (`leave_in_seconds > 480`).
+- **`STANDBY`**: No active departures (`leave_in_seconds is None`).
+- **`RELAXED`**: Transit option is reachable and departure time is distant (`leave_in_seconds > 480`).
 - **`PREPARE`**: Countdown enters the preparation threshold (`0 < leave_in_seconds <= 480`).
-- **`LEAVE_NOW`**: Doorstep deadline reached (`leave_in_seconds <= 0` and within grace or approaching stop).
+- **`LEAVE_NOW`**: Doorstep deadline reached or passed (`leave_in_seconds <= 0`).
 
 ### F. Destination Slack Maths & Timeliness ([`timeliness.calculate_target_slack`](../custom_components/commute_tracker/timeliness.py))
 *Responsibility: Calculate expected destination arrival and timeliness status.*

@@ -235,8 +235,7 @@ class TransitProviderRegistry:
         provider_id = getattr(provider_cls, "provider_id", None)
         if not isinstance(provider_id, str) or not provider_id.strip():
             msg = (
-                f"{provider_cls.__name__} must define a non-empty string "
-                f"'provider_id'"
+                f"{provider_cls.__name__} must define a non-empty string 'provider_id'"
             )
             raise ProviderValidationError(msg)
 

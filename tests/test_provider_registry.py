@@ -147,6 +147,7 @@ def test_registry_validate_provider_invalid_not_type() -> None:
 
 def test_registry_validate_provider_not_subclass() -> None:
     """Verify validate_provider rejects classes not inheriting TransitProvider."""
+
     class PlainClass:
         pass
 
@@ -156,6 +157,7 @@ def test_registry_validate_provider_not_subclass() -> None:
 
 def test_registry_validate_provider_abstract_rejected() -> None:
     """Verify validate_provider rejects abstract classes with missing methods."""
+
     class IncompleteProvider(TransitProvider):
         provider_id = "incomplete"
         supported_modes = {TransitMode.BUS}
@@ -166,6 +168,7 @@ def test_registry_validate_provider_abstract_rejected() -> None:
 
 def test_registry_validate_provider_missing_id() -> None:
     """Verify validate_provider rejects providers with blank provider_id."""
+
     class NoIdProvider(DummyProvider):
         provider_id = ""
 
@@ -175,6 +178,7 @@ def test_registry_validate_provider_missing_id() -> None:
 
 def test_registry_validate_provider_invalid_modes() -> None:
     """Verify validate_provider rejects providers with invalid supported_modes."""
+
     class EmptyModesProvider(DummyProvider):
         provider_id = "empty_modes"
         supported_modes = set()
@@ -194,6 +198,7 @@ def test_registry_validate_provider_invalid_modes() -> None:
 
 def test_registry_validate_provider_missing_callable() -> None:
     """Verify validate_provider rejects providers with non-callable attributes."""
+
     class NonCallableProvider(DummyProvider):
         provider_id = "non_callable"
         async_get_line_status = "not_callable"  # type: ignore[assignment]
@@ -206,6 +211,7 @@ def test_registry_validate_provider_missing_callable() -> None:
 
 def test_registry_is_valid_provider_boolean_response() -> None:
     """Verify is_valid_provider returns False without raising for bad providers."""
+
     class BadProvider:
         pass
 

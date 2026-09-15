@@ -1,6 +1,5 @@
 """Unit tests for corridor trajectory evaluation, filtering, and progression."""
 
-from custom_components.commute_tracker.const import BUS_DWELL_SECONDS
 from custom_components.commute_tracker.corridor import (
     calculate_corridor_progression,
     filter_approaching_departures,
@@ -8,7 +7,6 @@ from custom_components.commute_tracker.corridor import (
 )
 from custom_components.commute_tracker.models import (
     DeparturePrediction,
-    TransitMode,
 )
 
 
@@ -286,66 +284,72 @@ def test_calculate_corridor_progression_no_corridor_fallback() -> None:
     assert prog == 0.0
 
 
-def test_select_active_departures_bus_dwell_rollover() -> None:
-    """Verify bus departure selection skips dwelling buses and assigns follower."""
-    dep_dwelling = DeparturePrediction(
-        vehicle_id="BUS_01",
+def test_select_active_departures_skips_unreachable() -> None:
+    """Verify departure selection skips unreachable departures and assigns follower."""
+    dep_unreachable = DeparturePrediction(
+        vehicle_id="DEP_01",
         destination="Terminus",
         expected_time=None,
         seconds_to_arrival=30,
     )
-    dep_approaching = DeparturePrediction(
-        vehicle_id="BUS_02",
+    dep_reachable = DeparturePrediction(
+        vehicle_id="DEP_02",
         destination="Terminus",
         expected_time=None,
         seconds_to_arrival=250,
     )
     dep_subsequent = DeparturePrediction(
-        vehicle_id="BUS_03",
+        vehicle_id="DEP_03",
         destination="Terminus",
         expected_time=None,
         seconds_to_arrival=600,
     )
 
     active, follower = select_active_departures(
-        mode=TransitMode.BUS,
-        departures=[dep_dwelling, dep_approaching, dep_subsequent],
-        total_buffer_seconds=360,
+        departures=[dep_unreachable, dep_reachable, dep_subsequent],
+        walk_seconds=240,
         grace_seconds=180,
-        dwell_seconds=BUS_DWELL_SECONDS,
     )
 
-    assert active == dep_approaching
+    assert active == dep_reachable
     assert follower == dep_subsequent
 
 
-def test_select_active_departures_scheduled_mode() -> None:
-    """Verify reachability threshold selection for train/tube modes."""
-    dep_missed = DeparturePrediction(
-        vehicle_id="TRAIN_01",
+def test_select_active_departures_empty_and_unreachable() -> None:
+    """Verify fallback behaviour for empty or fully unreachable departures."""
+    dep_unreachable = DeparturePrediction(
+        vehicle_id="DEP_01",
         destination="Terminus",
         expected_time=None,
-        seconds_to_arrival=60,
-    )
-    dep_viable = DeparturePrediction(
-        vehicle_id="TRAIN_02",
-        destination="Terminus",
-        expected_time=None,
-        seconds_to_arrival=400,
-    )
-    dep_subsequent = DeparturePrediction(
-        vehicle_id="TRAIN_03",
-        destination="Terminus",
-        expected_time=None,
-        seconds_to_arrival=900,
+        seconds_to_arrival=30,
     )
 
     active, follower = select_active_departures(
-        mode=TransitMode.TRAIN,
-        departures=[dep_missed, dep_viable, dep_subsequent],
-        total_buffer_seconds=360,
+        departures=[],
+        walk_seconds=240,
         grace_seconds=180,
     )
+    assert active is None
+    assert follower is None
 
-    assert active == dep_viable
-    assert follower == dep_subsequent
+    active, follower = select_active_departures(
+        departures=[dep_unreachable],
+        walk_seconds=240,
+        grace_seconds=180,
+    )
+    assert active is None
+    assert follower is None
+
+    dep_only_one = DeparturePrediction(
+        vehicle_id="DEP_02",
+        destination="Terminus",
+        expected_time=None,
+        seconds_to_arrival=300,
+    )
+    active, follower = select_active_departures(
+        departures=[dep_only_one],
+        walk_seconds=240,
+        grace_seconds=180,
+    )
+    assert active == dep_only_one
+    assert follower is None

@@ -187,7 +187,9 @@ class MtaTransitProvider(TransitProvider):
                 data = await response.json()
                 return LineStatus(
                     status_label=data.get("status", "Good Service"),
-                    status_colour="#00A859" if data.get("status") == "Good Service" else "#FFAE42",
+                    status_colour="#00A859"
+                    if data.get("status") == "Good Service"
+                    else "#FFAE42",
                     status_icon="mdi:check-circle",
                 )
 
