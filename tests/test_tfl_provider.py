@@ -7,11 +7,34 @@ from typing import Any
 
 import pytest
 
+from custom_components.commute_tracker.corridor import filter_approaching_departures
 from custom_components.commute_tracker.models import (
     RouteConfig,
     TransitMode,
 )
-from custom_components.commute_tracker.providers.tfl import TfLTransitProvider
+from custom_components.commute_tracker.providers.tfl import (
+    TfLTransitProvider,
+    clean_stop_name,
+)
+
+
+def test_clean_stop_name() -> None:
+    """Verify clean_stop_name removes suffixes and applies friendly mappings."""
+    assert clean_stop_name(raw_name="Waterloo Rail Station") == "Waterloo"
+    assert clean_stop_name(raw_name="Oxford Circus Station") == "Oxford Circus"
+    assert clean_stop_name(raw_name="Southfields Parade") == "Southfields"
+    assert (
+        clean_stop_name(raw_name="Charing Cross Underground Station") == "Trafalgar Sq"
+    )
+    assert (
+        clean_stop_name(raw_name="Charing Cross Stn  / Trafalgar Square")
+        == "Trafalgar Sq"
+    )
+    assert (
+        clean_stop_name(raw_name="Westminster Stn  / Parliament Square")
+        == "Westminster"
+    )
+    assert clean_stop_name(raw_name="Aldgate") == "Aldgate"
 
 
 @pytest.fixture
@@ -41,6 +64,20 @@ def test_parse_bus_line_status(
     assert "STRAND, WC2" in (line_status.reason or "")
     assert line_status.status_colour != ""
     assert line_status.status_icon.startswith("mdi:")
+
+
+def test_parse_line_status_fallback_unknown(tfl_provider: TfLTransitProvider) -> None:
+    """Verify parse_line_status returns Unknown when status data is absent."""
+    status_empty_list = tfl_provider.parse_line_status(payload=[])
+    assert status_empty_list.status_label == "Unknown"
+    assert status_empty_list.status_colour == "#757575"
+    assert status_empty_list.status_icon == "mdi:help-circle"
+    assert status_empty_list.reason is None
+
+    status_no_statuses = tfl_provider.parse_line_status(payload={"id": "central"})
+    assert status_no_statuses.status_label == "Unknown"
+    assert status_no_statuses.status_colour == "#757575"
+    assert status_no_statuses.status_icon == "mdi:help-circle"
 
 
 def test_parse_bus_line_arrivals(
@@ -76,7 +113,7 @@ def test_parse_rail_journey_results(
         payload=rail_json,
         from_station="910GCHRX",
         to_station="910GLNDNBDC",
-        reference_time_iso="2026-09-14T13:54:57Z",
+        reference_time_iso="2026-09-14T12:54:57Z",
     )
 
     assert len(predictions) > 0
@@ -97,7 +134,7 @@ def test_parse_tube_line_arrivals(
     predictions = tfl_provider.parse_tube_arrivals(
         payload=tube_json,
         target_stop=target_stop,
-        direction="inbound",
+        line_id="central",
     )
 
     assert len(predictions) > 0
@@ -167,3 +204,77 @@ def test_tfl_provider_telemetry_from_snapshot(
     assert telemetry.lead_departure is not None
     assert telemetry.lead_departure.seconds_to_arrival == 326
     assert telemetry.line_status is not None
+
+
+def test_tfl_provider_telemetry_no_hardcoded_fallbacks(
+    tfl_provider: TfLTransitProvider,
+    snapshot_loader: Callable[[int], dict[str, Any]],
+) -> None:
+    """Verify provider does not fall back when stop is unconfigured."""
+    snapshot = snapshot_loader(1)
+
+    unconfigured_bus = RouteConfig(
+        route_id="bus_unknown",
+        mode=TransitMode.BUS,
+        line="999",
+        boarding_stop="UNKNOWN_STOP_ID",
+    )
+    telemetry = tfl_provider.extract_telemetry_from_snapshot(
+        route=unconfigured_bus,
+        snapshot=snapshot,
+    )
+    assert len(telemetry.departures) == 0
+    assert telemetry.active_vehicle_id is None
+
+
+def test_tfl_provider_tube_corridor_telemetry_extraction(
+    tfl_provider: TfLTransitProvider,
+    snapshot_loader: Callable[[int], dict[str, Any]],
+) -> None:
+    """Verify tube telemetry extracts corridor trains without direction flags."""
+    snapshot = snapshot_loader(1)
+
+    tube_route = RouteConfig(
+        route_id="tube_central",
+        mode=TransitMode.TUBE,
+        line="central",
+        boarding_stop="940GZZLUTCR",
+        destination_stop="940GZZLULVT",
+        corridor_stops=[
+            "940GZZLUNAN",
+            "940GZZLUEAN",
+            "940GZZLUWCY",
+            "940GZZLUSBC",
+            "940GZZLUHPK",
+            "940GZZLUNHG",
+            "940GZZLUQWY",
+            "940GZZLULGT",
+            "940GZZLUMBA",
+            "940GZZLUBND",
+            "940GZZLUOXC",
+            "940GZZLUTCR",
+        ],
+    )
+    telemetry = tfl_provider.extract_telemetry_from_snapshot(
+        route=tube_route,
+        snapshot=snapshot,
+    )
+    assert len(telemetry.departures) > 0
+    assert len(telemetry.corridor_departures) > 0
+    assert len(telemetry.stop_names) > 0
+
+    approaching = filter_approaching_departures(
+        departures=telemetry.departures,
+        corridor_stops=tube_route.corridor_stops,
+        corridor_departures=telemetry.corridor_departures,
+        boarding_stop=tube_route.boarding_stop,
+    )
+    assert len(approaching) > 0
+    assert approaching[0].vehicle_id == "061"
+    assert approaching[0].seconds_to_arrival == 333
+    vids = [d.vehicle_id for d in approaching]
+    assert "012" in vids
+    dep_012 = next(d for d in approaching if d.vehicle_id == "012")
+    assert dep_012.seconds_to_arrival == 573
+    for dep in approaching:
+        assert "Westbound" not in (dep.platform_or_bay or "")

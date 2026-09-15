@@ -2,6 +2,7 @@
 
 import asyncio
 import importlib
+import inspect
 import pkgutil
 import time
 from abc import ABC, abstractmethod
@@ -43,15 +44,12 @@ class DebouncedCache:
         """
         now = time.monotonic()
 
-        # Check existing valid cache
         if key in self._cache:
             timestamp, cached_val = self._cache[key]
             if now - timestamp < self._ttl_seconds:
                 return cached_val  # type: ignore[no-any-return]
 
-        # Check or create in-flight future
         async with self._lock:
-            # Re-check cache inside lock in case another task populated it
             if key in self._cache:
                 timestamp, cached_val = self._cache[key]
                 if now - timestamp < self._ttl_seconds:
@@ -63,7 +61,6 @@ class DebouncedCache:
                 loop = asyncio.get_running_loop()
                 future = loop.create_future()
                 self._inflight[key] = future
-                # Schedule execution as separate task to allow parallel awaiters
                 asyncio.create_task(
                     self._execute_fetch(
                         key=key,
@@ -156,6 +153,23 @@ class TransitProvider(ABC):
         :return: RouteTelemetry instance.
         """
 
+    def extract_telemetry_from_snapshot(
+        self, route: RouteConfig, snapshot: dict[str, Any]
+    ) -> RouteTelemetry:
+        """Extract route telemetry from an offline snapshot dictionary.
+
+        :param route: Configured RouteConfig instance.
+        :param snapshot: Offline snapshot payload dictionary.
+        :return: Normalised RouteTelemetry instance.
+        """
+        raise NotImplementedError(
+            f"Provider {self.provider_id} does not support snapshot extraction"
+        )
+
+
+class ProviderValidationError(TypeError):
+    """Raised when a transit provider class fails contract validation."""
+
 
 class TransitProviderRegistry:
     """Dynamic discovery and lifecycle registry for transit providers."""
@@ -174,15 +188,107 @@ class TransitProviderRegistry:
         """Return set of registered provider identifiers."""
         return set(self._providers.keys())
 
+    @classmethod
+    def validate_provider(cls, provider_cls: type[Any]) -> None:
+        """Validate whether a provider class satisfies the plugin contract.
+
+        Checks:
+        1. Subclass of TransitProvider and not TransitProvider itself.
+        2. Non-abstract concrete implementation.
+        3. Non-empty string provider_id.
+        4. Non-empty set of TransitMode instances for supported_modes.
+        5. Required callable methods present:
+           - async_get_line_status
+           - async_get_telemetry
+           - extract_telemetry_from_snapshot
+
+        :param provider_cls: Class to inspect and validate.
+        :raises ProviderValidationError: If any contract requirement is violated.
+        """
+        if not isinstance(provider_cls, type):
+            msg = (
+                f"Expected provider class to be a type, got "
+                f"{type(provider_cls).__name__}"
+            )
+            raise ProviderValidationError(msg)
+
+        if (
+            not issubclass(provider_cls, TransitProvider)
+            or provider_cls is TransitProvider
+        ):
+            msg = (
+                f"{provider_cls.__name__} must be a concrete subclass of "
+                f"TransitProvider"
+            )
+            raise ProviderValidationError(msg)
+
+        if inspect.isabstract(provider_cls):
+            abstract_methods = ", ".join(
+                sorted(getattr(provider_cls, "__abstractmethods__", set()))
+            )
+            msg = (
+                f"{provider_cls.__name__} has unimplemented abstract methods: "
+                f"{abstract_methods}"
+            )
+            raise ProviderValidationError(msg)
+
+        provider_id = getattr(provider_cls, "provider_id", None)
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            msg = (
+                f"{provider_cls.__name__} must define a non-empty string "
+                f"'provider_id'"
+            )
+            raise ProviderValidationError(msg)
+
+        supported_modes = getattr(provider_cls, "supported_modes", None)
+        if not isinstance(supported_modes, (set, frozenset)) or not supported_modes:
+            msg = (
+                f"{provider_cls.__name__} must define a non-empty set for "
+                f"'supported_modes'"
+            )
+            raise ProviderValidationError(msg)
+
+        if not all(isinstance(m, TransitMode) for m in supported_modes):
+            msg = (
+                f"All members of {provider_cls.__name__}.supported_modes "
+                f"must be TransitMode instances"
+            )
+            raise ProviderValidationError(msg)
+
+        for method_name in (
+            "async_get_line_status",
+            "async_get_telemetry",
+            "extract_telemetry_from_snapshot",
+        ):
+            method = getattr(provider_cls, method_name, None)
+            if not callable(method):
+                msg = (
+                    f"{provider_cls.__name__} missing required callable method "
+                    f"'{method_name}'"
+                )
+                raise ProviderValidationError(msg)
+
+    @classmethod
+    def is_valid_provider(cls, provider_cls: type[Any]) -> bool:
+        """Check if a provider class satisfies contract without raising errors.
+
+        :param provider_cls: Class to inspect.
+        :return: True if valid, False otherwise.
+        """
+        try:
+            cls.validate_provider(provider_cls=provider_cls)
+            return True
+        except ProviderValidationError:
+            return False
+
     def register(self, provider_cls: type[TransitProvider]) -> type[TransitProvider]:
         """Register a provider class with the registry.
 
         :param provider_cls: Subclass of TransitProvider.
         :return: The registered class.
+        :raises ProviderValidationError: If the provider fails contract validation.
         """
-        if not hasattr(provider_cls, "provider_id") or not provider_cls.provider_id:
-            msg = f"Provider class {provider_cls.__name__} missing provider_id"
-            raise ValueError(msg)
+        self.validate_provider(provider_cls=provider_cls)
         self._providers[provider_cls.provider_id] = provider_cls
         return provider_cls
 
@@ -217,8 +323,6 @@ class TransitProviderRegistry:
                 if (
                     isinstance(attr, type)
                     and issubclass(attr, TransitProvider)
-                    and attr is not TransitProvider
-                    and hasattr(attr, "provider_id")
-                    and attr.provider_id
+                    and self.is_valid_provider(provider_cls=attr)
                 ):
-                    self.register(attr)
+                    self.register(provider_cls=attr)

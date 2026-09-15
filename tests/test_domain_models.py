@@ -10,6 +10,7 @@ from custom_components.commute_tracker.models import (
     RouteConfig,
     RouteTelemetry,
     TransitMode,
+    UrgencyStage,
 )
 
 
@@ -21,6 +22,15 @@ def test_transit_mode_enum_members() -> None:
     assert TransitMode.TRAM.value == "tram"
     assert TransitMode.FERRY.value == "ferry"
     assert str(TransitMode.BUS) == "bus"
+
+
+def test_urgency_stage_enum_members() -> None:
+    """Verify UrgencyStage enum contains all four contract urgency lifecycle phases."""
+    assert UrgencyStage.STANDBY.value == "standby"
+    assert UrgencyStage.RELAXED.value == "relaxed"
+    assert UrgencyStage.PREPARE.value == "prepare"
+    assert UrgencyStage.LEAVE_NOW.value == "leave_now"
+    assert str(UrgencyStage.LEAVE_NOW) == "leave_now"
 
 
 def test_line_status_immutability_and_attributes() -> None:
@@ -39,6 +49,17 @@ def test_line_status_immutability_and_attributes() -> None:
     with pytest.raises(FrozenInstanceError):
         # Mutating frozen dataclass must raise
         status.status_label = "Minor Delays"  # type: ignore[misc]
+
+
+def test_line_status_defaults() -> None:
+    """Verify LineStatus defaults to Unknown status with neutral indicator."""
+    status = LineStatus()
+    assert status.status_label == "Unknown"
+    assert status.status_colour == "#757575"
+    assert status.status_icon == "mdi:help-circle"
+    assert status.reason is None
+    assert status.is_delayed is False
+    assert status.is_cancelled is False
 
 
 def test_departure_prediction_attributes() -> None:
@@ -78,7 +99,6 @@ def test_route_config_attributes() -> None:
         destination_stop="490005524F",
         in_vehicle_duration_seconds=1920,
         alighting_walk_seconds=600,
-        direction="outbound",
         corridor_stops=["490000248H", "490014496N", "490013766F"],
     )
     assert config.route_id == "bus_26"
