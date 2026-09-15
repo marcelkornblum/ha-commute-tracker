@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -74,18 +74,18 @@ def canonical_commute_config() -> dict[str, Any]:
         "commute_id": "nelson_to_brick_lane",
         "commute_title": "Nelson's Column to Brick Lane",
         "person_name": "Commuter",
-        "target_arrival_time": "14:45",
+        "target_destination_time": "14:45",
         "routes": [
             {
                 "id": "bus_26",
                 "mode": "bus",
                 "line": "26",
-                "walk_seconds": 240,
+                "boarding_walk_seconds": 240,
                 "prep_seconds": 120,
                 "grace_fraction": 0.25,
                 "boarding_stop": "490013766F",
-                "destination_stop": "490005524F",
-                "in_vehicle_duration_seconds": 1920,
+                "alighting_stop": "490005524F",
+                "transit_duration_seconds": 1920,
                 "alighting_walk_seconds": 600,
                 "corridor_stops": [
                     "490000248H",
@@ -102,24 +102,24 @@ def canonical_commute_config() -> dict[str, Any]:
                 "id": "train_southeastern",
                 "mode": "train",
                 "line": "southeastern",
-                "walk_seconds": 240,
+                "boarding_walk_seconds": 240,
                 "prep_seconds": 120,
                 "grace_fraction": 0.25,
                 "boarding_stop": "910GCHRX",
-                "destination_stop": "910GLNDNBDC",
-                "in_vehicle_duration_seconds": 480,
+                "alighting_stop": "910GLNDNBDC",
+                "transit_duration_seconds": 480,
                 "alighting_walk_seconds": 900,
             },
             {
                 "id": "tube_central",
                 "mode": "tube",
                 "line": "central",
-                "walk_seconds": 600,
+                "boarding_walk_seconds": 600,
                 "prep_seconds": 120,
                 "grace_fraction": 0.20,
                 "boarding_stop": "940GZZLUTCR",
-                "destination_stop": "940GZZLULVT",
-                "in_vehicle_duration_seconds": 480,
+                "alighting_stop": "940GZZLULVT",
+                "transit_duration_seconds": 480,
                 "alighting_walk_seconds": 480,
                 "corridor_stops": [
                     "940GZZLUNAN",
@@ -158,9 +158,12 @@ def adapt_e2e_snapshot_tests(
             return MasterRollupState(
                 active_option="none",
                 urgency_stage=UrgencyStage.STANDBY,
-                expected_time="",
-                seconds_to_arrival=0,
-                leave_in_seconds=0,
+                leave_by_time="",
+                expected_boarding_time="",
+                expected_destination_time="",
+                seconds_to_leave=0,
+                seconds_to_board=0,
+                expected_destination_margin_seconds=0,
                 route_label="",
             )
 
@@ -168,45 +171,40 @@ def adapt_e2e_snapshot_tests(
             c for c in candidates if c.urgency_stage == UrgencyStage.LEAVE_NOW
         ]
         if leave_now_cands:
-            winner = max(leave_now_cands, key=lambda c: c.leave_in_seconds)
+            winner = max(leave_now_cands, key=lambda c: c.seconds_to_leave)
         else:
-            winner = min(candidates, key=lambda c: c.leave_in_seconds)
+            winner = min(candidates, key=lambda c: c.seconds_to_leave)
 
         winning_route = winner.route_config
-        winning_dep = winner.departure
-        winning_tts = winning_dep.seconds_to_arrival
 
         if winning_route.mode == TransitMode.BUS:
             label = winning_route.line
         else:
             label = winning_route.line.title()
 
-        expected_time_str = winning_dep.expected_time or ""
-        if "T" in expected_time_str:
-            dep_dt = datetime.fromisoformat(expected_time_str)
-            formatted_time = dep_dt.strftime("%H:%M")
-        elif expected_time_str:
-            formatted_time = expected_time_str
-        else:
-            formatted_time = (reference_time + timedelta(seconds=winning_tts)).strftime(
-                "%H:%M"
-            )
-
         return MasterRollupState(
             active_option=winner.route_id,
             urgency_stage=winner.urgency_stage,
-            expected_time=formatted_time,
-            seconds_to_arrival=winning_tts,
-            leave_in_seconds=winner.leave_in_seconds,
+            leave_by_time=winner.leave_by_time,
+            expected_boarding_time=winner.expected_boarding_time,
+            expected_destination_time=winner.expected_destination_time,
+            seconds_to_leave=winner.seconds_to_leave,
+            seconds_to_board=winner.seconds_to_board,
+            expected_destination_margin_seconds=winner.expected_destination_margin_seconds,
             route_label=label,
-            will_arrive_in_time=winner.will_arrive_in_time,
-            target_slack_minutes=winner.target_slack_minutes,
+            route_color=winning_route.route_color,
+            destination=winner.departure.destination
+            or (winning_route.destination or ""),
+            will_arrive_on_time=winner.will_arrive_on_time,
+            timeliness=winner.timeliness,
         )
 
     def _legacy_select_active_departures(
         departures: list[DeparturePrediction],
-        walk_seconds: int,
-        grace_seconds: int,
+        boarding_walk_seconds: int = 0,
+        grace_seconds: int = 0,
+        total_buffer_seconds: int = 0,
+        **kwargs: Any,
     ) -> tuple[DeparturePrediction | None, DeparturePrediction | None]:
         if not departures:
             return None, None
@@ -223,8 +221,13 @@ def adapt_e2e_snapshot_tests(
                     return dep, follower
             return None, None
 
+        buf_sec = (
+            total_buffer_seconds
+            or boarding_walk_seconds
+            or kwargs.get("total_buffer_seconds", 0)
+        )
         for idx, dep in enumerate(departures):
-            leave_in_sec = dep.seconds_to_arrival - walk_seconds - 120
+            leave_in_sec = dep.seconds_to_arrival - buf_sec
             if leave_in_sec >= -grace_seconds:
                 follower = departures[idx + 1] if idx + 1 < len(departures) else None
                 return dep, follower

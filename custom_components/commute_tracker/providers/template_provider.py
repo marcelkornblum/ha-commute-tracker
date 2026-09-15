@@ -42,7 +42,7 @@ class TemplateTransitProvider(TransitProvider):
             status_label="Good Service",
             status_colour="#00A859",
             status_icon="mdi:check-circle",
-            reason=None,
+            detail=None,
         )
 
     def extract_telemetry_from_snapshot(

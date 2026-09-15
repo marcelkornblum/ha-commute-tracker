@@ -32,11 +32,11 @@ async def test_template_provider_async_methods() -> None:
         mode=TransitMode.BUS,
         line="sample_line",
         provider="template",
-        walk_seconds=180,
+        boarding_walk_seconds=180,
         prep_seconds=60,
         grace_seconds=120,
         boarding_stop="stop_a",
-        destination_stop="stop_b",
+        alighting_stop="stop_b",
     )
     telemetry = await provider.async_get_telemetry(route)
     assert telemetry.route_id == "sample_bus"

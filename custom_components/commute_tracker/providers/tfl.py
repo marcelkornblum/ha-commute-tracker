@@ -171,7 +171,7 @@ class TfLTransitProvider(TransitProvider):
                 status_label="Unknown",
                 status_colour=colour,
                 status_icon=icon,
-                reason=None,
+                detail=None,
             )
 
         active_status = next(
@@ -195,7 +195,7 @@ class TfLTransitProvider(TransitProvider):
             status_label=label,
             status_colour=colour,
             status_icon=icon,
-            reason=reason,
+            detail=reason,
             is_delayed=is_delayed,
             is_cancelled=is_cancelled,
         )
@@ -456,7 +456,7 @@ class TfLTransitProvider(TransitProvider):
             departures = self.parse_rail_journey_results(
                 payload=journey_payload,
                 from_station=route.boarding_stop or "",
-                to_station=route.destination_stop or "",
+                to_station=route.alighting_stop or "",
                 reference_time_iso=ref_timestamp,
             )
             raw_status = train_data.get("line_status", [])
@@ -468,9 +468,9 @@ class TfLTransitProvider(TransitProvider):
                 stop_names[route.boarding_stop] = clean_stop_name(
                     raw_name=route.boarding_stop
                 )
-            if route.destination_stop:
-                stop_names[route.destination_stop] = clean_stop_name(
-                    raw_name=route.destination_stop
+            if route.alighting_stop:
+                stop_names[route.alighting_stop] = clean_stop_name(
+                    raw_name=route.alighting_stop
                 )
 
             return RouteTelemetry(
@@ -643,7 +643,7 @@ class TfLTransitProvider(TransitProvider):
 
         if route.mode == TransitMode.TRAIN:
             from_stop = route.boarding_stop or ""
-            to_stop = route.destination_stop or ""
+            to_stop = route.alighting_stop or ""
             cache_key = f"tfl_journey_{from_stop}_{to_stop}"
 
             async def _fetch_journey() -> dict[str, Any]:
@@ -668,10 +668,8 @@ class TfLTransitProvider(TransitProvider):
             stop_names = {}
             if route.boarding_stop:
                 stop_names[route.boarding_stop] = clean_stop_name(route.boarding_stop)
-            if route.destination_stop:
-                stop_names[route.destination_stop] = clean_stop_name(
-                    route.destination_stop
-                )
+            if route.alighting_stop:
+                stop_names[route.alighting_stop] = clean_stop_name(route.alighting_stop)
 
             return RouteTelemetry(
                 route_id=route.route_id,

@@ -29,20 +29,20 @@ sequenceDiagram
 
     loop For each Route in Commute
         Eng->>Time: resolve_route_thresholds(route_cfg, helpers)
-        Time-->>Eng: ResolvedThresholds (walk, prep, grace, target)
+        Time-->>Eng: ResolvedThresholds (boarding_walk, prep, grace, target)
 
         Eng->>Corr: filter_approaching_departures(departures, corridor_stops, ...)
         Note over Corr: Filters opposite direction & ghost vehicles
         Corr-->>Eng: viable_departures
 
-        Eng->>Corr: select_active_departures(viable_departures, walk_seconds, grace_seconds)
+        Eng->>Corr: select_active_departures(viable_departures, boarding_walk_seconds, grace_seconds, total_buffer_seconds)
         Note over Corr: Evaluates physical reachability across all modes
         Corr-->>Eng: active_departure, follower_departure
 
-        Eng->>Time: calculate_leave_countdown(tts, total_buffer)
-        Time-->>Eng: leave_in_seconds
+        Eng->>Time: calculate_seconds_to_leave(seconds_to_board, total_buffer_seconds)
+        Time-->>Eng: seconds_to_leave
 
-        Eng->>Time: calculate_urgency_stage(leave_in_seconds)
+        Eng->>Time: calculate_urgency_stage(seconds_to_leave)
         Time-->>Eng: UrgencyStage (standby, relaxed, prepare, leave_now)
 
         Eng->>Corr: calculate_corridor_progression(active_departure, corridor_stops, ...)
@@ -53,8 +53,8 @@ sequenceDiagram
     end
 
     Eng->>Eng: _arbitrate_master_rollup(candidates)
-    Eng->>Time: calculate_target_slack(target_arrival, travel_times, line_status)
-    Time-->>Eng: slack_minutes, will_arrive, timeliness_label
+    Eng->>Time: calculate_destination_margin(target_destination_time, expected_dest_dt, line_status)
+    Time-->>Eng: margin_seconds, will_arrive_on_time, timeliness
 
     Eng-->>HA: CommuteState (MasterRollupState + ChildRouteStates)
 ```
@@ -81,20 +81,27 @@ This separation guarantees that whether telemetries originate from live async pr
 ## 3. Algorithmic Responsibilities & Rules
 
 ### A. Threshold Cascading Resolution ([`timeliness.py`](../custom_components/commute_tracker/timeliness.py))
-Before evaluating arrival predictions, the engine determines walking, preparation, and grace buffers for each route via `resolve_route_thresholds`:
+Before evaluating arrival predictions, the engine determines walking, preparation, grace, and target arrival buffers for each route via `resolve_route_thresholds`:
 1. **Walking & Preparation Buffers**:
-   - Tier 1 (Highest): Home Assistant Input Helper runtime overrides (`walk_seconds`, `prep_seconds`).
-   - Tier 2: Route-specific configuration values (`walk_seconds`, `prep_seconds`).
+   - Tier 1 (Highest): Home Assistant Input Helper runtime overrides (`boarding_walk_seconds`, `prep_seconds`).
+   - Tier 2: Route-specific configuration values (`boarding_walk_seconds`, `prep_seconds`).
    - Tier 3 (Lowest): Global defaults (`DEFAULT_WALK_SECONDS = 240`, `DEFAULT_PREP_SECONDS = 120`).
 2. **Grace Buffer Resolution Hierarchy**:
    - Tier 1 (Highest): HA Helper `grace_seconds`
-   - Tier 2: HA Helper `grace_fraction` (fraction of `walk_seconds`)
+   - Tier 2: HA Helper `grace_fraction` (fraction of `boarding_walk_seconds`)
    - Tier 3: Route config `grace_seconds`
-   - Tier 4: Route config `grace_fraction` (fraction of `walk_seconds`)
-   - Tier 5: Commute config `default_grace_seconds`
-   - Tier 6: Commute config `default_grace_fraction` (fraction of `walk_seconds`)
-   - Tier 7 (Lowest): Global `DEFAULT_GRACE_FRACTION = 0.25` (25% of `walk_seconds`)
-   - Physical Bounding: `grace_seconds = max(0, min(raw_grace, walk_seconds))`.
+   - Tier 4: Route config `grace_fraction` (fraction of `boarding_walk_seconds`)
+   - Tier 5: Commute config `grace_seconds`
+   - Tier 6: Commute config `grace_fraction` (fraction of `boarding_walk_seconds`)
+   - Tier 7: Root config `grace_seconds`
+   - Tier 8: Root config `grace_fraction` (fraction of `boarding_walk_seconds`)
+   - Tier 9 (Lowest): Global `DEFAULT_GRACE_FRACTION = 0.25` (25% of `boarding_walk_seconds`)
+   - *Mutual Exclusivity*: Within any single scope (Root, Commute, or Route), `grace_seconds` and `grace_fraction` are strictly mutually exclusive in configuration.
+   - *Physical Bounding*: `grace_seconds = max(0, min(raw_grace, boarding_walk_seconds))`.
+3. **Target Destination Time Resolution**:
+   - Tier 1 (Highest): HA Helper `target_destination_time`
+   - Tier 2: Commute config `target_destination_time`
+   - Tier 3 (Lowest): None (timeliness calculations omitted if no target set)
 
 ### B. Direction & Trajectory Filtering ([`corridor.filter_approaching_departures`](../custom_components/commute_tracker/corridor.py))
 *Responsibility: Discard vehicles travelling in reverse or vehicles too far away to confirm corridor presence.*
@@ -111,10 +118,10 @@ A common failure in public transit APIs is receiving departures at a boarding st
 
 Selection operates uniformly across all transit modes without mode-specific carve-outs:
 1. **Physical Reachability ([`timeliness.is_departure_reachable`](../custom_components/commute_tracker/timeliness.py))**:
-   - `seconds_to_arrival >= walk_seconds - grace_seconds`
-   - A commuter leaving immediately requires `walk_seconds` to walk to the stop.
+   - `seconds_to_board >= boarding_walk_seconds - grace_seconds`
+   - A commuter leaving immediately requires `boarding_walk_seconds` to walk to the stop.
    - `grace_seconds` provides a leeway buffer allowing the commuter to sprint or catch the service while boarding doors are open.
-   - If `seconds_to_arrival < walk_seconds - grace_seconds`, the vehicle is mathematically unreachable.
+   - If `seconds_to_board < boarding_walk_seconds - grace_seconds`, the vehicle is mathematically unreachable.
 2. **Sequential Selection**:
    - The engine iterates through the candidate departures sorted by arrival time and selects the first departure satisfying `is_departure_reachable`.
    - The subsequent departure in the sorted list (if available) is assigned as `follower_departure` to power the "Next Bus" or "Subsequent Departure" preview.
@@ -136,52 +143,53 @@ Selection operates uniformly across all transit modes without mode-specific carv
 *Responsibility: Categorise the commute status into glanceable visual urgency states.*
 
 ```text
-Countdown (leave_in_seconds):
-     > 480s               0s < leave_in <= 480s               <= 0s
+Countdown (seconds_to_leave):
+     > 480s               0s < seconds_to_leave <= 480s         <= 0s
  ─────────────┬─────────────────────────────────────────┬───────────────►
    RELAXED    │                 PREPARE                 │   LEAVE NOW
   (Green UI)  │               (Amber UI)                │    (Red UI)
 ```
 
-- **`STANDBY`**: No active departures (`leave_in_seconds is None`).
-- **`RELAXED`**: Transit option is reachable and departure time is distant (`leave_in_seconds > 480`).
-- **`PREPARE`**: Countdown enters the preparation threshold (`0 < leave_in_seconds <= 480`).
-- **`LEAVE_NOW`**: Doorstep deadline reached or passed (`leave_in_seconds <= 0`).
+- **`STANDBY`**: No active departures (`seconds_to_leave is None`).
+- **`RELAXED`**: Transit option is reachable and departure time is distant (`seconds_to_leave > 480`).
+- **`PREPARE`**: Countdown enters the preparation threshold (`0 < seconds_to_leave <= 480`).
+- **`LEAVE_NOW`**: Doorstep deadline reached or passed (`seconds_to_leave <= 0`).
 
-### F. Destination Slack Maths & Timeliness ([`timeliness.calculate_target_slack`](../custom_components/commute_tracker/timeliness.py))
+### F. Destination Margin Maths & Timeliness ([`timeliness.calculate_destination_margin`](../custom_components/commute_tracker/timeliness.py))
 *Responsibility: Calculate expected destination arrival and timeliness status.*
 
 1. **Total Estimated Journey**:
-   `total_journey = boarding_arrival_seconds + in_vehicle_duration + alighting_walk`
+   `total_journey = seconds_to_board + transit_duration_seconds + alighting_walk_seconds`
 2. **Estimated Destination Arrival Time**:
-   `est_arrival_dt = reference_time + timedelta(seconds=total_journey)`
+   `expected_destination_dt = reference_time + timedelta(seconds=total_journey)`
 3. **Midnight Rollover Correction**:
    If the target arrival time wraps past midnight relative to observation time, the engine shifts `target_dt` by `±1 day` when the gap exceeds `MIDNIGHT_WRAP_THRESHOLD_SECONDS` (12 hours).
-4. **Slack Minutes**:
-   `slack_minutes = round((target_dt - est_arrival_dt) / 60)`
-   - Positive slack indicates arriving ahead of deadline.
-   - Negative slack indicates arriving late.
+4. **Margin Seconds**:
+   `margin_seconds = round((target_dt - expected_destination_dt).total_seconds())`
+   - Positive margin indicates arriving ahead of deadline.
+   - Negative margin indicates arriving late.
 5. **Timeliness Classifications**:
    - `cancelled`: Line or route is cancelled.
-   - `late`: `slack_minutes < 0`.
+   - `late`: `margin_seconds < 0`.
    - `delayed`: Operational service delay reported on line status.
-   - `early`: `slack_minutes >= 5`.
-   - `on_time`: Arriving within 0–4 minutes of target deadline.
+   - `early`: `margin_seconds >= 300` (5 minutes ahead).
+   - `on_time`: Arriving within 0–299 seconds of target deadline.
 
 ### G. Master Rollup Arbitration ([`engine._arbitrate_master_rollup`](../custom_components/commute_tracker/engine.py))
 *Responsibility: Arbitrate the winning active option across multi-modal alternatives (e.g. Bus vs Tube vs Train).*
 
 1. **Timeliness Partitioning**:
-   - Candidates are evaluated against the target deadline (`will_arrive_in_time`).
+   - Candidates are evaluated against the target deadline (`will_arrive_on_time`).
    - Routes arriving on time are strictly prioritised over late routes. Late routes are only considered if no candidate can arrive on time.
 2. **Catchability Partitioning**:
-   - Within the timeliness candidate pool, routes with non-negative departure windows (`leave_in_seconds >= 0`) are strictly prioritised over sprint routes (`leave_in_seconds < 0`).
+   - Within the timeliness candidate pool, routes with non-negative departure windows (`seconds_to_leave >= 0`) are strictly prioritised over sprint routes (`seconds_to_leave < 0`).
    - Sprint routes are only selected if no positive-window alternatives exist.
 3. **Arbitration Strategies ([`RollupStrategy`](../custom_components/commute_tracker/models.py))**:
-   - **`soonest`**: Selects the candidate with the smallest positive `leave_in_seconds` (the soonest viable departure).
-   - **`latest`**: Selects the candidate with the largest positive `leave_in_seconds` that still arrives on time.
-   - **`late_with_buffer` (Default)**: Evaluates the sorted candidates by `leave_in_seconds`. If the top two latest options are within `route_late_buffer_seconds` (default: 300 seconds / 5 minutes) of each other, the engine selects the penultimate candidate so that the latest departure serves as a safety buffer/fallback. If the gap exceeds the buffer, it selects the latest candidate.
+   - **`soonest`**: Selects the candidate with the smallest positive `seconds_to_leave` (the soonest viable departure).
+   - **`latest`**: Selects the candidate with the largest positive `seconds_to_leave` that still arrives on time.
+   - **`late_with_buffer` (Default)**: Evaluates the sorted candidates by `seconds_to_leave`. If the top two latest options are within `route_late_buffer_seconds` (default: 300 seconds / 5 minutes) of each other, the engine selects the penultimate candidate so that the latest departure serves as a safety buffer/fallback. If the gap exceeds the buffer, it selects the latest candidate.
 4. **Tie-Breaking**:
-   - When multiple candidates have equal `leave_in_seconds`, the candidate with greater `target_slack_minutes` is selected.
-5. Populates [`MasterRollupState`](../custom_components/commute_tracker/engine.py) with the winning option's identity, formatted arrival time, urgency stage, strategy used, and destination slack metrics.
+   - When multiple candidates have equal `seconds_to_leave`, the candidate with greater `expected_destination_margin_seconds` is selected.
+5. Populates [`MasterRollupState`](../custom_components/commute_tracker/engine.py) with the winning option's identity, formatted arrival time, urgency stage, strategy used, and destination margin metrics.
+
 

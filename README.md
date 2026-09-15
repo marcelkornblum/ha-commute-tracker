@@ -14,7 +14,7 @@ Whether your commute involves choosing between buses or trains, Commute Tracker 
 
 - **Compare your options**: See buses, trains, and trams side by side to take the quickest way.
 - **Live journey view**: See where your train is right now and how close it is to your stop.
-- **Know when to walk out**: Set your arrival time; it factors in walking time and live progress so you never rush.
+- **Know when to walk out**: Set your arrival time; it factors in walking time and live progress so you never need to rush.
 - **Simple countdown stages**: Clear states that can trigger smart lights, wall displays, or voice alerts.
 - **Quiet when not needed**: Automatically sleeps outside commute times or once you arrive, saving system resources and API calls.
 - **Glanceable card**: A purpose-built dashboard card designed for wall displays, tablets, and phones.
@@ -23,9 +23,9 @@ Whether your commute involves choosing between buses or trains, Commute Tracker 
 
 ## Architectural Principles
 
-1. **Entity Minimalism**: Intermediary raw API polling sensors are kept within internal Python state (`DataUpdateCoordinator`), eliminating entity clutter. Only the Master Rollup and Child Route sensors are registered with Home Assistant.
+1. **Entity Minimalism**: Intermediary raw API polling sensors are kept within internal Python state, eliminating entity clutter. Only the Master Rollup and Child Route sensors are registered with Home Assistant.
 2. **Universal Transit Provider Architecture**: Decoupled, mode-agnostic provider interfaces supporting buses, trains, trams, tube, and ferries.
-3. **External Polling Triggers (Sleep/Wake)**: Polling intervals are strictly driven by observing the state of a user-configured binary sensor (e.g. `binary_sensor.commute_relevant`). No internal cron loops or polling while idle.
+3. **External Polling Triggers (Sleep/Wake)**: Polling intervals are strictly driven by observing the state of a user-configured binary sensor. No internal cron loops or polling while idle.
 4. **Red/Green Test-Driven Development**: Domain logic is written in pure Python first, verified against frozen API response fixtures before Home Assistant plumbing is introduced.
 5. **Integrated Frontend**: Comes with a dedicated Lovelace custom card (`commute-tracker-card`) built with Lit and TypeScript.
 
@@ -43,6 +43,18 @@ Whether your commute involves choosing between buses or trains, Commute Tracker 
 ### Manual Installation
 
 Copy the `custom_components/commute_tracker` directory into your Home Assistant `<config_dir>/custom_components/` directory and restart Home Assistant.
+
+---
+
+## Configuration & Documentation
+
+Configure your commutes directly in `configuration.yaml`. For complete option specifications, units, cascading hierarchy, and annotated YAML examples, see:
+
+- **[Configuration Reference & Schema Guide](docs/configuration.md)**: Exhaustive reference of all Root, Commute, and Route options.
+- **[System Architecture & Component Boundaries](docs/system-architecture.md)**: Entity model and platform split.
+- **[Control Flow & Decision Engine](docs/control-flow.md)**: Reachability math, arbitration, and timeliness stages.
+- **[Transit Provider Architecture & Plugin Guide](docs/transit-providers.md)**: Universal provider plugin framework.
+- **[Public Entity & Sensor Contract](specs/commute_contract.md)**: Sensor states and attributes specification.
 
 ---
 

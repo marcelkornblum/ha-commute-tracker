@@ -23,3 +23,16 @@ def test_translations_validity() -> None:
     assert "entity" in strings_content
     assert "sensor" in strings_content["entity"]
     assert "master_rollup" in strings_content["entity"]["sensor"]
+    assert "child_route" in strings_content["entity"]["sensor"]
+
+    config_errors = strings_content.get("config", {}).get("error", {})
+    assert "mutual_grace" in config_errors
+    assert "no_routes" in config_errors
+    assert "no_commutes" in config_errors
+    assert "cannot_connect" in config_errors
+    assert "invalid_auth" in config_errors
+
+    selectors = strings_content.get("selector", {})
+    assert "rollup_strategy" in selectors
+    assert "direction" in selectors
+    assert "mode" in selectors

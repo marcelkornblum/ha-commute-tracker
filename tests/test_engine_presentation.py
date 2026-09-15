@@ -13,8 +13,8 @@ from custom_components.commute_tracker.models import (
     UrgencyStage,
 )
 from custom_components.commute_tracker.timeliness import (
-    calculate_journey_arrival_times,
     calculate_leave_by_time,
+    calculate_milestone_times,
     calculate_pill_badge,
     format_next_summary,
 )
@@ -23,39 +23,40 @@ from custom_components.commute_tracker.timeliness import (
 def test_calculate_leave_by_time() -> None:
     """Verify leave_by_time calculates formatted clock time from countdown."""
     ref_dt = datetime(2026, 9, 14, 14, 0, 0)
-    leave_120 = calculate_leave_by_time(leave_in_seconds=120, reference_time=ref_dt)
+    leave_120 = calculate_leave_by_time(seconds_to_leave=120, reference_time=ref_dt)
     assert leave_120 == "14:02"
-    leave_neg60 = calculate_leave_by_time(leave_in_seconds=-60, reference_time=ref_dt)
+    leave_neg60 = calculate_leave_by_time(seconds_to_leave=-60, reference_time=ref_dt)
     assert leave_neg60 == "13:59"
 
 
-def test_calculate_journey_arrival_times() -> None:
-    """Verify transit and destination arrival times are calculated correctly."""
+def test_calculate_milestone_times() -> None:
+    """Verify milestone times for boarding, alighting, and arrival."""
     ref_dt = datetime(2026, 9, 14, 14, 0, 0)
-    transit_time, dest_time = calculate_journey_arrival_times(
-        boarding_arrival_seconds=300,
-        in_vehicle_duration_seconds=1200,
+    board_time, alight_time, dest_time = calculate_milestone_times(
+        seconds_to_board=300,
+        transit_duration_seconds=1200,
         alighting_walk_seconds=600,
         reference_time=ref_dt,
     )
-    assert transit_time == "14:25"
+    assert board_time == "14:05"
+    assert alight_time == "14:25"
     assert dest_time == "14:35"
 
 
 def test_format_next_summary() -> None:
     """Verify next_summary generates expected formatted strings."""
     ref_dt = datetime(2026, 9, 14, 14, 0, 0)
-    assert format_next_summary(next_seconds_to_arrival=None) == "None scheduled"
+    assert format_next_summary(seconds_to_next_board=None) == "None scheduled"
 
     summary = format_next_summary(
-        next_seconds_to_arrival=720,
+        seconds_to_next_board=720,
         next_expected_time="2026-09-14T14:12:00Z",
         reference_time=ref_dt,
     )
     assert summary == "Next at 14:12 (in 12m)"
 
     summary_no_expected = format_next_summary(
-        next_seconds_to_arrival=600,
+        seconds_to_next_board=600,
         reference_time=ref_dt,
     )
     assert summary_no_expected == "Next at 14:10 (in 10m)"
@@ -69,21 +70,21 @@ def test_calculate_pill_badge() -> None:
 
     relaxed = calculate_pill_badge(
         urgency_stage=UrgencyStage.RELAXED,
-        leave_in_seconds=600,
+        seconds_to_leave=600,
     )
     assert relaxed.label == "Leave in 10m"
     assert relaxed.color == "#4CAF50"
 
     prepare = calculate_pill_badge(
         urgency_stage=UrgencyStage.PREPARE,
-        leave_in_seconds=240,
+        seconds_to_leave=240,
     )
     assert prepare.label == "Prepare (4m)"
     assert prepare.color == "#FF9800"
 
     leave_now = calculate_pill_badge(
         urgency_stage=UrgencyStage.LEAVE_NOW,
-        leave_in_seconds=-30,
+        seconds_to_leave=-30,
     )
     assert leave_now.label == "🚨 LEAVE NOW"
     assert leave_now.color == "#FF5252"
@@ -96,20 +97,20 @@ def test_engine_populates_presentation_attributes() -> None:
         mode=TransitMode.BUS,
         line="26",
         provider="tfl",
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         prep_seconds=120,
         grace_seconds=180,
         boarding_stop="STOP_B",
-        destination_stop="STOP_D",
-        in_vehicle_duration_seconds=1200,
+        alighting_stop="STOP_D",
+        destination="Hackney Wick",
+        transit_duration_seconds=1200,
         alighting_walk_seconds=600,
-        target_arrival_time="14:40",
         corridor_stops=["STOP_A", "STOP_B"],
     )
     commute_cfg = CommuteConfig(
         commute_id="work_commute",
         routes=[route_cfg],
-        target_arrival_time="14:40",
+        target_destination_time="14:40",
     )
     engine = CommuteEngine(config=commute_cfg)
 
@@ -160,17 +161,19 @@ def test_engine_populates_presentation_attributes() -> None:
 
     child = state.child_routes["bus_26"]
     assert child.route_label == "26"
-    assert child.route_destination == "Hackney Wick"
+    assert child.destination == "Hackney Wick"
     assert child.line_status == line_status
-    assert child.minutes_to_arrival == 10
-    assert child.leave_in_seconds == 240
-    assert child.leave_in_minutes == 4
+    assert child.seconds_to_board == 600
+    assert child.seconds_to_leave == 240
     assert child.leave_by_time == "14:04"
-    assert child.estimated_transit_arrival == "14:30"
-    assert child.estimated_destination_arrival == "14:40"
+    assert child.expected_boarding_time == "14:10"
+    assert child.expected_alighting_time == "14:30"
+    assert child.expected_destination_time == "14:40"
+    assert child.expected_destination_margin_seconds == 0
     assert child.timeliness == "on_time"
-    assert child.will_arrive_in_time is True
+    assert child.will_arrive_on_time is True
     assert child.next_summary == "Next at 14:20 (in 20m)"
+    assert child.seconds_to_next_board == 1200
     assert child.pill_badge is not None
     assert child.pill_badge.label == "Prepare (4m)"
     assert len(child.corridor_stops) == 2
@@ -188,14 +191,14 @@ def test_engine_populates_presentation_attributes() -> None:
     master = state.master_rollup
     assert master.active_option == "bus_26"
     assert master.route_label == "26"
-    assert master.route_destination == "Hackney Wick"
+    assert master.destination == "Hackney Wick"
     assert master.line_status == line_status
-    assert master.minutes_to_arrival == 10
-    assert master.leave_in_seconds == 240
-    assert master.leave_in_minutes == 4
+    assert master.seconds_to_board == 600
+    assert master.seconds_to_leave == 240
     assert master.leave_by_time == "14:04"
-    assert master.estimated_transit_arrival == "14:30"
-    assert master.estimated_destination_arrival == "14:40"
+    assert master.expected_boarding_time == "14:10"
+    assert master.expected_destination_time == "14:40"
+    assert master.expected_destination_margin_seconds == 0
     assert master.timeliness == "on_time"
     assert master.next_summary == "Next at 14:20 (in 20m)"
     assert master.pill_badge is not None

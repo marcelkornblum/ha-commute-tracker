@@ -29,28 +29,28 @@ def test_e2e_snapshot_001_initial_state_bus_preferred(
 
     bus_state = state.child_routes["bus_26"]
     assert bus_state.vehicle_id == "SN16OJA"
-    assert bus_state.seconds_to_arrival == 326
-    assert bus_state.leave_in_seconds == -34
+    assert bus_state.seconds_to_board == 326
+    assert bus_state.seconds_to_leave == -34
     assert bus_state.urgency_stage == "leave_now"
 
     train_state = state.child_routes["train_southeastern"]
-    assert train_state.scheduled_departure == "2026-09-14T14:01:00"
-    assert train_state.seconds_to_arrival == 363
-    assert train_state.leave_in_seconds == 3
+    assert train_state.expected_boarding_time == "14:01"
+    assert train_state.seconds_to_board == 363
+    assert train_state.seconds_to_leave == 3
     assert train_state.urgency_stage == "prepare"
 
     tube_state = state.child_routes["tube_central"]
     assert tube_state.vehicle_id == "012"
     assert "Notting Hill Gate" in tube_state.corridor_location
-    assert tube_state.seconds_to_arrival == 573
-    assert tube_state.leave_in_seconds == -147
+    assert tube_state.seconds_to_board == 573
+    assert tube_state.seconds_to_leave == -147
     assert tube_state.urgency_stage == "leave_now"
 
     master = state.master_rollup
     assert master.active_option == "bus_26"
     assert master.urgency_stage == "leave_now"
-    assert master.seconds_to_arrival == 326
-    assert master.leave_in_seconds == -34
+    assert master.seconds_to_board == 326
+    assert master.seconds_to_leave == -34
     assert master.route_label == "26"
 
 
@@ -65,16 +65,16 @@ def test_e2e_snapshot_006_train_arbitration_takeover(
     state = engine.process_snapshot(snapshot=snapshot)
 
     train_state = state.child_routes["train_southeastern"]
-    assert train_state.scheduled_departure == "2026-09-14T14:04:00"
-    assert train_state.seconds_to_arrival == 357
-    assert train_state.leave_in_seconds == -3
+    assert train_state.expected_boarding_time == "14:04"
+    assert train_state.seconds_to_board == 357
+    assert train_state.seconds_to_leave == -3
     assert train_state.urgency_stage == "leave_now"
 
     master = state.master_rollup
     assert master.active_option == "train_southeastern"
     assert master.urgency_stage == "leave_now"
     assert master.route_label == "Southeastern"
-    assert master.seconds_to_arrival == 357
+    assert master.seconds_to_board == 357
 
 
 def test_e2e_snapshot_009_bus_doorstep_and_queue(
@@ -89,10 +89,10 @@ def test_e2e_snapshot_009_bus_doorstep_and_queue(
 
     bus_state = state.child_routes["bus_26"]
     assert bus_state.vehicle_id == "SN16OJA"
-    assert bus_state.seconds_to_arrival == 75
+    assert bus_state.seconds_to_board == 75
     assert bus_state.urgency_stage == "leave_now"
     assert bus_state.next_vehicle_id == "SN66WRP"
-    assert bus_state.next_seconds_to_arrival == 414
+    assert bus_state.seconds_to_next_board == 414
 
 
 def test_e2e_snapshot_011_bus_rollover_to_next_vehicle(
@@ -107,14 +107,14 @@ def test_e2e_snapshot_011_bus_rollover_to_next_vehicle(
 
     bus_state = state.child_routes["bus_26"]
     assert bus_state.vehicle_id == "SN66WRP"
-    assert bus_state.seconds_to_arrival == 354
-    assert bus_state.leave_in_seconds == -6
+    assert bus_state.seconds_to_board == 354
+    assert bus_state.seconds_to_leave == -6
     assert bus_state.urgency_stage == "leave_now"
 
     master = state.master_rollup
     assert master.active_option == "bus_26"
     assert master.urgency_stage == "leave_now"
-    assert master.seconds_to_arrival == 354
+    assert master.seconds_to_board == 354
 
 
 def test_e2e_snapshot_021_tube_arbitration_takeover(
@@ -129,17 +129,17 @@ def test_e2e_snapshot_021_tube_arbitration_takeover(
 
     bus_state = state.child_routes["bus_26"]
     assert bus_state.vehicle_id == "SN66WRO"
-    assert bus_state.seconds_to_arrival == 1234
+    assert bus_state.seconds_to_board == 1234
     assert bus_state.urgency_stage == "relaxed"
 
     train_state = state.child_routes["train_southeastern"]
-    assert train_state.scheduled_departure == "2026-09-14T14:20:00"
-    assert train_state.seconds_to_arrival == 756
+    assert train_state.expected_boarding_time == "14:20"
+    assert train_state.seconds_to_board == 756
     assert train_state.urgency_stage == "prepare"
 
     tube_state = state.child_routes["tube_central"]
     assert tube_state.vehicle_id == "022"
-    assert tube_state.seconds_to_arrival == 592
+    assert tube_state.seconds_to_board == 592
     assert tube_state.urgency_stage == "leave_now"
 
     master = state.master_rollup
@@ -159,9 +159,9 @@ def test_e2e_snapshot_046_train_reclaims_arbitration(
     state = engine.process_snapshot(snapshot=snapshot)
 
     train_state = state.child_routes["train_southeastern"]
-    assert train_state.scheduled_departure == "2026-09-14T14:29:00"
-    assert train_state.seconds_to_arrival == 353
-    assert train_state.leave_in_seconds == -7
+    assert train_state.expected_boarding_time == "14:29"
+    assert train_state.seconds_to_board == 353
+    assert train_state.seconds_to_leave == -7
     assert train_state.urgency_stage == "leave_now"
 
     master = state.master_rollup
@@ -226,8 +226,8 @@ def test_engine_evaluate_commute_direct_evaluation(
     state = engine.evaluate_commute(telemetries=telemetries)
     bus_state = state.child_routes["bus_26"]
     assert bus_state.vehicle_id == "BUS_DIRECT"
-    assert bus_state.seconds_to_arrival == 300
-    assert bus_state.leave_in_seconds == -60
+    assert bus_state.seconds_to_board == 300
+    assert bus_state.seconds_to_leave == -60
     assert bus_state.urgency_stage == "leave_now"
 
     master = state.master_rollup
@@ -258,14 +258,14 @@ def test_engine_evaluate_commute_with_helper_overrides(
     }
 
     state = engine.evaluate_commute(telemetries=telemetries)
-    assert state.child_routes["bus_26"].leave_in_seconds == 140
+    assert state.child_routes["bus_26"].seconds_to_leave == 140
     assert state.child_routes["bus_26"].urgency_stage == "prepare"
 
-    overrides = {"walk_seconds": 60}
+    overrides = {"boarding_walk_seconds": 60}
     state2 = engine.evaluate_commute(
         telemetries=telemetries, helper_overrides=overrides
     )
-    assert state2.child_routes["bus_26"].leave_in_seconds == 320
+    assert state2.child_routes["bus_26"].seconds_to_leave == 320
 
 
 def test_engine_template_provider_dispatch() -> None:
@@ -278,7 +278,7 @@ def test_engine_template_provider_dispatch() -> None:
                 "mode": "bus",
                 "line": "T1",
                 "provider": "template",
-                "walk_seconds": 120,
+                "boarding_walk_seconds": 120,
                 "prep_seconds": 60,
                 "grace_seconds": 60,
             }
@@ -289,8 +289,8 @@ def test_engine_template_provider_dispatch() -> None:
 
     child = state.child_routes["route_template"]
     assert child.vehicle_id == "TEMPLATE_01"
-    assert child.seconds_to_arrival == 300
-    assert child.leave_in_seconds == 120
+    assert child.seconds_to_board == 300
+    assert child.seconds_to_leave == 120
     assert child.urgency_stage == "prepare"
 
     master = state.master_rollup
