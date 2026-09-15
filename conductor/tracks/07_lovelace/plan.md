@@ -1,23 +1,23 @@
 # Implementation Plan: Lovelace Custom Card
 
-- [ ] **Phase 1: Test & Harness Infrastructure**
-  - [ ] Configure Vitest and `happy-dom` in `frontend/`
-  - [ ] Implement standalone Vite dev harness (`frontend/index.html` & `frontend/src/preview.ts`)
-  - [ ] Populate mock state fixtures matching `specs/commute_contract.md` scenarios (Standby, Relaxed, Prepare, Leave Now, Disrupted, Late)
-- [ ] **Phase 2: Card Component Core & Lit Lifecycle**
-  - [ ] Define `<commute-tracker-card>` TypeScript interfaces, `setConfig`, and `hass` observer
-  - [ ] Implement card container and unified header (avatar, title, urgency status badge)
-  - [ ] Implement child route module container and route sorting (recommended `active_option` on top, secondary underneath)
-- [ ] **Phase 3: Route Details & SVG Schematic Port**
-  - [ ] Port transit mode badge, destination label, and line status health indicators
-  - [ ] Port SVG corridor schematic renderer (background track, colored route line, stop nodes, target styling)
-  - [ ] Port vehicle location marker positioning and smooth transitions
-  - [ ] Port bottom timing row (doorstep leave-by pill, transit departure/arrival, destination arrival pill with late styling)
-  - [ ] Implement Home Assistant navigation dispatching on click
-- [ ] **Phase 4: Automated Testing & Snapshot Verification**
-  - [ ] Write unit/component tests for card configuration, error boundaries, and reactive updates
-  - [ ] Write component tests asserting DOM structure across all states
-  - [ ] Write DOM snapshot tests capturing rendered output across canonical contract scenarios
-- [ ] **Phase 5: Production Build & Asset Packaging**
-  - [ ] Configure Vite build to bundle single ES module to `custom_components/commute_tracker/frontend/commute-tracker-card.js` and `frontend/dist/`
-  - [ ] Verify production bundle builds cleanly, passes all tests, and renders in preview harness
+- [x] **Phase 1: Test & Harness Infrastructure**
+  - [x] Configure Vitest and `happy-dom` in `frontend/`
+  - [x] Implement standalone Vite dev harness (`frontend/index.html` & `frontend/src/preview.ts`)
+  - [x] Populate mock state fixtures matching `specs/commute_contract.md` scenarios (Standby, Relaxed, Prepare, Leave Now, Disrupted, Late)
+- [x] **Phase 2: Card Component Core & Lit Lifecycle**
+  - [x] Define `<commute-tracker-card>` TypeScript interfaces, `setConfig`, and `hass` observer
+  - [x] Implement card container and unified header (avatar, title, urgency status badge)
+  - [x] Implement child route module container and route sorting (recommended `active_option` on top, secondary underneath)
+- [x] **Phase 3: Route Details & SVG Schematic Port**
+  - [x] Port transit mode badge, destination label, and line status health indicators
+  - [x] Port SVG corridor schematic renderer (background track, colored route line, stop nodes, target styling)
+  - [x] Port vehicle location marker positioning and smooth transitions
+  - [x] Port bottom timing row (doorstep leave-by pill, transit departure/arrival, destination arrival pill with late styling)
+  - [x] Implement Home Assistant navigation dispatching on click
+- [x] **Phase 4: Automated Testing & Snapshot Verification**
+  - [x] Write unit/component tests for card configuration, error boundaries, and reactive updates
+  - [x] Write component tests asserting DOM structure across all states
+  - [x] Write DOM snapshot tests capturing rendered output across canonical contract scenarios
+- [x] **Phase 5: Production Build & Asset Packaging**
+  - [x] Configure Vite build to bundle single ES module to `custom_components/commute_tracker/frontend/commute-tracker-card.js` and `frontend/dist/`
+  - [x] Verify production bundle builds cleanly, passes all tests, and renders in preview harness
