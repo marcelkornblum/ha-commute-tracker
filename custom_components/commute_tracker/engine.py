@@ -401,15 +401,12 @@ class CommuteEngine:
                 strategy=strategy,
             )
 
-        # Step 1: Timeliness Partitioning
         on_time = [c for c in candidates if c.will_arrive_in_time]
         timely_pool = on_time if on_time else candidates
 
-        # Step 2: Catchability Partitioning (positive leave_in_seconds preferred)
         positive_leave = [c for c in timely_pool if c.leave_in_seconds >= 0]
         viable_pool = positive_leave if positive_leave else timely_pool
 
-        # Step 3: Strategy Selection
         if strategy == RollupStrategy.SOONEST:
             winner = min(
                 viable_pool,
