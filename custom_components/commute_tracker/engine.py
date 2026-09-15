@@ -101,6 +101,8 @@ class CommuteState:
 class CommuteEngine:
     """Transit evaluation engine orchestrating route calculations and arbitration."""
 
+    process_snapshot: Any = None
+
     def __init__(
         self,
         config: CommuteConfig | dict[str, Any],
