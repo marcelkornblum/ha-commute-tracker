@@ -209,7 +209,7 @@ def test_engine_evaluate_commute_direct_evaluation(
     )
     status = LineStatus(
         status_label="Good Service",
-        status_colour="#00A859",
+        status_color="#00A859",
         status_icon="mdi:check-circle",
     )
     telemetries = {

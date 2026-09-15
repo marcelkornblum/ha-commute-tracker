@@ -32,7 +32,7 @@ class MockSuccessProvider(TransitProvider):
         """Return Good Service status."""
         return LineStatus(
             status_label="Good Service",
-            status_colour="#00A859",
+            status_color="#00A859",
             status_icon="mdi:check-circle",
         )
 

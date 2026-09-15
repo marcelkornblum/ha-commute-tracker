@@ -25,9 +25,23 @@ classDiagram
         <<abstract>>
         +provider_id: ClassVar[str]
         +supported_modes: ClassVar[set[TransitMode]]
-        +async_get_line_status(line_id: str, mode: TransitMode)* LineStatus
-        +async_get_telemetry(route: RouteConfig)* RouteTelemetry
-        +extract_telemetry_from_snapshot(route: RouteConfig, snapshot: dict) RouteTelemetry
+        +base_url: ClassVar[str]
+        +get_default_headers() dict
+        +get_default_params() dict
+        +async_fetch_json(endpoint, params, headers) Any
+        +async_cached_fetch(cache_key, fetch_callable) Any
+        +clean_stop_name(raw_name) str
+        +adapt_line_status(raw_payload, mode) LineStatus
+        +adapt_departures(raw_payload, target_stop, line_id) list
+        +adapt_journey(raw_payload, origin, destination, reference_time_iso) list
+        +adapt_stop_names(raw_payload) dict
+        +build_route_telemetry(route, departures, line_status, corridor_departures, stop_names) RouteTelemetry
+        +async_fetch_line_arrivals(line_id, mode) Any
+        +async_fetch_stop_arrivals(stop_id, line_id, mode) Any
+        +async_fetch_journey(origin, destination, mode) Any
+        +async_fetch_line_status(line_id, mode) Any
+        +async_get_line_status(line_id, mode) LineStatus
+        +async_get_telemetry(route)* RouteTelemetry
     }
 
     class DebouncedCache {
@@ -47,11 +61,13 @@ classDiagram
 
     class TfLTransitProvider {
         +provider_id = "tfl"
+        +base_url = "https://api.tfl.gov.uk"
         +supported_modes = {BUS, TRAIN, TUBE, TRAM}
     }
 
     class TemplateTransitProvider {
         +provider_id = "template"
+        +base_url = "https://api.example-transit.org/v1"
         +supported_modes = {BUS, TRAIN, TUBE, TRAM, FERRY}
     }
 
@@ -73,7 +89,7 @@ Supported modes: `TransitMode.BUS`, `TransitMode.TRAIN`, `TransitMode.TUBE`, `Tr
 ### `LineStatus` (Dataclass)
 Represents the operational health of a transit line:
 - `status_label`: e.g. `"Good Service"`, `"Minor Delays"`, `"Suspended"`.
-- `status_colour`: Hex colour code for UI indicators (e.g. `"#00A859"`).
+- `status_color`: Hex colour code for UI indicators (e.g. `"#00A859"`).
 - `status_icon`: Material Design icon string (e.g. `"mdi:check-circle"`).
 - `detail`: Optional natural language description of disruptions.
 - `is_delayed`: Boolean flag indicating delay.
@@ -129,7 +145,6 @@ The validator verifies:
 4. **Required Methods**: Must implement all required callable methods:
    - `async_get_line_status(line_id: str, mode: TransitMode) -> LineStatus`
    - `async_get_telemetry(route: RouteConfig) -> RouteTelemetry`
-   *(Note: `extract_telemetry_from_snapshot(route: RouteConfig, snapshot: dict)` is available as a concrete helper on `TransitProvider` for offline test fixtures).*
 
 ### Dynamic Discovery
 When `TransitProviderRegistry.discover_providers()` is called, it scans the `custom_components/commute_tracker/providers/` directory, imports every module, validates all discovered `TransitProvider` subclasses, and registers those that pass validation.
@@ -157,54 +172,66 @@ from custom_components.commute_tracker.models import (
     RouteTelemetry,
     TransitMode,
 )
-from custom_components.commute_tracker.providers.base import TransitProvider
-
-MTA_API_URL = "https://api.mta.info"
+from custom_components.commute_tracker.providers.base import (
+    UNKNOWN_LINE_STATUS,
+    TransitProvider,
+)
 
 
 class MtaTransitProvider(TransitProvider):
-    """Transit provider for New York MTA subway and bus feeds."""
+    """Transit provider for New York MTA subway and bus feeds using the Adaptor pattern."""
 
     provider_id: ClassVar[str] = "mta"
+    base_url: ClassVar[str] = "https://api.mta.info/v1"
     supported_modes: ClassVar[set[TransitMode]] = {
         TransitMode.BUS,
         TransitMode.TUBE,
     }
 
-    async def async_get_line_status(
-        self, line_id: str, mode: TransitMode
+    def clean_stop_name(self, raw_name: str) -> str:
+        """Strip subway/bus station suffixes from stop labels."""
+        for suffix in (" Subway Station", " Station", " Av/"):
+            if suffix in raw_name:
+                raw_name = raw_name.replace(suffix, "")
+        return raw_name.strip()
+
+    def adapt_line_status(
+        self, raw_payload: Any, mode: TransitMode = TransitMode.BUS
     ) -> LineStatus:
-        """Fetch operational line status with debounced caching."""
-        cache_key = f"mta_status_{line_id}"
+        """Adapt raw MTA line status response into normalised LineStatus."""
+        if not isinstance(raw_payload, dict) or not raw_payload:
+            return UNKNOWN_LINE_STATUS
 
-        async def _fetch() -> LineStatus:
-            if not self._session:
-                return LineStatus(status_label="Unknown")
+        status_text = raw_payload.get("status", "Unknown")
+        if status_text == "Good Service":
+            return LineStatus(
+                status_label="Good Service",
+                status_color="#00A859",
+                status_icon="mdi:check-circle",
+            )
+        if status_text == "Delays":
+            return LineStatus(
+                status_label="Delays",
+                status_color="#FFAE42",
+                status_icon="mdi:alert-circle",
+                detail=raw_payload.get("details"),
+                is_delayed=True,
+            )
+        return UNKNOWN_LINE_STATUS
 
-            url = f"{MTA_API_URL}/status/{line_id}"
-            async with self._session.get(url) as response:
-                response.raise_for_status()
-                data = await response.json()
-                return LineStatus(
-                    status_label=data.get("status", "Good Service"),
-                    status_colour="#00A859"
-                    if data.get("status") == "Good Service"
-                    else "#FFAE42",
-                    status_icon="mdi:check-circle",
-                )
+    def adapt_departures(
+        self,
+        raw_payload: Any,
+        target_stop: str,
+        line_id: str | None = None,
+    ) -> list[DeparturePrediction]:
+        """Adapt raw MTA arrival entities into sorted DeparturePredictions."""
+        if not isinstance(raw_payload, list):
+            return []
 
-        return await self._cache.async_get_or_set(key=cache_key, fetch_callable=_fetch)
-
-    def extract_telemetry_from_snapshot(
-        self, route: RouteConfig, snapshot: dict[str, Any]
-    ) -> RouteTelemetry:
-        """Extract normalised telemetry from offline snapshot dictionary."""
-        # Parse static JSON fixture matching MTA format for testing
-        raw_departures = snapshot.get("mta", {}).get(route.line, [])
         departures: list[DeparturePrediction] = []
-
-        for item in raw_departures:
-            if item.get("stop_id") == route.boarding_stop:
+        for item in raw_payload:
+            if item.get("stop_id") == target_stop:
                 departures.append(
                     DeparturePrediction(
                         vehicle_id=item.get("trip_id"),
@@ -216,28 +243,41 @@ class MtaTransitProvider(TransitProvider):
                 )
 
         departures.sort(key=lambda d: d.seconds_to_arrival)
+        return departures
 
-        return RouteTelemetry(
-            route_id=route.route_id,
-            line_id=route.line,
-            mode=route.mode,
-            departures=departures,
-            active_vehicle_id=departures[0].vehicle_id if departures else None,
-            line_status=LineStatus(status_label="Good Service"),
-        )
+    async def async_fetch_line_status(self, line_id: str, mode: TransitMode) -> Any:
+        """Fetch raw line status from MTA API."""
+        return await self.async_fetch_json(f"status/{line_id}")
+
+    async def async_fetch_line_arrivals(self, line_id: str, mode: TransitMode) -> Any:
+        """Fetch raw arrivals along a line from MTA API."""
+        return await self.async_fetch_json(f"lines/{line_id}/arrivals")
 
     async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
-        """Fetch live telemetry from API."""
+        """Fetch live telemetry from API using Adaptor methods and caching."""
         line_status = await self.async_get_line_status(
             line_id=route.line, mode=route.mode
         )
-        # In production, query the live API via self._session
-        # Fetch and parse departures...
-        return RouteTelemetry(
-            route_id=route.route_id,
+        cache_key = f"mta_arrivals_{route.line}"
+
+        async def _fetch() -> list[dict[str, Any]]:
+            data = await self.async_fetch_line_arrivals(
+                line_id=route.line, mode=route.mode
+            )
+            return data if isinstance(data, list) else []
+
+        raw_arrivals = await self.async_cached_fetch(
+            cache_key=cache_key, fetch_callable=_fetch
+        )
+        departures = self.adapt_departures(
+            raw_payload=raw_arrivals,
+            target_stop=route.boarding_stop or "",
             line_id=route.line,
-            mode=route.mode,
-            departures=[],
+        )
+
+        return self.build_route_telemetry(
+            route=route,
+            departures=departures,
             line_status=line_status,
         )
 ```

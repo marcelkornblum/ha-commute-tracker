@@ -72,7 +72,7 @@ sequenceDiagram
 ### Pure Decision Engine (`evaluate_commute`)
 [`CommuteEngine.evaluate_commute`](../custom_components/commute_tracker/engine.py) performs all synchronous domain math:
 - **Input**: A dictionary of pre-fetched [`RouteTelemetry`](../custom_components/commute_tracker/models.py) instances mapped by `route_id`, an optional `reference_time`, and optional helper overrides.
-- **Output**: A comprehensive [`CommuteState`](../custom_components/commute_tracker/models.py) containing the arbitrated master state and individual child states.
+- **Output**: A comprehensive [`CommuteState`](../custom_components/commute_tracker/engine.py) containing the arbitrated master state and individual child states.
 
 This separation guarantees that whether telemetries originate from live async provider calls or offline mock fixtures in unit tests, the exact same pure arbitration logic executes.
 

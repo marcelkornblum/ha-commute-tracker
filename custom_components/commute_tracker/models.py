@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any
 
 from custom_components.commute_tracker.const import (
-    DEFAULT_LINE_COLOUR,
+    DEFAULT_LINE_COLOR,
     DEFAULT_LINE_ICON,
     DEFAULT_LINE_STATUS,
     DEFAULT_POLL_INTERVAL_SECONDS,
@@ -62,7 +62,7 @@ class LineStatus:
     """Normalised operational service status for a transit line."""
 
     status_label: str = DEFAULT_LINE_STATUS
-    status_colour: str = DEFAULT_LINE_COLOUR
+    status_color: str = DEFAULT_LINE_COLOR
     status_icon: str = DEFAULT_LINE_ICON
     detail: str | None = None
     is_delayed: bool = False
@@ -123,8 +123,6 @@ class RouteTelemetry:
     )
     stop_names: dict[str, str] = field(default_factory=dict)
     active_vehicle_id: str | None = None
-    corridor_progress_ratio: float = 0.0
-    current_stop_location: str = ""
     line_status: LineStatus | None = None
 
     @property

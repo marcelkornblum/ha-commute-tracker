@@ -175,7 +175,7 @@ async def test_master_and_child_attributes_contract(hass: HomeAssistant) -> None
     )
     line_st = LineStatus(
         status_label="Good Service",
-        status_colour="#00A859",
+        status_color="#00A859",
         status_icon="mdi:check-circle",
         detail=None,
         is_delayed=False,

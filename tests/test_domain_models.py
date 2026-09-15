@@ -7,6 +7,7 @@ import pytest
 from custom_components.commute_tracker.models import (
     DeparturePrediction,
     LineStatus,
+    PillBadge,
     RouteConfig,
     RouteTelemetry,
     TransitMode,
@@ -37,12 +38,12 @@ def test_line_status_immutability_and_attributes() -> None:
     """Verify LineStatus dataclass is frozen and has expected attributes."""
     status = LineStatus(
         status_label="Good Service",
-        status_colour="#00A859",
+        status_color="#00A859",
         status_icon="mdi:check-circle",
         detail=None,
     )
     assert status.status_label == "Good Service"
-    assert status.status_colour == "#00A859"
+    assert status.status_color == "#00A859"
     assert status.status_icon == "mdi:check-circle"
     assert status.detail is None
 
@@ -55,7 +56,7 @@ def test_line_status_defaults() -> None:
     """Verify LineStatus defaults to Unknown status with neutral indicator."""
     status = LineStatus()
     assert status.status_label == "Unknown"
-    assert status.status_colour == "#757575"
+    assert status.status_color == "#757575"
     assert status.status_icon == "mdi:help-circle"
     assert status.detail is None
     assert status.is_delayed is False
@@ -124,7 +125,7 @@ def test_route_telemetry_aggregation() -> None:
     )
     status = LineStatus(
         status_label="Good Service",
-        status_colour="#00A859",
+        status_color="#00A859",
         status_icon="mdi:check-circle",
     )
     telemetry = RouteTelemetry(
@@ -133,14 +134,24 @@ def test_route_telemetry_aggregation() -> None:
         mode=TransitMode.BUS,
         departures=[dep1, dep2],
         active_vehicle_id="SN16OJA",
-        corridor_progress_ratio=0.85,
-        current_stop_location="Horse Guards",
         line_status=status,
     )
     assert telemetry.route_id == "bus_26"
     assert len(telemetry.departures) == 2
     assert telemetry.lead_departure == dep1
     assert telemetry.active_vehicle_id == "SN16OJA"
-    assert telemetry.corridor_progress_ratio == 0.85
-    assert telemetry.current_stop_location == "Horse Guards"
     assert telemetry.line_status == status
+
+
+def test_pill_badge_attributes() -> None:
+    """Verify PillBadge provides color attributes matching UI tokens."""
+    badge = PillBadge(
+        label="On Time",
+        color="#4CAF50",
+        bg="rgba(76,175,80,0.2)",
+        border="#4CAF50",
+    )
+    assert badge.label == "On Time"
+    assert badge.color == "#4CAF50"
+    assert badge.bg == "rgba(76,175,80,0.2)"
+    assert badge.border == "#4CAF50"

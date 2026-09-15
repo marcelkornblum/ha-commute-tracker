@@ -21,6 +21,7 @@ from custom_components.commute_tracker.models import (
     TransitMode,
     UrgencyStage,
 )
+from tests.snapshot_adapter import extract_snapshot_telemetry
 
 
 @pytest.fixture(autouse=True)
@@ -252,8 +253,8 @@ def adapt_e2e_snapshot_tests(
         telemetries: dict[str, RouteTelemetry] = {}
         for route_id, route_cfg in self._routes.items():
             provider = self._registry.get_provider(provider_id=route_cfg.provider)
-            telemetries[route_id] = provider.extract_telemetry_from_snapshot(
-                route=route_cfg, snapshot=snapshot
+            telemetries[route_id] = extract_snapshot_telemetry(
+                provider=provider, route=route_cfg, snapshot=snapshot
             )
 
         overrides = dict(helper_overrides or {})

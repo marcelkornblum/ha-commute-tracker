@@ -32,7 +32,7 @@ class DummyProvider(TransitProvider):
         self.get_line_status_mock = AsyncMock(
             return_value=LineStatus(
                 status_label="Good Service",
-                status_colour="#00A859",
+                status_color="#00A859",
                 status_icon="mdi:check-circle",
             )
         )
@@ -49,16 +49,6 @@ class DummyProvider(TransitProvider):
     ) -> RouteTelemetry:
         """Return mock route telemetry."""
         return await self.get_telemetry_mock(route, snapshot)  # type: ignore[no-any-return]
-
-    def extract_telemetry_from_snapshot(
-        self, route: RouteConfig, snapshot: dict[str, Any]
-    ) -> RouteTelemetry:
-        """Return mock telemetry extracted from snapshot."""
-        return RouteTelemetry(
-            route_id=route.route_id,
-            line_id=route.line,
-            mode=route.mode,
-        )
 
 
 @pytest.mark.asyncio

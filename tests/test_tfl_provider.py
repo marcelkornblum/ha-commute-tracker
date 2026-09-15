@@ -18,6 +18,7 @@ from custom_components.commute_tracker.providers.tfl import (
     TfLTransitProvider,
     clean_stop_name,
 )
+from tests.snapshot_adapter import extract_snapshot_telemetry
 
 
 def test_clean_stop_name() -> None:
@@ -54,44 +55,44 @@ def test_tfl_provider_metadata(tfl_provider: TfLTransitProvider) -> None:
     assert TransitMode.TRAM in tfl_provider.supported_modes
 
 
-def test_parse_bus_line_status(
+def test_adapt_bus_line_status(
     tfl_provider: TfLTransitProvider, nelson_commute_dir: Path
 ) -> None:
-    """Verify parsing TfL bus line status from fixture."""
+    """Verify adapting TfL bus line status from fixture."""
     status_path = nelson_commute_dir / "set3_consolidated_bus" / "line_status.json"
     status_json = json.loads(status_path.read_text(encoding="utf-8"))
 
-    line_status = tfl_provider.parse_line_status(payload=status_json)
+    line_status = tfl_provider.adapt_line_status(raw_payload=status_json)
     assert line_status.status_label == "Special Service"
     assert "STRAND, WC2" in (line_status.detail or "")
-    assert line_status.status_colour != ""
+    assert line_status.status_color != ""
     assert line_status.status_icon.startswith("mdi:")
 
 
-def test_parse_line_status_fallback_unknown(tfl_provider: TfLTransitProvider) -> None:
-    """Verify parse_line_status returns Unknown when status data is absent."""
-    status_empty_list = tfl_provider.parse_line_status(payload=[])
+def test_adapt_line_status_fallback_unknown(tfl_provider: TfLTransitProvider) -> None:
+    """Verify adapt_line_status returns Unknown when status data is absent."""
+    status_empty_list = tfl_provider.adapt_line_status(raw_payload=[])
     assert status_empty_list.status_label == "Unknown"
-    assert status_empty_list.status_colour == "#757575"
+    assert status_empty_list.status_color == "#757575"
     assert status_empty_list.status_icon == "mdi:help-circle"
     assert status_empty_list.detail is None
 
-    status_no_statuses = tfl_provider.parse_line_status(payload={"id": "central"})
+    status_no_statuses = tfl_provider.adapt_line_status(raw_payload={"id": "central"})
     assert status_no_statuses.status_label == "Unknown"
-    assert status_no_statuses.status_colour == "#757575"
+    assert status_no_statuses.status_color == "#757575"
     assert status_no_statuses.status_icon == "mdi:help-circle"
 
 
-def test_parse_bus_line_arrivals(
+def test_adapt_bus_line_arrivals(
     tfl_provider: TfLTransitProvider, nelson_commute_dir: Path
 ) -> None:
-    """Verify parsing consolidated bus line arrivals targeting Trafalgar Square."""
+    """Verify adapting consolidated bus line arrivals targeting Trafalgar Square."""
     arrivals_path = nelson_commute_dir / "set3_consolidated_bus" / "line_arrivals.json"
     arrivals_json = json.loads(arrivals_path.read_text(encoding="utf-8"))
 
     target_stop = "490013766F"  # Trafalgar Square
-    predictions = tfl_provider.parse_bus_arrivals(
-        payload=arrivals_json,
+    predictions = tfl_provider.adapt_departures(
+        raw_payload=arrivals_json,
         target_stop=target_stop,
     )
 
@@ -104,17 +105,17 @@ def test_parse_bus_line_arrivals(
     assert predictions[0].is_realtime is True
 
 
-def test_parse_rail_journey_results(
+def test_adapt_journey(
     tfl_provider: TfLTransitProvider, nelson_commute_dir: Path
 ) -> None:
-    """Verify parsing rail journey results from Charing Cross to London Bridge."""
+    """Verify adapting rail journey results from Charing Cross to London Bridge."""
     rail_path = nelson_commute_dir / "set4_consolidated_train" / "journey_results.json"
     rail_json = json.loads(rail_path.read_text(encoding="utf-8"))
 
-    predictions = tfl_provider.parse_rail_journey_results(
-        payload=rail_json,
-        from_station="910GCHRX",
-        to_station="910GLNDNBDC",
+    predictions = tfl_provider.adapt_journey(
+        raw_payload=rail_json,
+        origin="910GCHRX",
+        destination="910GLNDNBDC",
         reference_time_iso="2026-09-14T12:54:57Z",
     )
 
@@ -125,16 +126,16 @@ def test_parse_rail_journey_results(
     assert "London Bridge" in destination or "Dartford" in destination
 
 
-def test_parse_tube_line_arrivals(
+def test_adapt_tube_line_arrivals(
     tfl_provider: TfLTransitProvider, nelson_commute_dir: Path
 ) -> None:
-    """Verify parsing tube line arrivals targeting Tottenham Court Road."""
+    """Verify adapting tube line arrivals targeting Tottenham Court Road."""
     tube_path = nelson_commute_dir / "set6_consolidated_tube" / "line_arrivals.json"
     tube_json = json.loads(tube_path.read_text(encoding="utf-8"))
 
     target_stop = "940GZZLUTCR"  # Tottenham Court Road
-    predictions = tfl_provider.parse_tube_arrivals(
-        payload=tube_json,
+    predictions = tfl_provider.adapt_departures(
+        raw_payload=tube_json,
         target_stop=target_stop,
         line_id="central",
     )
@@ -144,26 +145,17 @@ def test_parse_tube_line_arrivals(
     assert predictions[0].vehicle_id is not None
 
 
-def test_calculate_bus_corridor_progress(tfl_provider: TfLTransitProvider) -> None:
-    """Verify calculating progress ratio along corridor stops."""
-    corridor = [
-        "490000248H",  # Victoria
-        "490014496N",  # Westminster Cathedral
-        "490003384SA",  # Westminster City Hall
-        "490010260SC",  # St James's Park
-        "490014495R",  # Westminster Abbey
-        "490015048A",  # Westminster
-        "490008376N",  # Horse Guards
-        "490013766F",  # Trafalgar Square (Target)
-    ]
-    # Current location matches Horse Guards (index 6 out of 7 steps)
-    ratio, label = tfl_provider.calculate_corridor_progress(
-        current_naptan="490008376N",
-        corridor_stops=corridor,
-        stop_names={"490008376N": "Horse Guards"},
-    )
-    assert 0.8 < ratio < 0.95
-    assert label == "Horse Guards"
+def test_tfl_provider_default_params_injection() -> None:
+    """Verify TfL provider attaches credentials from constructor kwargs."""
+    provider = TfLTransitProvider(app_id="my_app_id", app_key="my_app_key")
+    params = provider.get_default_params()
+    assert params["app_id"] == "my_app_id"
+    assert params["app_key"] == "my_app_key"
+
+
+def test_tfl_provider_clean_stop_name_method(tfl_provider: TfLTransitProvider) -> None:
+    """Verify clean_stop_name instance method matches module function."""
+    assert tfl_provider.clean_stop_name("Victoria Station") == "Victoria"
 
 
 def test_tfl_provider_telemetry_from_snapshot(
@@ -195,7 +187,8 @@ def test_tfl_provider_telemetry_from_snapshot(
         ],
     )
 
-    telemetry = tfl_provider.extract_telemetry_from_snapshot(
+    telemetry = extract_snapshot_telemetry(
+        provider=tfl_provider,
         route=bus_route,
         snapshot=snapshot,
     )
@@ -221,7 +214,8 @@ def test_tfl_provider_telemetry_no_hardcoded_fallbacks(
         line="999",
         boarding_stop="UNKNOWN_STOP_ID",
     )
-    telemetry = tfl_provider.extract_telemetry_from_snapshot(
+    telemetry = extract_snapshot_telemetry(
+        provider=tfl_provider,
         route=unconfigured_bus,
         snapshot=snapshot,
     )
@@ -257,7 +251,8 @@ def test_tfl_provider_tube_corridor_telemetry_extraction(
             "940GZZLUTCR",
         ],
     )
-    telemetry = tfl_provider.extract_telemetry_from_snapshot(
+    telemetry = extract_snapshot_telemetry(
+        provider=tfl_provider,
         route=tube_route,
         snapshot=snapshot,
     )

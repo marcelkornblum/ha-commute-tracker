@@ -3,6 +3,7 @@
 import asyncio
 import importlib
 import inspect
+import logging
 import pkgutil
 import time
 from abc import ABC, abstractmethod
@@ -10,12 +11,17 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
 
+import aiohttp
+
 from custom_components.commute_tracker.models import (
+    DeparturePrediction,
     LineStatus,
     RouteConfig,
     RouteTelemetry,
     TransitMode,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -109,11 +115,15 @@ class DebouncedCache:
         self._cache.clear()
 
 
+UNKNOWN_LINE_STATUS = LineStatus()
+
+
 class TransitProvider(ABC):
-    """Abstract base class for all transit provider plugins."""
+    """Abstract base class and Adaptor for all transit provider plugins."""
 
     provider_id: ClassVar[str]
     supported_modes: ClassVar[set[TransitMode]]
+    base_url: ClassVar[str] = ""
 
     def __init__(
         self,
@@ -131,16 +141,269 @@ class TransitProvider(ABC):
         self._cache = cache or DebouncedCache()
         self._kwargs = kwargs
 
-    @abstractmethod
+    def get_default_headers(self) -> dict[str, str]:
+        """Return default HTTP headers for API requests.
+
+        :return: Dictionary of headers including User-Agent and Accept.
+        """
+        return {
+            "User-Agent": "HomeAssistant-CommuteTracker/1.0",
+            "Accept": "application/json",
+        }
+
+    def get_default_params(self) -> dict[str, Any]:
+        """Return default query parameters to attach to API requests.
+
+        Inspects constructor kwargs for standard credential keys
+        (``app_id``, ``app_key``, ``api_key``, ``token``).
+
+        :return: Dictionary of query parameters.
+        """
+        params: dict[str, Any] = {}
+        for key in ("app_id", "app_key", "api_key", "token"):
+            val = self._kwargs.get(key)
+            if val is not None:
+                params[key] = val
+        return params
+
+    async def async_fetch_json(
+        self,
+        endpoint_or_url: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Fetch and decode JSON payload with session pooling and header/param hooks.
+
+        :param endpoint_or_url: Relative API path or full HTTP(S) URL.
+        :param params: Optional request query parameters.
+        :param headers: Optional request HTTP headers.
+        :return: Decoded JSON response (dict or list).
+        :raises aiohttp.ClientResponseError: If the remote server returns an HTTP error.
+        """
+        if endpoint_or_url.startswith(("http://", "https://")):
+            url = endpoint_or_url
+        else:
+            base = self.base_url.rstrip("/")
+            endpoint = endpoint_or_url.lstrip("/")
+            url = f"{base}/{endpoint}"
+
+        merged_headers = {**self.get_default_headers(), **(headers or {})}
+        merged_params = {**self.get_default_params(), **(params or {})}
+        request_params = merged_params if merged_params else None
+
+        if self._session is not None:
+            async with self._session.get(
+                url, headers=merged_headers, params=request_params
+            ) as response:
+                response.raise_for_status()
+                return await response.json()
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, headers=merged_headers, params=request_params
+            ) as response:
+                response.raise_for_status()
+                return await response.json()
+
+    async def async_cached_fetch(
+        self,
+        cache_key: str,
+        fetch_callable: Callable[[], Awaitable[T]],
+    ) -> T:
+        """Fetch with in-flight debouncing and TTL caching.
+
+        :param cache_key: Unique cache identifier.
+        :param fetch_callable: Asynchronous fetcher invoked on cache miss.
+        :return: Result from cache or fetcher.
+        """
+        return await self._cache.async_get_or_set(
+            key=cache_key, fetch_callable=fetch_callable
+        )
+
+    def clean_stop_name(self, raw_name: str) -> str:
+        """Normalise verbose station names into clean display labels.
+
+        :param raw_name: Raw station name string from transit API.
+        :return: Cleaned stop name label.
+        """
+        return raw_name.strip()
+
+    def adapt_line_status(
+        self, raw_payload: Any, mode: TransitMode = TransitMode.BUS
+    ) -> LineStatus:
+        """Adapt raw vendor status payload into normalised LineStatus.
+
+        Default implementation returns UNKNOWN_LINE_STATUS. Providers should
+        override this to map authority-specific disruption models.
+
+        :param raw_payload: Raw line status response from API.
+        :param mode: Transit mode.
+        :return: Normalised LineStatus instance.
+        """
+        return UNKNOWN_LINE_STATUS
+
+    def adapt_departures(
+        self,
+        raw_payload: Any,
+        target_stop: str,
+        line_id: str | None = None,
+    ) -> list[DeparturePrediction]:
+        """Adapt raw vendor arrival/departure payload into sorted DeparturePredictions.
+
+        :param raw_payload: Raw departures payload from API.
+        :param target_stop: Target boarding stop identifier.
+        :param line_id: Optional line identifier filter.
+        :return: Sorted list of DeparturePrediction instances.
+        """
+        return []
+
+    def adapt_journey(
+        self,
+        raw_payload: Any,
+        origin: str,
+        destination: str,
+        reference_time_iso: str | None = None,
+    ) -> list[DeparturePrediction]:
+        """Adapt raw vendor journey/itinerary payload into sorted DeparturePredictions.
+
+        :param raw_payload: Raw journey results payload from API.
+        :param origin: Origin stop identifier.
+        :param destination: Destination stop identifier.
+        :param reference_time_iso: Optional reference snapshot timestamp.
+        :return: Ordered list of DeparturePrediction instances.
+        """
+        return []
+
+    def adapt_stop_names(self, raw_payload: Any) -> dict[str, str]:
+        """Extract mapping of stop identifier to clean station name.
+
+        :param raw_payload: Raw arrivals payload from API.
+        :return: Mapping of stop ID to cleaned station name label.
+        """
+        return {}
+
+    def build_route_telemetry(
+        self,
+        route: RouteConfig,
+        departures: list[DeparturePrediction],
+        line_status: LineStatus | None = None,
+        corridor_departures: dict[str, list[DeparturePrediction]] | None = None,
+        stop_names: dict[str, str] | None = None,
+        active_vehicle_id: str | None = None,
+    ) -> RouteTelemetry:
+        """Assemble normalised RouteTelemetry domain model.
+
+        :param route: Configured RouteConfig instance.
+        :param departures: Ordered departure predictions for target boarding stop.
+        :param line_status: Operational line health status.
+        :param corridor_departures: Map of stop identifier to arrivals along corridor.
+        :param stop_names: Map of stop identifiers to friendly labels.
+        :param active_vehicle_id: Explicit lead vehicle identifier if known.
+        :return: Normalised RouteTelemetry instance.
+        """
+        lead_vid = (
+            active_vehicle_id
+            if active_vehicle_id is not None
+            else (departures[0].vehicle_id if departures else None)
+        )
+        return RouteTelemetry(
+            route_id=route.route_id,
+            line_id=route.line,
+            mode=route.mode,
+            departures=departures,
+            corridor_departures=corridor_departures or {},
+            stop_names=stop_names or {},
+            active_vehicle_id=lead_vid,
+            line_status=line_status or UNKNOWN_LINE_STATUS,
+        )
+
+    async def async_fetch_line_arrivals(self, line_id: str, mode: TransitMode) -> Any:
+        """Fetch arrival predictions across an entire line (batch mode).
+
+        Override this hook if the transit authority API supports querying all
+        active arrivals along a route in a single call (e.g. TfL Line Arrivals).
+
+        :param line_id: Transit line identifier.
+        :param mode: Transit mode.
+        :return: Raw API payload.
+        """
+        return None
+
+    async def async_fetch_stop_arrivals(
+        self,
+        stop_id: str,
+        line_id: str | None = None,
+        mode: TransitMode = TransitMode.BUS,
+    ) -> Any:
+        """Fetch arrival predictions for a specific stop/station.
+
+        Override this hook if the transit authority API is stop-centric
+        (e.g. SIRI StopMonitoring, GTFS-RT per stop, TfL StopPoint).
+
+        :param stop_id: Stop identifier or NaPTAN.
+        :param line_id: Optional line filter.
+        :param mode: Transit mode.
+        :return: Raw API payload.
+        """
+        return None
+
+    async def async_fetch_journey(
+        self, origin: str, destination: str, mode: TransitMode
+    ) -> Any:
+        """Fetch point-to-point journey/itinerary plans.
+
+        Override this hook for scheduled rail or journey planner endpoints
+        (e.g. National Rail, Deutsche Bahn Hafas).
+
+        :param origin: Departure station code.
+        :param destination: Arrival station code.
+        :param mode: Transit mode.
+        :return: Raw API payload.
+        """
+        return None
+
+    async def async_fetch_line_status(self, line_id: str, mode: TransitMode) -> Any:
+        """Fetch raw operational line status from provider API.
+
+        Override this hook if the provider exposes an endpoint for line disruptions
+        or operational status (e.g. TfL Line Status).
+
+        :param line_id: Transit line identifier.
+        :param mode: Transit mode.
+        :return: Raw API payload.
+        """
+        return None
+
     async def async_get_line_status(
         self, line_id: str, mode: TransitMode
     ) -> LineStatus:
-        """Retrieve operational line status.
+        """Retrieve operational line status with debounced caching.
+
+        Calls ``async_fetch_line_status`` and adapts via ``adapt_line_status``.
+        If fetch fails or returns None, defaults to ``UNKNOWN_LINE_STATUS``.
 
         :param line_id: Transit line identifier.
         :param mode: Transit mode of the line.
-        :return: LineStatus instance.
+        :return: Normalised LineStatus instance.
         """
+        cache_key = f"{self.provider_id}_status_{line_id}"
+
+        async def _fetch() -> LineStatus:
+            try:
+                raw = await self.async_fetch_line_status(line_id=line_id, mode=mode)
+                if raw is None:
+                    return UNKNOWN_LINE_STATUS
+                return self.adapt_line_status(raw_payload=raw, mode=mode)
+            except Exception as err:
+                _LOGGER.warning(
+                    "Failed to fetch line status for %s:%s: %s",
+                    self.provider_id,
+                    line_id,
+                    err,
+                )
+                return UNKNOWN_LINE_STATUS
+
+        return await self.async_cached_fetch(cache_key=cache_key, fetch_callable=_fetch)
 
     @abstractmethod
     async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
@@ -149,19 +412,6 @@ class TransitProvider(ABC):
         :param route: Configured RouteConfig instance.
         :return: RouteTelemetry instance.
         """
-
-    def extract_telemetry_from_snapshot(
-        self, route: RouteConfig, snapshot: dict[str, Any]
-    ) -> RouteTelemetry:
-        """Extract route telemetry from an offline snapshot dictionary.
-
-        :param route: Configured RouteConfig instance.
-        :param snapshot: Offline snapshot payload dictionary.
-        :return: Normalised RouteTelemetry instance.
-        """
-        raise NotImplementedError(
-            f"Provider {self.provider_id} does not support snapshot extraction"
-        )
 
 
 class ProviderValidationError(TypeError):
@@ -203,7 +453,6 @@ class TransitProviderRegistry:
         5. Required callable methods present:
            - async_get_line_status
            - async_get_telemetry
-           - extract_telemetry_from_snapshot
 
         :param provider_cls: Class to inspect and validate.
         :raises ProviderValidationError: If any contract requirement is violated.

@@ -10,14 +10,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from custom_components.commute_tracker.const import (
-    DEFAULT_BUS_COLOUR,
-    DEFAULT_FERRY_COLOUR,
-    DEFAULT_LINE_COLOUR,
+    DEFAULT_BUS_COLOR,
+    DEFAULT_FERRY_COLOR,
+    DEFAULT_LINE_COLOR,
     DEFAULT_LINE_ICON,
     DEFAULT_LINE_STATUS,
-    DEFAULT_TRAIN_COLOUR,
-    DEFAULT_TRAM_COLOUR,
-    DEFAULT_TUBE_COLOUR,
+    DEFAULT_TRAIN_COLOR,
+    DEFAULT_TRAM_COLOR,
+    DEFAULT_TUBE_COLOR,
     DOMAIN,
 )
 from custom_components.commute_tracker.coordinator import CommuteCoordinator
@@ -35,12 +35,12 @@ MODE_ICONS: dict[TransitMode, str] = {
     TransitMode.FERRY: "mdi:ferry",
 }
 
-MODE_COLOURS: dict[TransitMode, str] = {
-    TransitMode.BUS: DEFAULT_BUS_COLOUR,
-    TransitMode.TRAIN: DEFAULT_TRAIN_COLOUR,
-    TransitMode.TUBE: DEFAULT_TUBE_COLOUR,
-    TransitMode.TRAM: DEFAULT_TRAM_COLOUR,
-    TransitMode.FERRY: DEFAULT_FERRY_COLOUR,
+MODE_COLORS: dict[TransitMode, str] = {
+    TransitMode.BUS: DEFAULT_BUS_COLOR,
+    TransitMode.TRAIN: DEFAULT_TRAIN_COLOR,
+    TransitMode.TUBE: DEFAULT_TUBE_COLOR,
+    TransitMode.TRAM: DEFAULT_TRAM_COLOR,
+    TransitMode.FERRY: DEFAULT_FERRY_COLOR,
 }
 
 
@@ -160,10 +160,10 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
         route_color = (
             (
                 active_route_cfg.route_color
-                or MODE_COLOURS.get(active_route_cfg.mode, DEFAULT_LINE_COLOUR)
+                or MODE_COLORS.get(active_route_cfg.mode, DEFAULT_LINE_COLOR)
             )
             if active_route_cfg
-            else DEFAULT_LINE_COLOUR
+            else DEFAULT_LINE_COLOR
         )
 
         attrs: dict[str, Any] = {
@@ -199,9 +199,9 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
                 line_status.detail if line_status is not None else None
             ),
             "line_status_color": (
-                line_status.status_colour
+                line_status.status_color
                 if line_status is not None
-                else DEFAULT_LINE_COLOUR
+                else DEFAULT_LINE_COLOR
             ),
             "line_status_icon": (
                 line_status.status_icon
@@ -279,8 +279,8 @@ class CommuteChildRouteSensor(CoordinatorEntity[CommuteCoordinator], SensorEntit
         pill = child.pill_badge
         line_status = child.line_status
 
-        route_col = self.route_config.route_color or MODE_COLOURS.get(
-            self.route_config.mode, DEFAULT_LINE_COLOUR
+        route_col = self.route_config.route_color or MODE_COLORS.get(
+            self.route_config.mode, DEFAULT_LINE_COLOR
         )
         direction_val = (
             self.route_config.direction.value
@@ -327,9 +327,9 @@ class CommuteChildRouteSensor(CoordinatorEntity[CommuteCoordinator], SensorEntit
                 line_status.detail if line_status is not None else None
             ),
             "line_status_color": (
-                line_status.status_colour
+                line_status.status_color
                 if line_status is not None
-                else DEFAULT_LINE_COLOUR
+                else DEFAULT_LINE_COLOR
             ),
             "line_status_icon": (
                 line_status.status_icon

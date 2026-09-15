@@ -52,7 +52,7 @@ def _build_route_and_telemetry(
         ],
         line_status=LineStatus(
             status_label="Good Service",
-            status_colour="#00A859",
+            status_color="#00A859",
             status_icon="mdi:check-circle",
         ),
     )
