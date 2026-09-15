@@ -4,7 +4,9 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
+import aiohttp
 import pytest
 
 from custom_components.commute_tracker.corridor import filter_approaching_departures
@@ -278,3 +280,135 @@ def test_tfl_provider_tube_corridor_telemetry_extraction(
     assert dep_012.seconds_to_arrival == 573
     for dep in approaching:
         assert "Westbound" not in (dep.platform_or_bay or "")
+
+
+class MockResponse:
+    """Mock aiohttp response object for testing."""
+
+    def __init__(self, json_data: Any, status: int = 200) -> None:
+        self._json_data = json_data
+        self.status = status
+
+    async def __aenter__(self) -> "MockResponse":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
+
+    def raise_for_status(self) -> None:
+        if self.status >= 400:
+            raise aiohttp.ClientResponseError(
+                request_info=MagicMock(),
+                history=(),
+                status=self.status,
+            )
+
+    async def json(self) -> Any:
+        return self._json_data
+
+
+class MockSession:
+    """Mock aiohttp client session for route URL mapping."""
+
+    def __init__(self, routes_map: dict[str, Any]) -> None:
+        self._routes_map = routes_map
+
+    def get(self, url: str, **kwargs: Any) -> MockResponse:
+        for key, val in self._routes_map.items():
+            if key in url:
+                return MockResponse(json_data=val)
+        return MockResponse(json_data=[], status=404)
+
+
+@pytest.mark.asyncio
+async def test_tfl_provider_async_get_telemetry_bus(
+    nelson_commute_dir: Path,
+) -> None:
+    """Verify live async bus telemetry fetching, status, and corridor extraction."""
+    status_path = nelson_commute_dir / "set3_consolidated_bus" / "line_status.json"
+    status_json = json.loads(status_path.read_text(encoding="utf-8"))
+    arrivals_path = nelson_commute_dir / "set3_consolidated_bus" / "line_arrivals.json"
+    arrivals_json = json.loads(arrivals_path.read_text(encoding="utf-8"))
+
+    mock_session = MockSession(
+        routes_map={
+            "/Line/26/Status": status_json,
+            "/Line/26/Arrivals": arrivals_json,
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    route = RouteConfig(
+        route_id="bus_26",
+        mode=TransitMode.BUS,
+        line="26",
+        boarding_stop="490013766F",
+        corridor_stops=["490000248H", "490015048A"],
+    )
+
+    telemetry = await provider.async_get_telemetry(route=route)
+
+    assert telemetry.route_id == "bus_26"
+    assert telemetry.line_status is not None
+    assert telemetry.line_status.status_label == "Special Service"
+    assert len(telemetry.departures) > 0
+    assert len(telemetry.corridor_departures) == 2
+    assert "490000248H" in telemetry.corridor_departures
+    assert len(telemetry.stop_names) > 0
+
+
+@pytest.mark.asyncio
+async def test_tfl_provider_async_get_telemetry_train(
+    nelson_commute_dir: Path,
+    freezer: Any,
+) -> None:
+    """Verify live async train journey fetching and parsing."""
+    freezer.move_to("2026-09-14T13:50:00+01:00")
+    journey_path = (
+        nelson_commute_dir / "set4_consolidated_train" / "journey_results.json"
+    )
+    journey_json = json.loads(journey_path.read_text(encoding="utf-8"))
+
+    mock_session = MockSession(
+        routes_map={
+            "/Line/southeastern/Status": [],
+            "/Journey/JourneyResults": journey_json,
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    route = RouteConfig(
+        route_id="train_se",
+        mode=TransitMode.TRAIN,
+        line="southeastern",
+        boarding_stop="910GCHRX",
+        destination_stop="910GLNDNBDC",
+    )
+
+    telemetry = await provider.async_get_telemetry(route=route)
+
+    assert telemetry.route_id == "train_se"
+    assert telemetry.line_status is not None
+    assert telemetry.line_status.status_label == "Unknown"
+    assert len(telemetry.departures) > 0
+
+
+@pytest.mark.asyncio
+async def test_tfl_provider_async_get_telemetry_error_fallback() -> None:
+    """Verify provider returns safe fallback telemetry when API throws 404/500."""
+    mock_session = MockSession(routes_map={})
+    provider = TfLTransitProvider(session=mock_session)
+
+    route = RouteConfig(
+        route_id="bus_failing",
+        mode=TransitMode.BUS,
+        line="999",
+        boarding_stop="UNKNOWN_STOP",
+    )
+
+    telemetry = await provider.async_get_telemetry(route=route)
+
+    assert telemetry.route_id == "bus_failing"
+    assert len(telemetry.departures) == 0
+    assert telemetry.line_status is not None
+    assert telemetry.line_status.status_label == "Unknown"

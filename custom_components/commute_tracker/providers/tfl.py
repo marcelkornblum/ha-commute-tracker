@@ -4,6 +4,8 @@ import zoneinfo
 from datetime import datetime, timezone
 from typing import Any, ClassVar, cast
 
+import aiohttp
+
 from custom_components.commute_tracker.models import (
     DeparturePrediction,
     LineStatus,
@@ -530,6 +532,22 @@ class TfLTransitProvider(TransitProvider):
 
         raise NotImplementedError(f"Mode {route.mode} not supported by TfL provider")
 
+    async def _async_fetch_json(self, url: str) -> Any:
+        """Fetch JSON payload from URL using configured or ephemeral session."""
+        headers = {
+            "User-Agent": "HomeAssistant-CommuteTracker/1.0",
+            "Accept": "application/json",
+        }
+        if self._session is not None:
+            async with self._session.get(url, headers=headers) as response:
+                response.raise_for_status()
+                return await response.json()
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as response:
+                response.raise_for_status()
+                return await response.json()
+
     async def async_get_line_status(
         self, line_id: str, mode: TransitMode
     ) -> LineStatus:
@@ -542,59 +560,187 @@ class TfLTransitProvider(TransitProvider):
         cache_key = f"tfl_status_{line_id}"
 
         async def _fetch() -> LineStatus:
-            if not self._session:
+            try:
+                url = f"{TFL_API_BASE_URL}/Line/{line_id}/Status"
+                data = await self._async_fetch_json(url)
+                return self.parse_line_status(payload=data)
+            except Exception:
                 colour, icon = SEVERITY_MAPPINGS["Unknown"]
                 return LineStatus(
                     status_label="Unknown",
                     status_colour=colour,
                     status_icon=icon,
                 )
-            url = f"{TFL_API_BASE_URL}/Line/{line_id}/Status"
-            async with self._session.get(url) as response:
-                response.raise_for_status()
-                data = await response.json()
-                return self.parse_line_status(payload=data)
 
         return await self._cache.async_get_or_set(cache_key, _fetch)
 
-    async def async_get_telemetry(
-        self, route: RouteConfig, snapshot: dict[str, Any] | None = None
-    ) -> RouteTelemetry:
-        """Fetch and return route telemetry via TfL API or snapshot.
+    async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
+        """Fetch and return route telemetry via TfL API.
 
         :param route: RouteConfig instance.
-        :param snapshot: Optional offline snapshot.
         :return: RouteTelemetry instance.
         """
-        if snapshot is not None:
-            return self.extract_telemetry_from_snapshot(route=route, snapshot=snapshot)
-
         line_status = await self.async_get_line_status(
             line_id=route.line, mode=route.mode
         )
-        cache_key = f"tfl_arrivals_{route.line}"
 
-        async def _fetch_arrivals() -> list[dict[str, Any]]:
-            if not self._session:
-                return []
-            url = f"{TFL_API_BASE_URL}/Line/{route.line}/Arrivals"
-            async with self._session.get(url) as response:
-                response.raise_for_status()
-                return await response.json()  # type: ignore[no-any-return]
+        if route.mode == TransitMode.BUS:
+            cache_key = f"tfl_arrivals_bus_{route.line}"
 
-        raw_arrivals = await self._cache.async_get_or_set(cache_key, _fetch_arrivals)
-        departures = self.parse_bus_arrivals(
-            payload=raw_arrivals,
-            target_stop=route.boarding_stop or "",
-        )
+            async def _fetch_bus_arrivals() -> list[dict[str, Any]]:
+                try:
+                    url = f"{TFL_API_BASE_URL}/Line/{route.line}/Arrivals"
+                    data = await self._async_fetch_json(url)
+                    return data if isinstance(data, list) else []
+                except Exception:
+                    return []
 
-        return RouteTelemetry(
-            route_id=route.route_id,
-            line_id=route.line,
-            mode=route.mode,
-            departures=departures,
-            active_vehicle_id=departures[0].vehicle_id if departures else None,
-            corridor_progress_ratio=0.0,
-            current_stop_location="",
-            line_status=line_status,
-        )
+            raw_arrivals = await self._cache.async_get_or_set(
+                cache_key, _fetch_bus_arrivals
+            )
+            target_stop = route.boarding_stop or ""
+            departures = self.parse_bus_arrivals(
+                payload=raw_arrivals,
+                target_stop=target_stop,
+                line_id=route.line,
+            )
+
+            corridor_departures: dict[str, list[DeparturePrediction]] = {}
+            for sid in route.corridor_stops:
+                corridor_departures[sid] = self.parse_bus_arrivals(
+                    payload=raw_arrivals,
+                    target_stop=sid,
+                    line_id=route.line,
+                )
+
+            stop_names: dict[str, str] = {}
+            for item in raw_arrivals:
+                naptan = item.get("naptanId")
+                st_name = item.get("stationName")
+                if naptan and st_name and naptan not in stop_names:
+                    stop_names[naptan] = clean_stop_name(st_name)
+
+            if route.boarding_stop and route.boarding_stop not in stop_names:
+                stop_names[route.boarding_stop] = clean_stop_name(route.boarding_stop)
+            for sid in route.corridor_stops:
+                if sid not in stop_names:
+                    stop_names[sid] = clean_stop_name(sid)
+
+            active_vid = departures[0].vehicle_id if departures else None
+
+            return RouteTelemetry(
+                route_id=route.route_id,
+                line_id=route.line,
+                mode=route.mode,
+                departures=departures,
+                active_vehicle_id=active_vid,
+                corridor_progress_ratio=0.0,
+                current_stop_location="",
+                line_status=line_status,
+                corridor_departures=corridor_departures,
+                stop_names=stop_names,
+            )
+
+        if route.mode == TransitMode.TRAIN:
+            from_stop = route.boarding_stop or ""
+            to_stop = route.destination_stop or ""
+            cache_key = f"tfl_journey_{from_stop}_{to_stop}"
+
+            async def _fetch_journey() -> dict[str, Any]:
+                try:
+                    url = (
+                        f"{TFL_API_BASE_URL}/Journey/JourneyResults/{from_stop}"
+                        f"/to/{to_stop}?mode=national-rail&journeyPreference=LeastInterchange"
+                    )
+                    data = await self._async_fetch_json(url)
+                    return data if isinstance(data, dict) else {}
+                except Exception:
+                    return {}
+
+            journey_data = await self._cache.async_get_or_set(cache_key, _fetch_journey)
+            departures = self.parse_rail_journey_results(
+                payload=journey_data,
+                from_station=from_stop,
+                to_station=to_stop,
+            )
+            current_loc = departures[0].location if departures else ""
+
+            stop_names = {}
+            if route.boarding_stop:
+                stop_names[route.boarding_stop] = clean_stop_name(route.boarding_stop)
+            if route.destination_stop:
+                stop_names[route.destination_stop] = clean_stop_name(
+                    route.destination_stop
+                )
+
+            return RouteTelemetry(
+                route_id=route.route_id,
+                line_id=route.line,
+                mode=route.mode,
+                departures=departures,
+                active_vehicle_id=None,
+                corridor_progress_ratio=0.0,
+                current_stop_location=current_loc,
+                line_status=line_status,
+                corridor_departures={},
+                stop_names=stop_names,
+            )
+
+        if route.mode == TransitMode.TUBE:
+            cache_key = f"tfl_arrivals_tube_{route.line}"
+
+            async def _fetch_tube_arrivals() -> list[dict[str, Any]]:
+                try:
+                    url = f"{TFL_API_BASE_URL}/Line/{route.line}/Arrivals"
+                    data = await self._async_fetch_json(url)
+                    return data if isinstance(data, list) else []
+                except Exception:
+                    return []
+
+            raw_arrivals = await self._cache.async_get_or_set(
+                cache_key, _fetch_tube_arrivals
+            )
+            target_stop = route.boarding_stop or ""
+            departures = self.parse_tube_arrivals(
+                payload=raw_arrivals,
+                target_stop=target_stop,
+                line_id=route.line,
+            )
+
+            corridor_departures = {}
+            for sid in route.corridor_stops:
+                corridor_departures[sid] = self.parse_tube_arrivals(
+                    payload=raw_arrivals,
+                    target_stop=sid,
+                    line_id=route.line,
+                )
+
+            stop_names = {}
+            for item in raw_arrivals:
+                naptan = item.get("naptanId")
+                st_name = item.get("stationName")
+                if naptan and st_name and naptan not in stop_names:
+                    stop_names[naptan] = clean_stop_name(st_name)
+
+            if route.boarding_stop and route.boarding_stop not in stop_names:
+                stop_names[route.boarding_stop] = clean_stop_name(route.boarding_stop)
+            for sid in route.corridor_stops:
+                if sid not in stop_names:
+                    stop_names[sid] = clean_stop_name(sid)
+
+            active_vid = departures[0].vehicle_id if departures else None
+
+            return RouteTelemetry(
+                route_id=route.route_id,
+                line_id=route.line,
+                mode=route.mode,
+                departures=departures,
+                active_vehicle_id=active_vid,
+                corridor_progress_ratio=0.0,
+                current_stop_location="",
+                line_status=line_status,
+                corridor_departures=corridor_departures,
+                stop_names=stop_names,
+            )
+
+        raise NotImplementedError(f"Mode {route.mode} not supported by TfL provider")

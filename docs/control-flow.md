@@ -10,18 +10,22 @@ This document provides a detailed technical trace of how transit telemetry moves
 sequenceDiagram
     autonumber
     participant HA as Home Assistant Coordinator
+    participant Eng as CommuteEngine
     participant Reg as TransitProviderRegistry
     participant Prov as TransitProvider (e.g. TfL)
-    participant Eng as CommuteEngine
     participant Corr as corridor.py
     participant Time as timeliness.py
 
-    HA->>Reg: get_provider(route.provider)
-    Reg-->>HA: provider_instance
-    HA->>Prov: async_get_telemetry(route)
-    Prov-->>HA: RouteTelemetry (departures, corridor_arrivals, line_status)
+    HA->>Eng: async_evaluate_commute(reference_time)
 
-    HA->>Eng: evaluate_commute(telemetries, reference_time)
+    par For each Route in Commute
+        Eng->>Reg: get_provider(route.provider)
+        Reg-->>Eng: provider_instance
+        Eng->>Prov: async_get_telemetry(route)
+        Prov-->>Eng: RouteTelemetry (departures, corridor_arrivals, line_status)
+    end
+
+    Note over Eng: Calls evaluate_commute(telemetries, reference_time)
 
     loop For each Route in Commute
         Eng->>Time: resolve_route_thresholds(route_cfg, helpers)
@@ -57,20 +61,20 @@ sequenceDiagram
 
 ---
 
-## 2. Understanding `CommuteEngine.evaluate_commute`
+## 2. Understanding `CommuteEngine.async_evaluate_commute`
 
 ### Context and Purpose
-[`CommuteEngine.evaluate_commute`](../custom_components/commute_tracker/engine.py) is the pure, deterministic heart of the integration:
-- **Input**: A dictionary of pre-fetched [`RouteTelemetry`](../custom_components/commute_tracker/models.py) instances mapped by `route_id`, and an optional `reference_time`.
+[`CommuteEngine.async_evaluate_commute`](../custom_components/commute_tracker/engine.py) is the asynchronous entry point coordinating the integration:
+1. Queries the registered transit provider for each route in parallel via `asyncio.gather`.
+2. Isolates provider network errors so failure on one route does not compromise the arbitration of other alternatives.
+3. Hands assembled [`RouteTelemetry`](../custom_components/commute_tracker/models.py) objects into `evaluate_commute(...)` for deterministic calculation.
+
+### Pure Decision Engine (`evaluate_commute`)
+[`CommuteEngine.evaluate_commute`](../custom_components/commute_tracker/engine.py) performs all synchronous domain math:
+- **Input**: A dictionary of pre-fetched [`RouteTelemetry`](../custom_components/commute_tracker/models.py) instances mapped by `route_id`, an optional `reference_time`, and optional helper overrides.
 - **Output**: A comprehensive [`CommuteState`](../custom_components/commute_tracker/models.py) containing the arbitrated master state and individual child states.
 
-### Why `process_snapshot` Delegates to `evaluate_commute`
-In testing, 45-minute continuous transit feeds are stored as static JSON fixtures. [`CommuteEngine.process_snapshot`](../custom_components/commute_tracker/engine.py) acts as an adapter:
-1. Looks up the configured provider for each route via [`TransitProviderRegistry`](../custom_components/commute_tracker/providers/base.py).
-2. Calls `provider.extract_telemetry_from_snapshot(route, snapshot)` to construct standard `RouteTelemetry` objects.
-3. Passes those normalised objects directly into `evaluate_commute`.
-
-In live operation, Home Assistant's `DataUpdateCoordinator` performs async network queries via `provider.async_get_telemetry(route)`, and passes the resulting telemetry mapping directly into `evaluate_commute`. This guarantees that **production Home Assistant polling and offline test replays execute the exact same decision logic**.
+This separation guarantees that whether telemetries originate from live async provider calls or offline mock fixtures in unit tests, the exact same pure arbitration logic executes.
 
 ---
 

@@ -4,6 +4,8 @@ Ingests multi-modal transit payloads, evaluates corridor vehicle progress,
 calculates doorstep leave thresholds, and arbitrates Master Rollup state.
 """
 
+import asyncio
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -31,6 +33,8 @@ from custom_components.commute_tracker.timeliness import (
     calculate_urgency_stage,
     resolve_route_thresholds,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -92,11 +96,15 @@ class CommuteEngine:
         self,
         config: CommuteConfig | dict[str, Any],
         registry: TransitProviderRegistry | None = None,
+        session: Any = None,
+        target_arrival_time: str | None = None,
     ) -> None:
         """Initialise commute engine with route geometry and walking thresholds.
 
         :param config: Strongly-typed CommuteConfig or configuration dictionary.
         :param registry: Optional TransitProviderRegistry instance.
+        :param session: Optional shared HTTP client session.
+        :param target_arrival_time: Optional fallback target arrival time.
         """
         if isinstance(config, CommuteConfig):
             self._config = config
@@ -104,12 +112,19 @@ class CommuteEngine:
             self._config = CommuteConfig.from_dict(data=config)
 
         self._commute_id: str = self._config.commute_id
-        self._target_arrival_time: str | None = self._config.target_arrival_time
+        self._target_arrival_time: str | None = (
+            target_arrival_time or self._config.target_arrival_time
+        )
 
         if registry is not None:
             self._registry = registry
+            if (
+                session is not None
+                and getattr(self._registry, "_session", None) is None
+            ):
+                self._registry._session = session
         else:
-            self._registry = TransitProviderRegistry()
+            self._registry = TransitProviderRegistry(session=session)
             self._registry.discover_providers()
 
         self._routes: dict[str, RouteConfig] = {
@@ -258,40 +273,46 @@ class CommuteEngine:
             child_routes=child_states,
         )
 
-    def process_snapshot(
+    async def async_evaluate_commute(
         self,
-        snapshot: dict[str, Any],
         reference_time: datetime | None = None,
         helper_overrides: dict[str, Any] | None = None,
     ) -> CommuteState:
-        """Evaluate raw transit snapshot payload and produce unified commute state.
+        """Fetch live telemetries from providers and evaluate commute state.
 
-        :param snapshot: Multi-modal snapshot payload dictionary.
-        :param reference_time: Optional explicit reference datetime.
+        :param reference_time: Optional explicit reference datetime (defaults to now).
         :param helper_overrides: Optional runtime threshold overrides from HA helpers.
         :return: Evaluated CommuteState object.
         """
-        if reference_time is not None:
-            ref_dt = reference_time
-        else:
-            ref_timestamp: str = snapshot.get("timestamp", "")
-            ref_dt = (
-                datetime.fromisoformat(ref_timestamp)
-                if ref_timestamp
-                else datetime.now()
-            )
 
-        telemetries: dict[str, RouteTelemetry] = {}
-        for route_id, route_cfg in self._routes.items():
-            provider = self._registry.get_provider(provider_id=route_cfg.provider)
-            telemetries[route_id] = provider.extract_telemetry_from_snapshot(
-                route=route_cfg,
-                snapshot=snapshot,
-            )
+        async def _fetch_telemetry(
+            route_cfg: RouteConfig,
+        ) -> tuple[str, RouteTelemetry]:
+            try:
+                provider = self._registry.get_provider(provider_id=route_cfg.provider)
+                telemetry = await provider.async_get_telemetry(route=route_cfg)
+                return route_cfg.route_id, telemetry
+            except Exception as err:
+                _LOGGER.error(
+                    "Error fetching telemetry for route %s from provider %s: %s",
+                    route_cfg.route_id,
+                    route_cfg.provider,
+                    err,
+                )
+                return route_cfg.route_id, RouteTelemetry(
+                    route_id=route_cfg.route_id,
+                    line_id=route_cfg.line,
+                    mode=route_cfg.mode,
+                )
+
+        results = await asyncio.gather(
+            *(_fetch_telemetry(route_cfg=r) for r in self._routes.values())
+        )
+        telemetries = dict(results)
 
         return self.evaluate_commute(
             telemetries=telemetries,
-            reference_time=ref_dt,
+            reference_time=reference_time,
             helper_overrides=helper_overrides,
         )
 

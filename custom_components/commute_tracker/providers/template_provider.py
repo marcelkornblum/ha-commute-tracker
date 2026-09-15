@@ -72,17 +72,12 @@ class TemplateTransitProvider(TransitProvider):
             ),
         )
 
-    async def async_get_telemetry(
-        self, route: RouteConfig, snapshot: dict[str, Any] | None = None
-    ) -> RouteTelemetry:
+    async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
         """Fetch and normalise route predictions and vehicle progression.
 
         :param route: The configured route settings.
-        :param snapshot: Optional offline snapshot dictionary for testing.
         :return: Normalised RouteTelemetry instance.
         """
-        if snapshot is not None:
-            return self.extract_telemetry_from_snapshot(route=route, snapshot=snapshot)
 
         sample_departure = DeparturePrediction(
             vehicle_id="TEMPLATE_01",

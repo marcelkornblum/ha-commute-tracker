@@ -26,8 +26,8 @@ classDiagram
         +provider_id: ClassVar[str]
         +supported_modes: ClassVar[set[TransitMode]]
         +async_get_line_status(line_id: str, mode: TransitMode)* LineStatus
-        +async_get_telemetry(route: RouteConfig, snapshot: dict?)* RouteTelemetry
-        +extract_telemetry_from_snapshot(route: RouteConfig, snapshot: dict)* RouteTelemetry
+        +async_get_telemetry(route: RouteConfig)* RouteTelemetry
+        +extract_telemetry_from_snapshot(route: RouteConfig, snapshot: dict) RouteTelemetry
     }
 
     class DebouncedCache {
@@ -128,8 +128,8 @@ The validator verifies:
 3. **Supported Modes**: Must declare a non-empty `supported_modes` set consisting entirely of [`TransitMode`](../custom_components/commute_tracker/models.py) enum instances.
 4. **Required Methods**: Must implement all required callable methods:
    - `async_get_line_status(line_id: str, mode: TransitMode) -> LineStatus`
-   - `async_get_telemetry(route: RouteConfig, snapshot: dict | None) -> RouteTelemetry`
-   - `extract_telemetry_from_snapshot(route: RouteConfig, snapshot: dict) -> RouteTelemetry`
+   - `async_get_telemetry(route: RouteConfig) -> RouteTelemetry`
+   *(Note: `extract_telemetry_from_snapshot(route: RouteConfig, snapshot: dict)` is available as a concrete helper on `TransitProvider` for offline test fixtures).*
 
 ### Dynamic Discovery
 When `TransitProviderRegistry.discover_providers()` is called, it scans the `custom_components/commute_tracker/providers/` directory, imports every module, validates all discovered `TransitProvider` subclasses, and registers those that pass validation.
@@ -226,17 +226,12 @@ class MtaTransitProvider(TransitProvider):
             line_status=LineStatus(status_label="Good Service"),
         )
 
-    async def async_get_telemetry(
-        self, route: RouteConfig, snapshot: dict[str, Any] | None = None
-    ) -> RouteTelemetry:
-        """Fetch live telemetry from API or offline snapshot."""
-        if snapshot is not None:
-            return self.extract_telemetry_from_snapshot(route=route, snapshot=snapshot)
-
-        # In production, query the live API via self._session
+    async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
+        """Fetch live telemetry from API."""
         line_status = await self.async_get_line_status(
             line_id=route.line, mode=route.mode
         )
+        # In production, query the live API via self._session
         # Fetch and parse departures...
         return RouteTelemetry(
             route_id=route.route_id,
@@ -262,3 +257,19 @@ Run the standard test runners:
 ```
 
 Once placed in the `providers/` directory, `TransitProviderRegistry.discover_providers()` will automatically discover and load the provider without requiring edits to `engine.py` or the registry itself.
+
+---
+
+## 5. TfL Transit Provider Reference
+
+The built-in [`TfLTransitProvider`](../custom_components/commute_tracker/providers/tfl.py) targets the official Transport for London Unified API:
+
+| Mode | Endpoint | Description |
+|---|---|---|
+| **All Modes** | `GET https://api.tfl.gov.uk/Line/{line_id}/Status` | Operational disruptions and line status severity. |
+| **Bus** | `GET https://api.tfl.gov.uk/Line/{line}/Arrivals` | Live vehicle arrival countdowns and station metadata across the line. |
+| **Train** | `GET https://api.tfl.gov.uk/Journey/JourneyResults/{from}/to/{to}?mode=national-rail&journeyPreference=LeastInterchange` | Scheduled and real-time National Rail journey departures. |
+| **Tube** | `GET https://api.tfl.gov.uk/Line/{line}/Arrivals` | Underground platform arrival predictions and vehicle locations. |
+
+Requests utilise debounced in-memory caching via `DebouncedCache` with a 30-second TTL to minimise redundant network calls during high-frequency evaluation cycles.
+

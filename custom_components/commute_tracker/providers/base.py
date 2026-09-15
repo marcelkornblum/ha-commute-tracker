@@ -143,13 +143,10 @@ class TransitProvider(ABC):
         """
 
     @abstractmethod
-    async def async_get_telemetry(
-        self, route: RouteConfig, snapshot: dict[str, Any] | None = None
-    ) -> RouteTelemetry:
+    async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
         """Retrieve live telemetry and predictions for a configured route.
 
         :param route: Configured RouteConfig instance.
-        :param snapshot: Optional offline snapshot payload for deterministic evaluation.
         :return: RouteTelemetry instance.
         """
 
@@ -174,14 +171,20 @@ class ProviderValidationError(TypeError):
 class TransitProviderRegistry:
     """Dynamic discovery and lifecycle registry for transit providers."""
 
-    def __init__(self, cache: DebouncedCache | None = None) -> None:
-        """Initialise registry with shared caching layer.
+    def __init__(
+        self,
+        cache: DebouncedCache | None = None,
+        session: Any = None,
+    ) -> None:
+        """Initialise registry with shared caching layer and optional HTTP session.
 
         :param cache: Optional shared DebouncedCache instance.
+        :param session: Optional shared HTTP client session.
         """
         self._providers: dict[str, type[TransitProvider]] = {}
         self._instances: dict[str, TransitProvider] = {}
         self._cache = cache or DebouncedCache()
+        self._session = session
 
     @property
     def registered_provider_ids(self) -> set[str]:
@@ -257,7 +260,6 @@ class TransitProviderRegistry:
         for method_name in (
             "async_get_line_status",
             "async_get_telemetry",
-            "extract_telemetry_from_snapshot",
         ):
             method = getattr(provider_cls, method_name, None)
             if not callable(method):
@@ -303,7 +305,12 @@ class TransitProviderRegistry:
 
         if provider_id not in self._instances:
             provider_cls = self._providers[provider_id]
-            self._instances[provider_id] = provider_cls(cache=self._cache, **kwargs)
+            init_kwargs = dict(kwargs)
+            if "session" not in init_kwargs and self._session is not None:
+                init_kwargs["session"] = self._session
+            self._instances[provider_id] = provider_cls(
+                cache=self._cache, **init_kwargs
+            )
 
         return self._instances[provider_id]
 
