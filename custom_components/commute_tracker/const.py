@@ -55,5 +55,15 @@ CONF_APP_ID = "app_id"
 CONF_APP_KEY = "app_key"
 CONF_API_KEY = "api_key"
 
+CONF_UNIQUE_ID = "unique_id"
+CONF_CORRIDOR_COLOR = "corridor_color"
+CONF_ROUTE_NAME = "name"
+
+DEFAULT_BUS_COLOUR = "#DC241F"
+DEFAULT_TRAIN_COLOUR = "#8CC63E"
+DEFAULT_TUBE_COLOUR = "#0019A8"
+DEFAULT_TRAM_COLOUR = "#00BD19"
+DEFAULT_FERRY_COLOUR = "#00A0E2"
+
 URL_BASE = "/commute_tracker"
 CARD_FILENAME = "commute-tracker-card.js"

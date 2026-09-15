@@ -93,8 +93,11 @@ class RouteConfig:
     alighting_walk_seconds: int | None = None
     target_arrival_time: str | None = None
     corridor_stops: list[str] = field(default_factory=list)
+    name: str | None = None
+    corridor_color: str | None = None
 
     @property
+
     def total_buffer_seconds(self) -> int:
         """Calculate combined walking and preparation buffer threshold."""
         return (self.walk_seconds or 0) + (self.prep_seconds or 0)
@@ -184,6 +187,8 @@ class CommuteConfig:
                     alighting_walk_seconds=r.get("alighting_walk_seconds"),
                     target_arrival_time=r.get("target_arrival_time"),
                     corridor_stops=list(r.get("corridor_stops", [])),
+                    name=r.get("name"),
+                    corridor_color=r.get("corridor_color"),
                 )
             )
 

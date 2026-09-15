@@ -120,7 +120,7 @@ class CommuteCoordinator(DataUpdateCoordinator[CommuteState]):
         if is_now_active:
             self._is_active = True
             self.update_interval = timedelta(seconds=self.poll_interval)
-            await self.async_request_refresh()
+            await self.async_refresh()
             return
 
         self._is_active = False
@@ -139,7 +139,10 @@ class CommuteCoordinator(DataUpdateCoordinator[CommuteState]):
             raise UpdateFailed(f"Transit update failed: {err}") from err
 
     def async_unload(self) -> None:
-        """Unsubscribe from external state change listeners."""
+        """Unsubscribe from state change listeners and cancel polling timers."""
+        self.update_interval = None
+
+        self._unschedule_refresh()
         if self._unsub_active_listener is not None:
             self._unsub_active_listener()
             self._unsub_active_listener = None

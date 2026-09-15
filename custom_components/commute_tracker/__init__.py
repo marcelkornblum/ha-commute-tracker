@@ -9,8 +9,10 @@ from homeassistant.components.frontend import (
     add_extra_js_url,
 )
 from homeassistant.components.http.server import StaticPathConfig
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.discovery import async_load_platform
 from homeassistant.helpers.typing import ConfigType
 
 from custom_components.commute_tracker.config_validation import (
@@ -74,6 +76,7 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Commute Tracker component."""
     hass.data.setdefault(DOMAIN, {})
+    hass.config.components.add(DOMAIN)
     await async_register_frontend(hass=hass)
 
     if DOMAIN not in config:
@@ -109,6 +112,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         coordinators[commute_cfg.commute_id] = coordinator
 
     hass.data[DOMAIN]["coordinators"] = coordinators
+    await async_load_platform(
+        hass,
+        Platform.SENSOR,
+        DOMAIN,
+        {},
+        config,
+    )
     return True
 
 

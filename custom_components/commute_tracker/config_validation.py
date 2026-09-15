@@ -16,6 +16,7 @@ from custom_components.commute_tracker.const import (
     CONF_COMMUTE_ID,
     CONF_COMMUTE_TITLE,
     CONF_COMMUTES,
+    CONF_CORRIDOR_COLOR,
     CONF_CORRIDOR_STOPS,
     CONF_DEFAULT_GRACE_FRACTION,
     CONF_DEFAULT_GRACE_SECONDS,
@@ -35,10 +36,12 @@ from custom_components.commute_tracker.const import (
     CONF_ROLLUP_STRATEGY,
     CONF_ROUTE_ID,
     CONF_ROUTE_LATE_BUFFER_SECONDS,
+    CONF_ROUTE_NAME,
     CONF_ROUTES,
     CONF_TARGET_ARRIVAL,
     CONF_TARGET_ARRIVAL_TIME,
     CONF_TARGET_STOP,
+    CONF_UNIQUE_ID,
     CONF_WALK_SECONDS,
     DEFAULT_POLL_INTERVAL_SECONDS,
     DEFAULT_PROVIDER,
@@ -52,6 +55,11 @@ from custom_components.commute_tracker.models import RollupStrategy, TransitMode
 def _normalise_route(route: dict[str, Any]) -> dict[str, Any]:
     """Normalise route parameters, deriving route ID and stop aliases."""
     data = dict(route)
+    if CONF_UNIQUE_ID in data and (
+        CONF_ROUTE_ID not in data or not data[CONF_ROUTE_ID]
+    ):
+        data[CONF_ROUTE_ID] = data[CONF_UNIQUE_ID]
+
     if CONF_ROUTE_ID not in data or not data[CONF_ROUTE_ID]:
         line_val = str(data.get(CONF_LINE, "route"))
         data[CONF_ROUTE_ID] = slugify(line_val)
@@ -68,6 +76,11 @@ def _normalise_route(route: dict[str, Any]) -> dict[str, Any]:
 def _normalise_commute(commute: dict[str, Any]) -> dict[str, Any]:
     """Normalise commute parameters, applying defaults and resolving aliases."""
     data = dict(commute)
+    if CONF_UNIQUE_ID in data and (
+        CONF_COMMUTE_ID not in data or not data[CONF_COMMUTE_ID]
+    ):
+        data[CONF_COMMUTE_ID] = data[CONF_UNIQUE_ID]
+
     if CONF_COMMUTE_ID not in data or not data[CONF_COMMUTE_ID]:
         title = data.get(CONF_COMMUTE_TITLE, "commute")
         data[CONF_COMMUTE_ID] = slugify(str(title))
@@ -111,6 +124,9 @@ ROUTE_SCHEMA = vol.All(
     vol.Schema(
         {
             vol.Optional(CONF_ROUTE_ID): cv.string,
+            vol.Optional(CONF_UNIQUE_ID): cv.string,
+            vol.Optional(CONF_ROUTE_NAME): cv.string,
+            vol.Optional(CONF_CORRIDOR_COLOR): cv.string,
             vol.Required(CONF_MODE): vol.In([mode.value for mode in TransitMode]),
             vol.Required(CONF_LINE): cv.string,
             vol.Optional(CONF_PROVIDER, default=DEFAULT_PROVIDER): cv.string,
@@ -137,6 +153,7 @@ COMMUTE_SCHEMA = vol.All(
     vol.Schema(
         {
             vol.Optional(CONF_COMMUTE_ID): cv.string,
+            vol.Optional(CONF_UNIQUE_ID): cv.string,
             vol.Required(CONF_COMMUTE_TITLE): cv.string,
             vol.Required(CONF_ACTIVE_SENSOR): cv.entity_id,
             vol.Optional(CONF_TARGET_ARRIVAL_TIME): cv.string,
