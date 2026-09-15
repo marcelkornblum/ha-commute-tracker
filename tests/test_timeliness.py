@@ -23,7 +23,7 @@ def test_cascading_resolution_hierarchy() -> None:
     res_default = resolve_route_thresholds(route_config={})
     assert res_default.walk_seconds == 240
     assert res_default.prep_seconds == 120
-    assert res_default.grace_seconds == 180
+    assert res_default.grace_seconds == 60
     assert res_default.total_buffer_seconds == 360
     assert res_default.target_arrival_time is None
 
@@ -80,14 +80,6 @@ def test_cascading_resolution_with_route_config() -> None:
     assert res_helper.prep_seconds == 60
 
 
-def test_cascading_resolution_minute_conversion() -> None:
-    """Verify helpers or configs specified in minutes are converted to seconds."""
-    config = {"walk_minutes": 5, "prep_minutes": 2.5}
-    resolved = resolve_route_thresholds(route_config=config)
-    assert resolved.walk_seconds == 300
-    assert resolved.prep_seconds == 150
-
-
 def test_cascading_resolution_route_config_fallback_defaults() -> None:
     """Verify RouteConfig with None thresholds cascades to global defaults."""
     route_cfg = RouteConfig(
@@ -98,7 +90,7 @@ def test_cascading_resolution_route_config_fallback_defaults() -> None:
     resolved = resolve_route_thresholds(route_config=route_cfg)
     assert resolved.walk_seconds == 240
     assert resolved.prep_seconds == 120
-    assert resolved.grace_seconds == 180
+    assert resolved.grace_seconds == 60
     assert resolved.total_buffer_seconds == 360
 
 
@@ -113,12 +105,12 @@ def test_commute_config_from_dict_cascading_fallbacks() -> None:
                 "line": "26",
             },
             {
-                "id": "bus_minutes",
+                "id": "bus_seconds",
                 "mode": "bus",
                 "line": "73",
-                "walk_minutes": 6,
-                "prep_minutes": 3,
-                "grace_minutes": 2,
+                "walk_seconds": 360,
+                "prep_seconds": 180,
+                "grace_seconds": 120,
             },
         ],
     }
@@ -127,13 +119,13 @@ def test_commute_config_from_dict_cascading_fallbacks() -> None:
     resolved_defaults = resolve_route_thresholds(route_config=route_defaults)
     assert resolved_defaults.walk_seconds == 240
     assert resolved_defaults.prep_seconds == 120
-    assert resolved_defaults.grace_seconds == 180
+    assert resolved_defaults.grace_seconds == 60
 
-    route_minutes = commute_cfg.routes[1]
-    resolved_minutes = resolve_route_thresholds(route_config=route_minutes)
-    assert resolved_minutes.walk_seconds == 360
-    assert resolved_minutes.prep_seconds == 180
-    assert resolved_minutes.grace_seconds == 120
+    route_custom = commute_cfg.routes[1]
+    resolved_custom = resolve_route_thresholds(route_config=route_custom)
+    assert resolved_custom.walk_seconds == 360
+    assert resolved_custom.prep_seconds == 180
+    assert resolved_custom.grace_seconds == 120
 
 
 def test_leave_countdown_and_reachability() -> None:
@@ -286,3 +278,169 @@ def test_calculate_target_slack_and_timeliness() -> None:
     assert slack_none is None
     assert will_arrive_none is True
     assert timeliness == "delayed"
+
+
+def test_grace_fraction_and_hierarchical_resolution() -> None:
+    """Verify route-level and commute-level grace fraction cascading resolution."""
+    # Route-level fraction
+    route_frac = RouteConfig(
+        route_id="bus_fraction",
+        mode=TransitMode.BUS,
+        line="26",
+        walk_seconds=240,
+        grace_fraction=0.25,
+    )
+    res_route_frac = resolve_route_thresholds(route_config=route_frac)
+    assert res_route_frac.walk_seconds == 240
+    assert res_route_frac.grace_seconds == 60  # 240 * 0.25
+
+    # Commute-level default fraction
+    route_plain = RouteConfig(
+        route_id="train_plain",
+        mode=TransitMode.TRAIN,
+        line="southeastern",
+        walk_seconds=600,
+    )
+    res_commute_frac = resolve_route_thresholds(
+        route_config=route_plain,
+        default_grace_fraction=0.2,
+    )
+    assert res_commute_frac.walk_seconds == 600
+    assert res_commute_frac.grace_seconds == 120  # 600 * 0.2
+
+    # Route-level override takes precedence over commute default
+    res_override = resolve_route_thresholds(
+        route_config=route_frac,
+        default_grace_fraction=0.5,
+    )
+    assert res_override.grace_seconds == 60  # route 0.25 overrides commute 0.5
+
+    # Helper override takes precedence over route configuration
+    res_helper = resolve_route_thresholds(
+        route_config=route_frac,
+        helper_overrides={"grace_fraction": 0.1},
+    )
+    assert res_helper.grace_seconds == 24  # 240 * 0.1
+
+    # Safety: grace cannot exceed walk duration
+    route_excessive = RouteConfig(
+        route_id="tube_excessive",
+        mode=TransitMode.TUBE,
+        line="central",
+        walk_seconds=90,
+        grace_seconds=180,
+    )
+    res_excessive = resolve_route_thresholds(route_config=route_excessive)
+    assert res_excessive.grace_seconds == 90  # capped at walk_seconds
+
+
+def test_commute_config_default_grace_parsing() -> None:
+    """Verify CommuteConfig.from_dict parses top-level and route-level grace."""
+    raw = {
+        "commute_id": "multi_grace",
+        "default_grace_fraction": 0.25,
+        "routes": [
+            {
+                "id": "r1",
+                "mode": "bus",
+                "line": "26",
+                "walk_seconds": 240,
+            },
+            {
+                "id": "r2",
+                "mode": "train",
+                "line": "southeastern",
+                "walk_seconds": 300,
+                "grace_fraction": 0.1,
+            },
+            {
+                "id": "r3",
+                "mode": "tube",
+                "line": "central",
+                "walk_seconds": 400,
+                "grace_seconds": 45,
+            },
+        ],
+    }
+    cfg = CommuteConfig.from_dict(raw)
+    assert cfg.default_grace_fraction == 0.25
+    assert cfg.routes[0].grace_fraction is None
+    assert cfg.routes[1].grace_fraction == 0.1
+    assert cfg.routes[2].grace_seconds == 45
+
+
+def test_grace_precedence_hierarchy() -> None:
+    """Verify strict step-by-step precedence for all grace configuration tiers."""
+    # Tier 1: Global default fraction (0.25)
+    cfg_bare = RouteConfig(
+        route_id="r_bare",
+        mode=TransitMode.BUS,
+        line="26",
+        walk_seconds=200,
+    )
+    res1 = resolve_route_thresholds(route_config=cfg_bare)
+    assert res1.grace_seconds == 50  # 200 * 0.25 (code-level default)
+
+    # Tier 2: Commute-level default fraction overrides global default
+    res2 = resolve_route_thresholds(
+        route_config=cfg_bare,
+        default_grace_fraction=0.20,
+    )
+    assert res2.grace_seconds == 40  # 200 * 0.20
+
+    # Tier 3: Commute-level default seconds overrides commute default fraction
+    res3 = resolve_route_thresholds(
+        route_config=cfg_bare,
+        default_grace_seconds=35,
+        default_grace_fraction=0.20,
+    )
+    assert res3.grace_seconds == 35  # explicit seconds wins over fraction
+
+    # Tier 4: Route-level fraction overrides commute-level defaults
+    cfg_route_frac = RouteConfig(
+        route_id="r_frac",
+        mode=TransitMode.BUS,
+        line="26",
+        walk_seconds=200,
+        grace_fraction=0.15,
+    )
+    res4 = resolve_route_thresholds(
+        route_config=cfg_route_frac,
+        default_grace_seconds=35,
+        default_grace_fraction=0.20,
+    )
+    assert res4.grace_seconds == 30  # 200 * 0.15 (route fraction overrides commute)
+
+    # Tier 5: Route-level explicit seconds overrides route-level fraction
+    cfg_route_sec = RouteConfig(
+        route_id="r_sec",
+        mode=TransitMode.BUS,
+        line="26",
+        walk_seconds=200,
+        grace_seconds=25,
+        grace_fraction=0.15,
+    )
+    res5 = resolve_route_thresholds(
+        route_config=cfg_route_sec,
+        default_grace_seconds=35,
+        default_grace_fraction=0.20,
+    )
+    assert res5.grace_seconds == 25  # route explicit seconds wins
+
+    # Tier 6: Helper runtime fraction overrides route-level configuration
+    res6 = resolve_route_thresholds(
+        route_config=cfg_route_sec,
+        default_grace_seconds=35,
+        default_grace_fraction=0.20,
+        helper_overrides={"grace_fraction": 0.05},
+    )
+    assert res6.grace_seconds == 10  # 200 * 0.05 (helper fraction overrides route)
+
+    # Tier 7: Helper runtime explicit seconds overrides helper fraction
+    res7 = resolve_route_thresholds(
+        route_config=cfg_route_sec,
+        default_grace_seconds=35,
+        default_grace_fraction=0.20,
+        helper_overrides={"grace_seconds": 5, "grace_fraction": 0.05},
+    )
+    assert res7.grace_seconds == 5  # helper explicit seconds wins highest priority

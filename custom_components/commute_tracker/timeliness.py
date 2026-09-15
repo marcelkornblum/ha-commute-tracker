@@ -9,6 +9,7 @@ from datetime import datetime, time, timedelta
 from typing import Any
 
 from custom_components.commute_tracker.const import (
+    DEFAULT_GRACE_FRACTION,
     DEFAULT_GRACE_SECONDS,
     DEFAULT_PREP_SECONDS,
     DEFAULT_PREPARE_THRESHOLD_SECONDS,
@@ -42,21 +43,24 @@ def resolve_route_thresholds(
     helper_overrides: dict[str, Any] | None = None,
     default_walk_seconds: int = DEFAULT_WALK_SECONDS,
     default_prep_seconds: int = DEFAULT_PREP_SECONDS,
-    default_grace_seconds: int = DEFAULT_GRACE_SECONDS,
+    default_grace_seconds: int | None = None,
+    default_grace_fraction: float | None = None,
     default_target_arrival_time: str | None = None,
 ) -> ResolvedThresholds:
     """Resolve route time thresholds following the cascading resolution hierarchy.
 
     Precedence order:
     1. HA Input Helper Overrides
-    2. YAML Route Configuration
-    3. Global Defaults
+    2. YAML Route Configuration (seconds or fraction)
+    3. Commute/Overall Defaults (seconds or fraction)
+    4. Global Defaults
 
     :param route_config: RouteConfig object or route configuration dictionary.
     :param helper_overrides: Optional runtime overrides from HA input helpers.
     :param default_walk_seconds: Fallback walk duration in seconds.
     :param default_prep_seconds: Fallback prep buffer in seconds.
     :param default_grace_seconds: Fallback grace window in seconds.
+    :param default_grace_fraction: Fallback grace fraction of walk duration.
     :param default_target_arrival_time: Fallback target arrival time (HH:MM).
     :return: ResolvedThresholds instance.
     """
@@ -66,7 +70,6 @@ def resolve_route_thresholds(
         helpers=helpers,
         config=route_config,
         sec_key="walk_seconds",
-        min_key="walk_minutes",
         fallback=default_walk_seconds,
     )
 
@@ -74,16 +77,16 @@ def resolve_route_thresholds(
         helpers=helpers,
         config=route_config,
         sec_key="prep_seconds",
-        min_key="prep_minutes",
         fallback=default_prep_seconds,
     )
 
-    grace_seconds = _resolve_seconds(
+    grace_seconds = _resolve_grace_seconds(
         helpers=helpers,
         config=route_config,
-        sec_key="grace_seconds",
-        min_key="grace_minutes",
-        fallback=default_grace_seconds,
+        walk_seconds=walk_seconds,
+        default_grace_seconds=default_grace_seconds,
+        default_grace_fraction=default_grace_fraction,
+        global_fallback_fraction=DEFAULT_GRACE_FRACTION,
     )
 
     target_arrival: str | None = None
@@ -104,18 +107,60 @@ def resolve_route_thresholds(
     )
 
 
+def _resolve_grace_seconds(
+    helpers: dict[str, Any],
+    config: RouteConfig | dict[str, Any],
+    walk_seconds: int,
+    default_grace_seconds: int | None,
+    default_grace_fraction: float | None,
+    global_fallback_fraction: float = DEFAULT_GRACE_FRACTION,
+) -> int:
+    """Resolve grace seconds using tiered hierarchy and optional fraction of walk time.
+
+    Precedence order:
+    1. HA Helper explicit grace_seconds
+    2. HA Helper grace_fraction
+    3. Route explicit grace_seconds
+    4. Route grace_fraction
+    5. Commute default_grace_seconds
+    6. Commute default_grace_fraction
+    7. Global default fraction fallback (0.25)
+
+    Grace seconds are capped at walk_seconds so minimum travel time cannot be negative.
+    """
+    raw_grace: int | None = None
+
+    if "grace_seconds" in helpers and helpers["grace_seconds"] is not None:
+        raw_grace = int(helpers["grace_seconds"])
+    elif "grace_fraction" in helpers and helpers["grace_fraction"] is not None:
+        raw_grace = int(round(walk_seconds * float(helpers["grace_fraction"])))
+    elif isinstance(config, RouteConfig) and config.grace_seconds is not None:
+        raw_grace = int(config.grace_seconds)
+    elif isinstance(config, dict) and config.get("grace_seconds") is not None:
+        raw_grace = int(config["grace_seconds"])
+    elif isinstance(config, RouteConfig) and config.grace_fraction is not None:
+        raw_grace = int(round(walk_seconds * float(config.grace_fraction)))
+    elif isinstance(config, dict) and config.get("grace_fraction") is not None:
+        raw_grace = int(round(walk_seconds * float(config["grace_fraction"])))
+    elif default_grace_seconds is not None:
+        raw_grace = int(default_grace_seconds)
+    elif default_grace_fraction is not None:
+        raw_grace = int(round(walk_seconds * float(default_grace_fraction)))
+    else:
+        raw_grace = int(round(walk_seconds * global_fallback_fraction))
+
+    return max(0, min(raw_grace, walk_seconds))
+
+
 def _resolve_seconds(
     helpers: dict[str, Any],
     config: RouteConfig | dict[str, Any],
     sec_key: str,
-    min_key: str,
     fallback: int,
 ) -> int:
     """Resolve a seconds threshold from helpers, config, or fallback."""
     if sec_key in helpers and helpers[sec_key] is not None:
         return int(helpers[sec_key])
-    if min_key in helpers and helpers[min_key] is not None:
-        return int(round(float(helpers[min_key]) * 60))
 
     if isinstance(config, RouteConfig):
         val = getattr(config, sec_key, None)
@@ -125,8 +170,6 @@ def _resolve_seconds(
 
     if sec_key in config and config[sec_key] is not None:
         return int(config[sec_key])
-    if min_key in config and config[min_key] is not None:
-        return int(round(float(config[min_key]) * 60))
 
     return fallback
 

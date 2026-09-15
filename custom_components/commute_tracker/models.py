@@ -8,6 +8,7 @@ from custom_components.commute_tracker.const import (
     DEFAULT_LINE_COLOUR,
     DEFAULT_LINE_ICON,
     DEFAULT_LINE_STATUS,
+    DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
 )
 
 
@@ -28,6 +29,14 @@ class UrgencyStage(StrEnum):
     RELAXED = "relaxed"
     PREPARE = "prepare"
     LEAVE_NOW = "leave_now"
+
+
+class RollupStrategy(StrEnum):
+    """Arbitration strategies for Master Rollup route selection."""
+
+    SOONEST = "soonest"
+    LATEST = "latest"
+    LATE_WITH_BUFFER = "late_with_buffer"
 
 
 @dataclass(slots=True, frozen=True)
@@ -66,6 +75,7 @@ class RouteConfig:
     walk_seconds: int | None = None
     prep_seconds: int | None = None
     grace_seconds: int | None = None
+    grace_fraction: float | None = None
     boarding_stop: str | None = None
     destination_stop: str | None = None
     in_vehicle_duration_seconds: int | None = None
@@ -113,6 +123,10 @@ class CommuteConfig:
     target_arrival_time: str | None = None
     commute_title: str | None = None
     person_name: str | None = None
+    default_grace_seconds: int | None = None
+    default_grace_fraction: float | None = None
+    rollup_strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER
+    route_late_buffer_seconds: int = DEFAULT_ROUTE_LATE_BUFFER_SECONDS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CommuteConfig":
@@ -125,29 +139,20 @@ class CommuteConfig:
         for r in data.get("routes", []):
             route_id = r.get("id") or r.get("route_id", "")
             mode = TransitMode(r["mode"])
-            walk_sec = r.get("walk_seconds")
-            if (
-                walk_sec is None
-                and "walk_minutes" in r
-                and r["walk_minutes"] is not None
-            ):
-                walk_sec = int(round(float(r["walk_minutes"]) * 60))
-
-            prep_sec = r.get("prep_seconds")
-            if (
-                prep_sec is None
-                and "prep_minutes" in r
-                and r["prep_minutes"] is not None
-            ):
-                prep_sec = int(round(float(r["prep_minutes"]) * 60))
-
-            grace_sec = r.get("grace_seconds")
-            if (
-                grace_sec is None
-                and "grace_minutes" in r
-                and r["grace_minutes"] is not None
-            ):
-                grace_sec = int(round(float(r["grace_minutes"]) * 60))
+            walk_sec = (
+                int(r["walk_seconds"]) if r.get("walk_seconds") is not None else None
+            )
+            prep_sec = (
+                int(r["prep_seconds"]) if r.get("prep_seconds") is not None else None
+            )
+            grace_sec = (
+                int(r["grace_seconds"]) if r.get("grace_seconds") is not None else None
+            )
+            grace_frac = (
+                float(r["grace_fraction"])
+                if r.get("grace_fraction") is not None
+                else None
+            )
 
             routes.append(
                 RouteConfig(
@@ -158,6 +163,7 @@ class CommuteConfig:
                     walk_seconds=walk_sec,
                     prep_seconds=prep_sec,
                     grace_seconds=grace_sec,
+                    grace_fraction=grace_frac,
                     boarding_stop=r.get("boarding_stop"),
                     destination_stop=r.get("destination_stop"),
                     in_vehicle_duration_seconds=r.get("in_vehicle_duration_seconds"),
@@ -166,10 +172,39 @@ class CommuteConfig:
                     corridor_stops=list(r.get("corridor_stops", [])),
                 )
             )
+
+        def_grace_sec = data.get("default_grace_seconds")
+        if def_grace_sec is None:
+            def_grace_sec = data.get("grace_seconds")
+        if def_grace_sec is not None:
+            def_grace_sec = int(def_grace_sec)
+
+        def_grace_frac = data.get("default_grace_fraction")
+        if def_grace_frac is None:
+            def_grace_frac = data.get("grace_fraction")
+        if def_grace_frac is not None:
+            def_grace_frac = float(def_grace_frac)
+
+        strategy_raw = data.get("rollup_strategy", "late_with_buffer")
+        try:
+            strategy = RollupStrategy(strategy_raw)
+        except ValueError:
+            strategy = RollupStrategy.LATE_WITH_BUFFER
+
+        route_late_buf = data.get("route_late_buffer_seconds")
+        if route_late_buf is not None:
+            route_late_buf = int(route_late_buf)
+        else:
+            route_late_buf = DEFAULT_ROUTE_LATE_BUFFER_SECONDS
+
         return cls(
             commute_id=data.get("commute_id", "commute"),
             routes=routes,
             target_arrival_time=data.get("target_arrival_time"),
             commute_title=data.get("commute_title"),
             person_name=data.get("person_name"),
+            default_grace_seconds=def_grace_sec,
+            default_grace_fraction=def_grace_frac,
+            rollup_strategy=strategy,
+            route_late_buffer_seconds=route_late_buf,
         )

@@ -82,9 +82,19 @@ This separation guarantees that whether telemetries originate from live async pr
 
 ### A. Threshold Cascading Resolution ([`timeliness.py`](../custom_components/commute_tracker/timeliness.py))
 Before evaluating arrival predictions, the engine determines walking, preparation, and grace buffers for each route via `resolve_route_thresholds`:
-1. **Tier 1 (Highest)**: Home Assistant Input Helper runtime overrides (e.g. `walk_minutes` or `walk_seconds` from an entity helper).
-2. **Tier 2**: Route-specific YAML configuration values (`walk_seconds` or `walk_minutes`).
-3. **Tier 3 (Lowest)**: Global defaults (`DEFAULT_WALK_SECONDS = 240`, `DEFAULT_PREP_SECONDS = 120`, `DEFAULT_GRACE_SECONDS = 180`).
+1. **Walking & Preparation Buffers**:
+   - Tier 1 (Highest): Home Assistant Input Helper runtime overrides (`walk_seconds`, `prep_seconds`).
+   - Tier 2: Route-specific configuration values (`walk_seconds`, `prep_seconds`).
+   - Tier 3 (Lowest): Global defaults (`DEFAULT_WALK_SECONDS = 240`, `DEFAULT_PREP_SECONDS = 120`).
+2. **Grace Buffer Resolution Hierarchy**:
+   - Tier 1 (Highest): HA Helper `grace_seconds`
+   - Tier 2: HA Helper `grace_fraction` (fraction of `walk_seconds`)
+   - Tier 3: Route config `grace_seconds`
+   - Tier 4: Route config `grace_fraction` (fraction of `walk_seconds`)
+   - Tier 5: Commute config `default_grace_seconds`
+   - Tier 6: Commute config `default_grace_fraction` (fraction of `walk_seconds`)
+   - Tier 7 (Lowest): Global `DEFAULT_GRACE_FRACTION = 0.25` (25% of `walk_seconds`)
+   - Physical Bounding: `grace_seconds = max(0, min(raw_grace, walk_seconds))`.
 
 ### B. Direction & Trajectory Filtering ([`corridor.filter_approaching_departures`](../custom_components/commute_tracker/corridor.py))
 *Responsibility: Discard vehicles travelling in reverse or vehicles too far away to confirm corridor presence.*
@@ -159,11 +169,19 @@ Countdown (leave_in_seconds):
    - `on_time`: Arriving within 0–4 minutes of target deadline.
 
 ### G. Master Rollup Arbitration ([`engine._arbitrate_master_rollup`](../custom_components/commute_tracker/engine.py))
-*Responsibility: Arbitrate the winning active option across multi-modal alternatives (e.g. Bus vs Train).*
+*Responsibility: Arbitrate the winning active option across multi-modal alternatives (e.g. Bus vs Tube vs Train).*
 
-1. Filters all candidate routes in active urgency stages (`leave_now`, `prepare`, `relaxed`).
-2. If any route is in `leave_now`:
-   - Selects the route with the highest `leave_in_seconds` (the option providing the cleanest doorstep window).
-3. If no routes are in `leave_now`:
-   - Selects the route with the smallest `leave_in_seconds` (the soonest viable transit option).
-4. Populates [`MasterRollupState`](../custom_components/commute_tracker/engine.py) with the winning option's identity, formatted arrival time, urgency stage, and destination slack metrics.
+1. **Timeliness Partitioning**:
+   - Candidates are evaluated against the target deadline (`will_arrive_in_time`).
+   - Routes arriving on time are strictly prioritised over late routes. Late routes are only considered if no candidate can arrive on time.
+2. **Catchability Partitioning**:
+   - Within the timeliness candidate pool, routes with non-negative departure windows (`leave_in_seconds >= 0`) are strictly prioritised over sprint routes (`leave_in_seconds < 0`).
+   - Sprint routes are only selected if no positive-window alternatives exist.
+3. **Arbitration Strategies ([`RollupStrategy`](../custom_components/commute_tracker/models.py))**:
+   - **`soonest`**: Selects the candidate with the smallest positive `leave_in_seconds` (the soonest viable departure).
+   - **`latest`**: Selects the candidate with the largest positive `leave_in_seconds` that still arrives on time.
+   - **`late_with_buffer` (Default)**: Evaluates the sorted candidates by `leave_in_seconds`. If the top two latest options are within `route_late_buffer_seconds` (default: 300 seconds / 5 minutes) of each other, the engine selects the penultimate candidate so that the latest departure serves as a safety buffer/fallback. If the gap exceeds the buffer, it selects the latest candidate.
+4. **Tie-Breaking**:
+   - When multiple candidates have equal `leave_in_seconds`, the candidate with greater `target_slack_minutes` is selected.
+5. Populates [`MasterRollupState`](../custom_components/commute_tracker/engine.py) with the winning option's identity, formatted arrival time, urgency stage, strategy used, and destination slack metrics.
+

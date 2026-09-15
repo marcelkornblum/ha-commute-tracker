@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from custom_components.commute_tracker.const import (
+    DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
+)
 from custom_components.commute_tracker.corridor import (
     calculate_corridor_progression,
     filter_approaching_departures,
@@ -18,6 +21,7 @@ from custom_components.commute_tracker.corridor import (
 from custom_components.commute_tracker.models import (
     CommuteConfig,
     DeparturePrediction,
+    RollupStrategy,
     RouteConfig,
     RouteTelemetry,
     TransitMode,
@@ -52,6 +56,8 @@ class ChildRouteState:
     corridor_progress: float = 0.0
     next_vehicle_id: str | None = None
     next_seconds_to_arrival: int | None = None
+    will_arrive_in_time: bool = True
+    target_slack_minutes: int | None = None
 
 
 @dataclass(slots=True)
@@ -66,6 +72,7 @@ class MasterRollupState:
     route_label: str
     will_arrive_in_time: bool = True
     target_slack_minutes: int = 0
+    strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER
 
 
 @dataclass(slots=True, frozen=True)
@@ -78,6 +85,8 @@ class CandidateRoute:
     departure: DeparturePrediction
     route_config: RouteConfig
     telemetry: RouteTelemetry
+    will_arrive_in_time: bool = True
+    target_slack_minutes: int = 0
 
 
 @dataclass(slots=True)
@@ -149,6 +158,8 @@ class CommuteEngine:
         thresholds = resolve_route_thresholds(
             route_config=route_cfg,
             helper_overrides=helper_overrides,
+            default_grace_seconds=self._config.default_grace_seconds,
+            default_grace_fraction=self._config.default_grace_fraction,
             default_target_arrival_time=self._target_arrival_time,
         )
         self._cached_thresholds[route_id] = thresholds
@@ -230,6 +241,16 @@ class CommuteEngine:
                 boarding_stop=route_cfg.boarding_stop,
             )
 
+            slack_mins, will_arrive, _ = calculate_target_slack(
+                target_arrival_time_str=thresholds.target_arrival_time
+                or self._target_arrival_time,
+                boarding_arrival_seconds=active_dep.seconds_to_arrival,
+                in_vehicle_duration_seconds=route_cfg.in_vehicle_duration_seconds or 0,
+                alighting_walk_seconds=route_cfg.alighting_walk_seconds or 0,
+                reference_time=ref_dt,
+                line_status=telemetry.line_status,
+            )
+
             child_states[route_id] = ChildRouteState(
                 route_id=route_id,
                 mode=route_cfg.mode.value,
@@ -244,6 +265,8 @@ class CommuteEngine:
                 next_seconds_to_arrival=(
                     follower_dep.seconds_to_arrival if follower_dep else None
                 ),
+                will_arrive_in_time=will_arrive,
+                target_slack_minutes=slack_mins,
             )
 
             if stage in (
@@ -259,12 +282,32 @@ class CommuteEngine:
                         departure=active_dep,
                         route_config=route_cfg,
                         telemetry=telemetry,
+                        will_arrive_in_time=will_arrive,
+                        target_slack_minutes=slack_mins or 0,
                     )
                 )
+
+        helpers = helper_overrides or {}
+        strategy_override = helpers.get("rollup_strategy")
+        if strategy_override:
+            try:
+                strategy = RollupStrategy(strategy_override)
+            except ValueError:
+                strategy = self._config.rollup_strategy
+        else:
+            strategy = self._config.rollup_strategy
+
+        buffer_override = helpers.get("route_late_buffer_seconds")
+        if buffer_override is not None:
+            route_late_buf = int(buffer_override)
+        else:
+            route_late_buf = self._config.route_late_buffer_seconds
 
         master_state = self._arbitrate_master_rollup(
             candidates=candidates,
             reference_time=ref_dt,
+            strategy=strategy,
+            route_late_buffer_seconds=route_late_buf,
         )
 
         return CommuteState(
@@ -320,8 +363,29 @@ class CommuteEngine:
         self,
         candidates: list[CandidateRoute],
         reference_time: datetime,
+        strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER,
+        route_late_buffer_seconds: int = DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
     ) -> MasterRollupState:
-        """Arbitrate master sensor state amongst active candidate child routes."""
+        """Arbitrate master sensor state amongst active candidate child routes.
+
+        Strategy evaluation:
+        1. Timeliness Priority: Routes that arrive on time (will_arrive_in_time == True)
+           are strictly prioritised over late routes. Late routes are only considered
+           if no candidate arrives on time.
+        2. Catchability Priority: Routes with positive leave windows
+           (leave_in_seconds >= 0) are strictly prioritised over negative
+           leave routes (leave_in_seconds < 0). Negative leave routes are
+           only considered if no candidate has positive leave.
+        3. Strategy Selection:
+           - SOONEST: Pick candidate with smallest leave_in_seconds.
+           - LATEST: Pick candidate with largest leave_in_seconds.
+           - LATE_WITH_BUFFER: Sort ascending by leave_in_seconds. If the top two
+             candidates have leave times within route_late_buffer_seconds of each
+             other, pick the penultimate candidate so the latest acts as a safety
+             buffer/fallback. Otherwise, pick the latest candidate.
+        4. Tie-breaking: If multiple candidates tie on leave_in_seconds, select the one
+           with greater target_slack_minutes.
+        """
         if not candidates:
             return MasterRollupState(
                 active_option="none",
@@ -330,15 +394,50 @@ class CommuteEngine:
                 seconds_to_arrival=0,
                 leave_in_seconds=0,
                 route_label="",
+                will_arrive_in_time=True,
+                target_slack_minutes=0,
+                strategy=strategy,
             )
 
-        leave_now_cands = [
-            c for c in candidates if c.urgency_stage == UrgencyStage.LEAVE_NOW
-        ]
-        if leave_now_cands:
-            winner = max(leave_now_cands, key=lambda c: c.leave_in_seconds)
+        # Step 1: Timeliness Partitioning
+        on_time = [c for c in candidates if c.will_arrive_in_time]
+        timely_pool = on_time if on_time else candidates
+
+        # Step 2: Catchability Partitioning (positive leave_in_seconds preferred)
+        positive_leave = [c for c in timely_pool if c.leave_in_seconds >= 0]
+        viable_pool = positive_leave if positive_leave else timely_pool
+
+        # Step 3: Strategy Selection
+        if strategy == RollupStrategy.SOONEST:
+            winner = min(
+                viable_pool,
+                key=lambda c: (c.leave_in_seconds, -c.target_slack_minutes),
+            )
+        elif strategy == RollupStrategy.LATEST:
+            winner = max(
+                viable_pool,
+                key=lambda c: (c.leave_in_seconds, c.target_slack_minutes),
+            )
+        elif strategy == RollupStrategy.LATE_WITH_BUFFER:
+            sorted_candidates = sorted(
+                viable_pool,
+                key=lambda c: (c.leave_in_seconds, c.target_slack_minutes),
+            )
+            if len(sorted_candidates) >= 2:
+                latest = sorted_candidates[-1]
+                penultimate = sorted_candidates[-2]
+                delta = latest.leave_in_seconds - penultimate.leave_in_seconds
+                if delta <= route_late_buffer_seconds:
+                    winner = penultimate
+                else:
+                    winner = latest
+            else:
+                winner = sorted_candidates[-1]
         else:
-            winner = min(candidates, key=lambda c: c.leave_in_seconds)
+            winner = max(
+                viable_pool,
+                key=lambda c: (c.leave_in_seconds, c.target_slack_minutes),
+            )
 
         winning_route = winner.route_config
         winning_dep = winner.departure
@@ -360,15 +459,6 @@ class CommuteEngine:
                 "%H:%M"
             )
 
-        slack_mins, will_arrive, _ = calculate_target_slack(
-            target_arrival_time_str=self._target_arrival_time,
-            boarding_arrival_seconds=winning_tts,
-            in_vehicle_duration_seconds=winning_route.in_vehicle_duration_seconds or 0,
-            alighting_walk_seconds=winning_route.alighting_walk_seconds or 0,
-            reference_time=reference_time,
-            line_status=winner.telemetry.line_status,
-        )
-
         return MasterRollupState(
             active_option=winner.route_id,
             urgency_stage=winner.urgency_stage,
@@ -376,6 +466,7 @@ class CommuteEngine:
             seconds_to_arrival=winning_tts,
             leave_in_seconds=winner.leave_in_seconds,
             route_label=label,
-            will_arrive_in_time=will_arrive,
-            target_slack_minutes=slack_mins or 0,
+            will_arrive_in_time=winner.will_arrive_in_time,
+            target_slack_minutes=winner.target_slack_minutes,
+            strategy=strategy,
         )
