@@ -1,0 +1,45 @@
+{
+  "title": "Commute Tracker",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Commute Tracker Setup",
+        "description": "Configure your commute tracking options and transit feeds.",
+        "data": {
+          "name": "Commute Name",
+          "active_sensor": "Active Commute Sensor"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to transit provider.",
+      "invalid_auth": "Invalid authentication credentials.",
+      "unknown": "Unexpected error occurred."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "master_rollup": {
+        "name": "Master Rollup",
+        "state": {
+          "standby": "Standby",
+          "relaxed": "Relaxed",
+          "prepare": "Prepare",
+          "leave_now": "Leave Now",
+          "idle": "Idle"
+        }
+      },
+      "child_route": {
+        "name": "Child Route",
+        "state": {
+          "standby": "Standby",
+          "relaxed": "Relaxed",
+          "prepare": "Prepare",
+          "leave_now": "Leave Now",
+          "departed": "Departed",
+          "idle": "Idle"
+        }
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ from custom_components.commute_tracker.const import (
     DEFAULT_LINE_COLOUR,
     DEFAULT_LINE_ICON,
     DEFAULT_LINE_STATUS,
+    DEFAULT_POLL_INTERVAL_SECONDS,
     DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
 )
 
@@ -130,13 +131,16 @@ class CommuteConfig:
 
     commute_id: str
     routes: list[RouteConfig]
+    active_sensor: str | None = None
     target_arrival_time: str | None = None
     commute_title: str | None = None
     person_name: str | None = None
+    person_picture: str | None = None
     default_grace_seconds: int | None = None
     default_grace_fraction: float | None = None
     rollup_strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER
     route_late_buffer_seconds: int = DEFAULT_ROUTE_LATE_BUFFER_SECONDS
+    poll_interval: int = DEFAULT_POLL_INTERVAL_SECONDS
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CommuteConfig":
@@ -207,14 +211,23 @@ class CommuteConfig:
         else:
             route_late_buf = DEFAULT_ROUTE_LATE_BUFFER_SECONDS
 
+        commute_id = data.get("id") or data.get("commute_id", "commute")
+        title = data.get("name") or data.get("commute_title")
+        active_sensor = data.get("active_sensor")
+        poll_interval = int(data.get("poll_interval", DEFAULT_POLL_INTERVAL_SECONDS))
+        person_picture = data.get("person_picture")
+
         return cls(
-            commute_id=data.get("commute_id", "commute"),
+            commute_id=commute_id,
             routes=routes,
+            active_sensor=active_sensor,
             target_arrival_time=data.get("target_arrival_time"),
-            commute_title=data.get("commute_title"),
+            commute_title=title,
             person_name=data.get("person_name"),
+            person_picture=person_picture,
             default_grace_seconds=def_grace_sec,
             default_grace_fraction=def_grace_frac,
             rollup_strategy=strategy,
             route_late_buffer_seconds=route_late_buf,
+            poll_interval=poll_interval,
         )

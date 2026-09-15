@@ -76,6 +76,7 @@ class ChildRouteState:
     route_label: str = ""
     route_destination: str = ""
     pill_badge: PillBadge | None = None
+    is_active: bool = True
 
 
 @dataclass(slots=True)
@@ -101,6 +102,7 @@ class MasterRollupState:
     line_status: LineStatus | None = None
     next_summary: str = "None scheduled"
     pill_badge: PillBadge | None = None
+    is_active: bool = True
 
 
 @dataclass(slots=True, frozen=True)

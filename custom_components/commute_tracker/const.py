@@ -13,6 +13,47 @@ DEFAULT_LINE_ICON = "mdi:help-circle"
 
 DEFAULT_ROLLUP_STRATEGY = "late_with_buffer"
 DEFAULT_ROUTE_LATE_BUFFER_SECONDS = 300
+DEFAULT_POLL_INTERVAL_SECONDS = 30
+DEFAULT_PROVIDER = "tfl"
 
 CORRIDOR_UPSTREAM_HORIZON_SECONDS = 600
 MIDNIGHT_WRAP_THRESHOLD_SECONDS = 43200
+
+CONF_PROVIDERS = "providers"
+CONF_COMMUTES = "commutes"
+CONF_ROUTES = "routes"
+CONF_ACTIVE_SENSOR = "active_sensor"
+CONF_TARGET_ARRIVAL_TIME = "target_arrival_time"
+CONF_TARGET_ARRIVAL = "target_arrival"
+CONF_COMMUTE_ID = "id"
+CONF_COMMUTE_TITLE = "name"
+CONF_PERSON_NAME = "person_name"
+CONF_PERSON_PICTURE = "person_picture"
+CONF_DEFAULT_GRACE_SECONDS = "default_grace_seconds"
+CONF_DEFAULT_GRACE_FRACTION = "default_grace_fraction"
+CONF_ROLLUP_STRATEGY = "rollup_strategy"
+CONF_ROUTE_LATE_BUFFER_SECONDS = "route_late_buffer_seconds"
+CONF_POLL_INTERVAL = "poll_interval"
+
+CONF_ROUTE_ID = "id"
+CONF_MODE = "mode"
+CONF_LINE = "line"
+CONF_PROVIDER = "provider"
+CONF_WALK_SECONDS = "walk_seconds"
+CONF_PREP_SECONDS = "prep_seconds"
+CONF_GRACE_SECONDS = "grace_seconds"
+CONF_GRACE_FRACTION = "grace_fraction"
+CONF_BOARDING_STOP = "boarding_stop"
+CONF_TARGET_STOP = "target_stop"
+CONF_DESTINATION_STOP = "destination_stop"
+CONF_DIRECTION = "direction"
+CONF_IN_VEHICLE_DURATION_SECONDS = "in_vehicle_duration_seconds"
+CONF_ALIGHTING_WALK_SECONDS = "alighting_walk_seconds"
+CONF_CORRIDOR_STOPS = "corridor_stops"
+
+CONF_APP_ID = "app_id"
+CONF_APP_KEY = "app_key"
+CONF_API_KEY = "api_key"
+
+URL_BASE = "/commute_tracker"
+CARD_FILENAME = "commute-tracker-card.js"
