@@ -38,8 +38,6 @@ class TemplateTransitProvider(TransitProvider):
         :param mode: The mode of transit.
         :return: Normalised LineStatus instance.
         """
-        # Providers can use self._session to perform async HTTP calls,
-        # wrapped in self._cache.async_get_or_set() for deduplication.
         return LineStatus(
             status_label="Good Service",
             status_colour="#00A859",
@@ -47,18 +45,40 @@ class TemplateTransitProvider(TransitProvider):
             reason=None,
         )
 
-    async def async_get_telemetry(
-        self, route: RouteConfig, snapshot: dict[str, Any] | None = None
+    def extract_telemetry_from_snapshot(
+        self, route: RouteConfig, snapshot: dict[str, Any]
     ) -> RouteTelemetry:
+        """Extract route telemetry from offline snapshot dictionary."""
+        sample_departure = DeparturePrediction(
+            vehicle_id="TEMPLATE_01",
+            destination="Terminus Station",
+            expected_time="2026-09-14T15:00:00Z",
+            seconds_to_arrival=300,
+            platform_or_bay="1",
+            is_realtime=True,
+        )
+        return RouteTelemetry(
+            route_id=route.route_id,
+            line_id=route.line,
+            mode=route.mode,
+            departures=[sample_departure],
+            active_vehicle_id="TEMPLATE_01",
+            corridor_progress_ratio=0.5,
+            current_stop_location="Approaching Boarding Stop",
+            line_status=LineStatus(
+                status_label="Good Service",
+                status_colour="#00A859",
+                status_icon="mdi:check-circle",
+            ),
+        )
+
+    async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
         """Fetch and normalise route predictions and vehicle progression.
 
         :param route: The configured route settings.
-        :param snapshot: Optional offline snapshot dictionary for testing.
         :return: Normalised RouteTelemetry instance.
         """
-        # Step 1: Query API or parse offline snapshot
-        # Step 2: Extract predictions targeting route.boarding_stop
-        # Step 3: Return structured RouteTelemetry
+
         sample_departure = DeparturePrediction(
             vehicle_id="TEMPLATE_01",
             destination="Terminus Station",
@@ -68,7 +88,9 @@ class TemplateTransitProvider(TransitProvider):
             is_realtime=True,
         )
 
-        line_status = await self.async_get_line_status(route.line, route.mode)
+        line_status = await self.async_get_line_status(
+            line_id=route.line, mode=route.mode
+        )
 
         return RouteTelemetry(
             route_id=route.route_id,

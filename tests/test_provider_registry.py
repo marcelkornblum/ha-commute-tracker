@@ -1,7 +1,7 @@
 """Unit tests for TransitProvider, DebouncedCache, and registry."""
 
 import asyncio
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import AsyncMock
 
 import pytest
@@ -14,6 +14,7 @@ from custom_components.commute_tracker.models import (
 )
 from custom_components.commute_tracker.providers.base import (
     DebouncedCache,
+    ProviderValidationError,
     TransitProvider,
     TransitProviderRegistry,
 )
@@ -48,6 +49,16 @@ class DummyProvider(TransitProvider):
     ) -> RouteTelemetry:
         """Return mock route telemetry."""
         return await self.get_telemetry_mock(route, snapshot)  # type: ignore[no-any-return]
+
+    def extract_telemetry_from_snapshot(
+        self, route: RouteConfig, snapshot: dict[str, Any]
+    ) -> RouteTelemetry:
+        """Return mock telemetry extracted from snapshot."""
+        return RouteTelemetry(
+            route_id=route.route_id,
+            line_id=route.line,
+            mode=route.mode,
+        )
 
 
 @pytest.mark.asyncio
@@ -114,6 +125,94 @@ def test_registry_dynamic_discovery() -> None:
     registry = TransitProviderRegistry()
     registry.discover_providers()
 
-    # The dynamic discovery must find tfl and template providers
     assert "tfl" in registry.registered_provider_ids
     assert "template" in registry.registered_provider_ids
+
+
+def test_registry_validate_provider_valid() -> None:
+    """Verify validate_provider succeeds on fully compliant provider classes."""
+    TransitProviderRegistry.validate_provider(provider_cls=DummyProvider)
+    assert TransitProviderRegistry.is_valid_provider(provider_cls=DummyProvider) is True
+
+
+def test_registry_validate_provider_invalid_not_type() -> None:
+    """Verify validate_provider rejects non-class arguments."""
+    with pytest.raises(
+        ProviderValidationError, match="Expected provider class to be a type"
+    ):
+        TransitProviderRegistry.validate_provider(
+            provider_cls="not_a_class"  # type: ignore[arg-type]
+        )
+
+
+def test_registry_validate_provider_not_subclass() -> None:
+    """Verify validate_provider rejects classes not inheriting TransitProvider."""
+
+    class PlainClass:
+        pass
+
+    with pytest.raises(ProviderValidationError, match="must be a concrete subclass"):
+        TransitProviderRegistry.validate_provider(provider_cls=PlainClass)
+
+
+def test_registry_validate_provider_abstract_rejected() -> None:
+    """Verify validate_provider rejects abstract classes with missing methods."""
+
+    class IncompleteProvider(TransitProvider):
+        provider_id = "incomplete"
+        supported_modes = {TransitMode.BUS}
+
+    with pytest.raises(ProviderValidationError, match="unimplemented abstract methods"):
+        TransitProviderRegistry.validate_provider(provider_cls=IncompleteProvider)
+
+
+def test_registry_validate_provider_missing_id() -> None:
+    """Verify validate_provider rejects providers with blank provider_id."""
+
+    class NoIdProvider(DummyProvider):
+        provider_id = ""
+
+    with pytest.raises(ProviderValidationError, match="non-empty string 'provider_id'"):
+        TransitProviderRegistry.validate_provider(provider_cls=NoIdProvider)
+
+
+def test_registry_validate_provider_invalid_modes() -> None:
+    """Verify validate_provider rejects providers with invalid supported_modes."""
+
+    class EmptyModesProvider(DummyProvider):
+        provider_id = "empty_modes"
+        supported_modes = set()
+
+    with pytest.raises(
+        ProviderValidationError, match="non-empty set for 'supported_modes'"
+    ):
+        TransitProviderRegistry.validate_provider(provider_cls=EmptyModesProvider)
+
+    class InvalidModesProvider(DummyProvider):
+        provider_id = "invalid_modes"
+        supported_modes: ClassVar[set[Any]] = {"invalid_mode"}
+
+    with pytest.raises(ProviderValidationError, match="must be TransitMode instances"):
+        TransitProviderRegistry.validate_provider(provider_cls=InvalidModesProvider)
+
+
+def test_registry_validate_provider_missing_callable() -> None:
+    """Verify validate_provider rejects providers with non-callable attributes."""
+
+    class NonCallableProvider(DummyProvider):
+        provider_id = "non_callable"
+        async_get_line_status = "not_callable"  # type: ignore[assignment]
+
+    with pytest.raises(
+        ProviderValidationError, match="missing required callable method"
+    ):
+        TransitProviderRegistry.validate_provider(provider_cls=NonCallableProvider)
+
+
+def test_registry_is_valid_provider_boolean_response() -> None:
+    """Verify is_valid_provider returns False without raising for bad providers."""
+
+    class BadProvider:
+        pass
+
+    assert TransitProviderRegistry.is_valid_provider(provider_cls=BadProvider) is False
