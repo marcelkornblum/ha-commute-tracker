@@ -18,6 +18,7 @@ from custom_components.commute_tracker.const import (
 )
 from custom_components.commute_tracker.models import (
     LineStatus,
+    PillBadge,
     RouteConfig,
     UrgencyStage,
 )
@@ -220,6 +221,126 @@ def calculate_urgency_stage(
     if leave_in_seconds <= prepare_threshold_seconds:
         return UrgencyStage.PREPARE
     return UrgencyStage.RELAXED
+
+
+def calculate_leave_by_time(
+    leave_in_seconds: int,
+    reference_time: datetime | None = None,
+) -> str:
+    """Calculate formatted doorstep departure clock time (HH:MM).
+
+    :param leave_in_seconds: Countdown until doorstep departure deadline.
+    :param reference_time: Datetime of observation (defaults to current time).
+    :return: Formatted clock time string (HH:MM).
+    """
+    ref_dt = reference_time or datetime.now()
+    leave_dt = ref_dt + timedelta(seconds=leave_in_seconds)
+    return leave_dt.strftime("%H:%M")
+
+
+def calculate_journey_arrival_times(
+    boarding_arrival_seconds: int,
+    in_vehicle_duration_seconds: int = 0,
+    alighting_walk_seconds: int = 0,
+    reference_time: datetime | None = None,
+) -> tuple[str, str]:
+    """Calculate formatted transit and destination arrival times (HH:MM).
+
+    :param boarding_arrival_seconds: Countdown to arrival at boarding stop.
+    :param in_vehicle_duration_seconds: Duration of transit journey in seconds.
+    :param alighting_walk_seconds: Walking duration from alighting stop to destination.
+    :param reference_time: Datetime of observation (defaults to current time).
+    :return: Tuple of (estimated_transit_arrival, estimated_destination_arrival).
+    """
+    ref_dt = reference_time or datetime.now()
+    transit_dt = ref_dt + timedelta(
+        seconds=boarding_arrival_seconds + in_vehicle_duration_seconds
+    )
+    dest_dt = transit_dt + timedelta(seconds=alighting_walk_seconds)
+    return transit_dt.strftime("%H:%M"), dest_dt.strftime("%H:%M")
+
+
+def format_next_summary(
+    next_seconds_to_arrival: int | None,
+    next_expected_time: str | None = None,
+    reference_time: datetime | None = None,
+) -> str:
+    """Format subsequent service departure summary for display.
+
+    :param next_seconds_to_arrival: Countdown to subsequent vehicle arrival.
+    :param next_expected_time: Optional explicit ISO or HH:MM timestamp.
+    :param reference_time: Datetime of observation.
+    :return: Formatted summary string (e.g. 'Next at 08:36 (in 12m)' or
+        'None scheduled').
+    """
+    if next_seconds_to_arrival is None:
+        return "None scheduled"
+
+    mins = max(0, int(round(next_seconds_to_arrival / 60)))
+    ref_dt = reference_time or datetime.now()
+
+    if next_expected_time and "T" in next_expected_time:
+        try:
+            dep_dt = datetime.fromisoformat(next_expected_time)
+            clock_str = dep_dt.strftime("%H:%M")
+        except ValueError:
+            clock_str = (ref_dt + timedelta(seconds=next_seconds_to_arrival)).strftime(
+                "%H:%M"
+            )
+    elif next_expected_time and ":" in next_expected_time:
+        clock_str = next_expected_time
+    else:
+        clock_str = (ref_dt + timedelta(seconds=next_seconds_to_arrival)).strftime(
+            "%H:%M"
+        )
+
+    return f"Next at {clock_str} (in {mins}m)"
+
+
+def calculate_pill_badge(
+    urgency_stage: UrgencyStage,
+    leave_in_seconds: int | None = None,
+) -> PillBadge:
+    """Calculate UI badge styling and text tokens from urgency stage and countdown.
+
+    :param urgency_stage: Active UrgencyStage enum value.
+    :param leave_in_seconds: Optional countdown until doorstep deadline.
+    :return: Strongly-typed PillBadge token model.
+    """
+    if urgency_stage == UrgencyStage.STANDBY or leave_in_seconds is None:
+        return PillBadge(
+            label="Standby",
+            color="#8E8E93",
+            bg="rgba(142, 142, 147, 0.2)",
+            border="#8E8E93",
+        )
+
+    leave_in_minutes = int(round(leave_in_seconds / 60))
+
+    if urgency_stage == UrgencyStage.LEAVE_NOW:
+        return PillBadge(
+            label="🚨 LEAVE NOW",
+            color="#FF5252",
+            bg="rgba(255, 82, 82, 0.15)",
+            border="#FF5252",
+        )
+
+    if urgency_stage == UrgencyStage.PREPARE:
+        label = f"Prepare ({leave_in_minutes}m)" if leave_in_minutes > 0 else "Prepare"
+        return PillBadge(
+            label=label,
+            color="#FF9800",
+            bg="rgba(255, 152, 0, 0.15)",
+            border="#FF9800",
+        )
+
+    label = f"Leave in {leave_in_minutes}m" if leave_in_minutes > 0 else "Relaxed"
+    return PillBadge(
+        label=label,
+        color="#4CAF50",
+        bg="rgba(76, 175, 80, 0.15)",
+        border="#4CAF50",
+    )
 
 
 def calculate_target_slack(

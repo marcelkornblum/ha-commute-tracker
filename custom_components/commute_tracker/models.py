@@ -40,6 +40,16 @@ class RollupStrategy(StrEnum):
 
 
 @dataclass(slots=True, frozen=True)
+class PillBadge:
+    """Styling and text tokens for Lovelace card pill badge."""
+
+    label: str
+    color: str
+    bg: str
+    border: str
+
+
+@dataclass(slots=True, frozen=True)
 class LineStatus:
     """Normalised operational service status for a transit line."""
 

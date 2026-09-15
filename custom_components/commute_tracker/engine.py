@@ -21,6 +21,8 @@ from custom_components.commute_tracker.corridor import (
 from custom_components.commute_tracker.models import (
     CommuteConfig,
     DeparturePrediction,
+    LineStatus,
+    PillBadge,
     RollupStrategy,
     RouteConfig,
     RouteTelemetry,
@@ -32,9 +34,13 @@ from custom_components.commute_tracker.providers.base import (
 )
 from custom_components.commute_tracker.timeliness import (
     ResolvedThresholds,
+    calculate_journey_arrival_times,
+    calculate_leave_by_time,
     calculate_leave_countdown,
+    calculate_pill_badge,
     calculate_target_slack,
     calculate_urgency_stage,
+    format_next_summary,
     resolve_route_thresholds,
 )
 
@@ -51,13 +57,25 @@ class ChildRouteState:
     vehicle_id: str | None = None
     scheduled_departure: str | None = None
     seconds_to_arrival: int | None = None
+    minutes_to_arrival: int | None = None
     leave_in_seconds: int | None = None
+    leave_in_minutes: int | None = None
+    leave_by_time: str | None = None
     corridor_location: str = ""
     corridor_progress: float = 0.0
+    corridor_stops: list[dict[str, Any]] = field(default_factory=list)
     next_vehicle_id: str | None = None
     next_seconds_to_arrival: int | None = None
+    next_summary: str = "None scheduled"
     will_arrive_in_time: bool = True
     target_slack_minutes: int | None = None
+    timeliness: str = "on_time"
+    estimated_transit_arrival: str | None = None
+    estimated_destination_arrival: str | None = None
+    line_status: LineStatus | None = None
+    route_label: str = ""
+    route_destination: str = ""
+    pill_badge: PillBadge | None = None
 
 
 @dataclass(slots=True)
@@ -73,6 +91,16 @@ class MasterRollupState:
     will_arrive_in_time: bool = True
     target_slack_minutes: int = 0
     strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER
+    minutes_to_arrival: int = 0
+    leave_in_minutes: int = 0
+    leave_by_time: str = ""
+    timeliness: str = "on_time"
+    estimated_transit_arrival: str = ""
+    estimated_destination_arrival: str = ""
+    route_destination: str = ""
+    line_status: LineStatus | None = None
+    next_summary: str = "None scheduled"
+    pill_badge: PillBadge | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -87,6 +115,12 @@ class CandidateRoute:
     telemetry: RouteTelemetry
     will_arrive_in_time: bool = True
     target_slack_minutes: int = 0
+    timeliness: str = "on_time"
+    estimated_transit_arrival: str = ""
+    estimated_destination_arrival: str = ""
+    leave_by_time: str = ""
+    next_summary: str = "None scheduled"
+    pill_badge: PillBadge | None = None
 
 
 @dataclass(slots=True)
@@ -198,11 +232,34 @@ class CommuteEngine:
             )
 
             telemetry = telemetries.get(route_id)
+
+            if route_cfg.mode == TransitMode.BUS:
+                route_label = route_cfg.line
+            else:
+                route_label = route_cfg.line.title()
+
+            corridor_stops_data = [
+                {
+                    "stop_id": sid,
+                    "short_name": (
+                        telemetry.stop_names.get(sid, sid)
+                        if telemetry is not None
+                        else sid
+                    ),
+                    "is_target": sid == route_cfg.boarding_stop,
+                }
+                for sid in route_cfg.corridor_stops
+            ]
+
             if telemetry is None:
                 child_states[route_id] = ChildRouteState(
                     route_id=route_id,
                     mode=route_cfg.mode.value,
                     urgency_stage=UrgencyStage.STANDBY,
+                    route_label=route_label,
+                    route_destination=route_cfg.destination_stop or "",
+                    corridor_stops=corridor_stops_data,
+                    pill_badge=calculate_pill_badge(UrgencyStage.STANDBY),
                 )
                 continue
 
@@ -224,6 +281,11 @@ class CommuteEngine:
                     route_id=route_id,
                     mode=route_cfg.mode.value,
                     urgency_stage=UrgencyStage.STANDBY,
+                    line_status=telemetry.line_status,
+                    route_label=route_label,
+                    route_destination=route_cfg.destination_stop or "",
+                    corridor_stops=corridor_stops_data,
+                    pill_badge=calculate_pill_badge(UrgencyStage.STANDBY),
                 )
                 continue
 
@@ -243,7 +305,7 @@ class CommuteEngine:
                 boarding_stop=route_cfg.boarding_stop,
             )
 
-            slack_mins, will_arrive, _ = calculate_target_slack(
+            slack_mins, will_arrive, timeliness_label = calculate_target_slack(
                 target_arrival_time_str=thresholds.target_arrival_time
                 or self._target_arrival_time,
                 boarding_arrival_seconds=active_dep.seconds_to_arrival,
@@ -253,6 +315,39 @@ class CommuteEngine:
                 line_status=telemetry.line_status,
             )
 
+            leave_by = calculate_leave_by_time(
+                leave_in_seconds=leave_in_sec,
+                reference_time=ref_dt,
+            )
+            leave_in_mins = int(round(leave_in_sec / 60))
+            mins_to_arr = int(round(active_dep.seconds_to_arrival / 60))
+
+            next_summary = format_next_summary(
+                next_seconds_to_arrival=(
+                    follower_dep.seconds_to_arrival if follower_dep else None
+                ),
+                next_expected_time=(
+                    follower_dep.expected_time if follower_dep else None
+                ),
+                reference_time=ref_dt,
+            )
+
+            est_transit_arr, est_dest_arr = calculate_journey_arrival_times(
+                boarding_arrival_seconds=active_dep.seconds_to_arrival,
+                in_vehicle_duration_seconds=route_cfg.in_vehicle_duration_seconds or 0,
+                alighting_walk_seconds=route_cfg.alighting_walk_seconds or 0,
+                reference_time=ref_dt,
+            )
+
+            pill_badge = calculate_pill_badge(
+                urgency_stage=stage,
+                leave_in_seconds=leave_in_sec,
+            )
+
+            route_destination = active_dep.destination or (
+                route_cfg.destination_stop or ""
+            )
+
             child_states[route_id] = ChildRouteState(
                 route_id=route_id,
                 mode=route_cfg.mode.value,
@@ -260,15 +355,27 @@ class CommuteEngine:
                 vehicle_id=active_dep.vehicle_id,
                 scheduled_departure=active_dep.expected_time,
                 seconds_to_arrival=active_dep.seconds_to_arrival,
+                minutes_to_arrival=mins_to_arr,
                 leave_in_seconds=leave_in_sec,
+                leave_in_minutes=leave_in_mins,
+                leave_by_time=leave_by,
                 corridor_location=corridor_loc,
                 corridor_progress=progress,
+                corridor_stops=corridor_stops_data,
                 next_vehicle_id=follower_dep.vehicle_id if follower_dep else None,
                 next_seconds_to_arrival=(
                     follower_dep.seconds_to_arrival if follower_dep else None
                 ),
+                next_summary=next_summary,
                 will_arrive_in_time=will_arrive,
                 target_slack_minutes=slack_mins,
+                timeliness=timeliness_label,
+                estimated_transit_arrival=est_transit_arr,
+                estimated_destination_arrival=est_dest_arr,
+                line_status=telemetry.line_status,
+                route_label=route_label,
+                route_destination=route_destination,
+                pill_badge=pill_badge,
             )
 
             if stage in (
@@ -286,6 +393,12 @@ class CommuteEngine:
                         telemetry=telemetry,
                         will_arrive_in_time=will_arrive,
                         target_slack_minutes=slack_mins or 0,
+                        timeliness=timeliness_label,
+                        estimated_transit_arrival=est_transit_arr,
+                        estimated_destination_arrival=est_dest_arr,
+                        leave_by_time=leave_by,
+                        next_summary=next_summary,
+                        pill_badge=pill_badge,
                     )
                 )
 
@@ -399,6 +512,16 @@ class CommuteEngine:
                 will_arrive_in_time=True,
                 target_slack_minutes=0,
                 strategy=strategy,
+                minutes_to_arrival=0,
+                leave_in_minutes=0,
+                leave_by_time="",
+                timeliness="on_time",
+                estimated_transit_arrival="",
+                estimated_destination_arrival="",
+                route_destination="",
+                line_status=None,
+                next_summary="None scheduled",
+                pill_badge=calculate_pill_badge(UrgencyStage.STANDBY),
             )
 
         on_time = [c for c in candidates if c.will_arrive_in_time]
@@ -458,6 +581,9 @@ class CommuteEngine:
                 "%H:%M"
             )
 
+        mins_to_arr = int(round(winning_tts / 60))
+        leave_in_mins = int(round(winner.leave_in_seconds / 60))
+
         return MasterRollupState(
             active_option=winner.route_id,
             urgency_stage=winner.urgency_stage,
@@ -468,4 +594,15 @@ class CommuteEngine:
             will_arrive_in_time=winner.will_arrive_in_time,
             target_slack_minutes=winner.target_slack_minutes,
             strategy=strategy,
+            minutes_to_arrival=mins_to_arr,
+            leave_in_minutes=leave_in_mins,
+            leave_by_time=winner.leave_by_time,
+            timeliness=winner.timeliness,
+            estimated_transit_arrival=winner.estimated_transit_arrival,
+            estimated_destination_arrival=winner.estimated_destination_arrival,
+            route_destination=winner.departure.destination
+            or (winner.route_config.destination_stop or ""),
+            line_status=winner.telemetry.line_status,
+            next_summary=winner.next_summary,
+            pill_badge=winner.pill_badge,
         )
