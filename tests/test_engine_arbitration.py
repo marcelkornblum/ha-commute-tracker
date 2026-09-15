@@ -22,9 +22,9 @@ def _build_route_and_telemetry(
     line: str,
     mode: TransitMode,
     seconds_to_arrival: int,
-    walk_seconds: int = 240,
+    boarding_walk_seconds: int = 240,
     prep_seconds: int = 120,
-    in_vehicle_duration_seconds: int = 1200,
+    transit_duration_seconds: int = 1200,
     alighting_walk_seconds: int = 300,
 ) -> tuple[RouteConfig, RouteTelemetry]:
     """Create a RouteConfig and corresponding RouteTelemetry for arbitration."""
@@ -33,9 +33,9 @@ def _build_route_and_telemetry(
         mode=mode,
         line=line,
         provider="mock",
-        walk_seconds=walk_seconds,
+        boarding_walk_seconds=boarding_walk_seconds,
         prep_seconds=prep_seconds,
-        in_vehicle_duration_seconds=in_vehicle_duration_seconds,
+        transit_duration_seconds=transit_duration_seconds,
         alighting_walk_seconds=alighting_walk_seconds,
     )
     telemetry = RouteTelemetry(
@@ -81,7 +81,7 @@ def test_arbitration_soonest_strategy() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_1"
-    assert commute_state.master_rollup.leave_in_seconds == 240
+    assert commute_state.master_rollup.seconds_to_leave == 240
     assert commute_state.master_rollup.strategy == RollupStrategy.SOONEST
 
 
@@ -107,7 +107,7 @@ def test_arbitration_latest_strategy() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_3"
-    assert commute_state.master_rollup.leave_in_seconds == 1140
+    assert commute_state.master_rollup.seconds_to_leave == 1140
     assert commute_state.master_rollup.strategy == RollupStrategy.LATEST
 
 
@@ -134,7 +134,7 @@ def test_arbitration_late_with_buffer_penultimate_selection() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_2"
-    assert commute_state.master_rollup.leave_in_seconds == 840
+    assert commute_state.master_rollup.seconds_to_leave == 840
     assert commute_state.master_rollup.strategy == RollupStrategy.LATE_WITH_BUFFER
 
 
@@ -161,7 +161,7 @@ def test_arbitration_late_with_buffer_outside_buffer_selects_latest() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_3"
-    assert commute_state.master_rollup.leave_in_seconds == 1140
+    assert commute_state.master_rollup.seconds_to_leave == 1140
 
 
 def test_arbitration_late_with_buffer_single_candidate() -> None:
@@ -182,7 +182,7 @@ def test_arbitration_late_with_buffer_single_candidate() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_1"
-    assert commute_state.master_rollup.leave_in_seconds == 240
+    assert commute_state.master_rollup.seconds_to_leave == 240
 
 
 def test_arbitration_on_time_priority_over_late_arrival() -> None:
@@ -195,7 +195,7 @@ def test_arbitration_on_time_priority_over_late_arrival() -> None:
     config = CommuteConfig(
         commute_id="test_commute",
         routes=[r1, r2],
-        target_arrival_time="08:45",
+        target_destination_time="08:45",
         rollup_strategy=RollupStrategy.LATEST,
     )
     engine = CommuteEngine(config=config, registry=TransitProviderRegistry())
@@ -207,8 +207,8 @@ def test_arbitration_on_time_priority_over_late_arrival() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_1"
-    assert commute_state.master_rollup.will_arrive_in_time is True
-    assert commute_state.master_rollup.leave_in_seconds == 240
+    assert commute_state.master_rollup.will_arrive_on_time is True
+    assert commute_state.master_rollup.seconds_to_leave == 240
 
 
 def test_arbitration_all_routes_late_falls_back_to_strategy() -> None:
@@ -219,7 +219,7 @@ def test_arbitration_all_routes_late_falls_back_to_strategy() -> None:
     config = CommuteConfig(
         commute_id="test_commute",
         routes=[r1, r2],
-        target_arrival_time="08:15",
+        target_destination_time="08:15",
         rollup_strategy=RollupStrategy.LATEST,
     )
     engine = CommuteEngine(config=config, registry=TransitProviderRegistry())
@@ -231,11 +231,11 @@ def test_arbitration_all_routes_late_falls_back_to_strategy() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_2"
-    assert commute_state.master_rollup.will_arrive_in_time is False
+    assert commute_state.master_rollup.will_arrive_on_time is False
 
 
 def test_arbitration_positive_leave_prioritised_over_negative_leave() -> None:
-    """Verify positive leave_in_seconds is preferred over negative sprint."""
+    """Verify positive seconds_to_leave is preferred over negative sprint."""
     r1, t1 = _build_route_and_telemetry("route_1", "24", TransitMode.BUS, 330)
     r2, t2 = _build_route_and_telemetry("route_2", "Northern", TransitMode.TUBE, 600)
 
@@ -253,7 +253,7 @@ def test_arbitration_positive_leave_prioritised_over_negative_leave() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_2"
-    assert commute_state.master_rollup.leave_in_seconds == 240
+    assert commute_state.master_rollup.seconds_to_leave == 240
 
 
 def test_arbitration_all_negative_leave_falls_back_to_strategy() -> None:
@@ -275,7 +275,7 @@ def test_arbitration_all_negative_leave_falls_back_to_strategy() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_2"
-    assert commute_state.master_rollup.leave_in_seconds == -60
+    assert commute_state.master_rollup.seconds_to_leave == -60
 
 
 def test_arbitration_helper_overrides() -> None:
@@ -327,16 +327,16 @@ def test_arbitration_helper_overrides() -> None:
 def test_arbitration_tie_breaker_slack() -> None:
     """Verify tie-breaker prefers candidate with greater target slack."""
     r1, t1 = _build_route_and_telemetry(
-        "route_1", "24", TransitMode.BUS, 600, in_vehicle_duration_seconds=1200
+        "route_1", "24", TransitMode.BUS, 600, transit_duration_seconds=1200
     )
     r2, t2 = _build_route_and_telemetry(
-        "route_2", "Northern", TransitMode.TUBE, 600, in_vehicle_duration_seconds=600
+        "route_2", "Northern", TransitMode.TUBE, 600, transit_duration_seconds=600
     )
 
     config = CommuteConfig(
         commute_id="test_commute",
         routes=[r1, r2],
-        target_arrival_time="09:00",
+        target_destination_time="09:00",
         rollup_strategy=RollupStrategy.LATEST,
     )
     engine = CommuteEngine(config=config, registry=TransitProviderRegistry())
@@ -348,4 +348,4 @@ def test_arbitration_tie_breaker_slack() -> None:
     )
 
     assert commute_state.master_rollup.active_option == "route_2"
-    assert commute_state.master_rollup.target_slack_minutes > 0
+    assert commute_state.master_rollup.expected_destination_margin_seconds > 0

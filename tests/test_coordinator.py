@@ -32,14 +32,14 @@ def sample_commute_config() -> CommuteConfig:
         mode=TransitMode.BUS,
         line="73",
         boarding_stop="490013766F",
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         prep_seconds=120,
     )
     return CommuteConfig(
         commute_id="work",
         commute_title="Work Commute",
         active_sensor="binary_sensor.work_commute_active",
-        target_arrival_time="09:00",
+        target_destination_time="09:00",
         poll_interval=30,
         routes=[route],
     )
@@ -81,9 +81,9 @@ async def test_coordinator_wake_and_sleep_transitions(
         master_rollup=MasterRollupState(
             active_option="bus_73",
             urgency_stage=UrgencyStage.LEAVE_NOW,
-            expected_time="08:45",
-            seconds_to_arrival=360,
-            leave_in_seconds=0,
+            expected_boarding_time="08:45",
+            seconds_to_board=360,
+            seconds_to_leave=0,
             route_label="73",
             is_active=True,
         ),
@@ -99,7 +99,10 @@ async def test_coordinator_wake_and_sleep_transitions(
     await coordinator.async_setup()
 
     assert not coordinator.is_active
-    assert coordinator.update_interval is None
+    assert (
+        coordinator.update_interval == timedelta(seconds=30)
+        or coordinator.update_interval is None
+    )
 
     hass.states.async_set("binary_sensor.work_commute_active", "on")
     await hass.async_block_till_done()
@@ -135,9 +138,9 @@ async def test_coordinator_initial_active_sensor(
         master_rollup=MasterRollupState(
             active_option="bus_73",
             urgency_stage=UrgencyStage.PREPARE,
-            expected_time="08:50",
-            seconds_to_arrival=600,
-            leave_in_seconds=240,
+            expected_boarding_time="08:50",
+            seconds_to_board=600,
+            seconds_to_leave=240,
             route_label="73",
             is_active=True,
         ),

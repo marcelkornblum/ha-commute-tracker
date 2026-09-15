@@ -7,14 +7,46 @@
         "description": "Configure your commute tracking options and transit feeds.",
         "data": {
           "name": "Commute Name",
-          "active_sensor": "Active Commute Sensor"
+          "active_sensor": "Active Commute Sensor",
+          "target_destination_time": "Target Destination Time",
+          "person_name": "Commuter Name",
+          "person_picture": "Commuter Picture URL",
+          "rollup_strategy": "Rollup Strategy",
+          "poll_interval": "Poll Interval (seconds)"
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to transit provider.",
       "invalid_auth": "Invalid authentication credentials.",
+      "mutual_grace": "Cannot specify both grace_seconds and grace_fraction.",
+      "no_routes": "At least one route must be configured.",
+      "no_commutes": "At least one commute must be configured.",
       "unknown": "Unexpected error occurred."
+    }
+  },
+  "selector": {
+    "rollup_strategy": {
+      "options": {
+        "late_with_buffer": "Late with buffer (recommended)",
+        "soonest": "Soonest departure",
+        "latest": "Latest departure"
+      }
+    },
+    "direction": {
+      "options": {
+        "from_home": "From home (outward)",
+        "to_home": "To home (return)"
+      }
+    },
+    "mode": {
+      "options": {
+        "bus": "Bus",
+        "train": "Train",
+        "tube": "Underground / Tube",
+        "tram": "Tram",
+        "ferry": "Ferry"
+      }
     }
   },
   "entity": {
@@ -27,6 +59,69 @@
           "prepare": "Prepare",
           "leave_now": "Leave Now",
           "idle": "Idle"
+        },
+        "state_attributes": {
+          "active_option": {
+            "name": "Active Option"
+          },
+          "is_relevant": {
+            "name": "Relevant"
+          },
+          "urgency_stage": {
+            "name": "Urgency Stage"
+          },
+          "leave_by_time": {
+            "name": "Leave By Time"
+          },
+          "expected_boarding_time": {
+            "name": "Expected Boarding Time"
+          },
+          "expected_destination_time": {
+            "name": "Expected Destination Time"
+          },
+          "seconds_to_leave": {
+            "name": "Seconds to Leave"
+          },
+          "seconds_to_board": {
+            "name": "Seconds to Board"
+          },
+          "expected_destination_margin_seconds": {
+            "name": "Expected Destination Margin"
+          },
+          "will_arrive_on_time": {
+            "name": "Will Arrive on Time"
+          },
+          "timeliness": {
+            "name": "Timeliness",
+            "state": {
+              "on_time": "On Time",
+              "early": "Early",
+              "late": "Late",
+              "delayed": "Delayed",
+              "cancelled": "Cancelled"
+            }
+          },
+          "route_label": {
+            "name": "Route Label"
+          },
+          "route_color": {
+            "name": "Route Colour"
+          },
+          "destination": {
+            "name": "Destination"
+          },
+          "line_status_label": {
+            "name": "Line Status"
+          },
+          "line_status_detail": {
+            "name": "Line Status Detail"
+          },
+          "pill_label": {
+            "name": "Pill Label"
+          },
+          "next_summary": {
+            "name": "Next Summary"
+          }
         }
       },
       "child_route": {
@@ -36,8 +131,85 @@
           "relaxed": "Relaxed",
           "prepare": "Prepare",
           "leave_now": "Leave Now",
-          "departed": "Departed",
           "idle": "Idle"
+        },
+        "state_attributes": {
+          "route_id": {
+            "name": "Route ID"
+          },
+          "mode": {
+            "name": "Transit Mode"
+          },
+          "line": {
+            "name": "Line"
+          },
+          "provider": {
+            "name": "Provider"
+          },
+          "direction": {
+            "name": "Direction"
+          },
+          "route_label": {
+            "name": "Route Label"
+          },
+          "route_color": {
+            "name": "Route Colour"
+          },
+          "destination": {
+            "name": "Destination"
+          },
+          "leave_by_time": {
+            "name": "Leave By Time"
+          },
+          "expected_boarding_time": {
+            "name": "Expected Boarding Time"
+          },
+          "expected_alighting_time": {
+            "name": "Expected Alighting Time"
+          },
+          "expected_destination_time": {
+            "name": "Expected Destination Time"
+          },
+          "seconds_to_leave": {
+            "name": "Seconds to Leave"
+          },
+          "seconds_to_board": {
+            "name": "Seconds to Board"
+          },
+          "expected_destination_margin_seconds": {
+            "name": "Expected Destination Margin"
+          },
+          "will_arrive_on_time": {
+            "name": "Will Arrive on Time"
+          },
+          "timeliness": {
+            "name": "Timeliness",
+            "state": {
+              "on_time": "On Time",
+              "early": "Early",
+              "late": "Late",
+              "delayed": "Delayed",
+              "cancelled": "Cancelled"
+            }
+          },
+          "corridor_location": {
+            "name": "Corridor Location"
+          },
+          "corridor_progress": {
+            "name": "Corridor Progress"
+          },
+          "line_status_label": {
+            "name": "Line Status"
+          },
+          "line_status_detail": {
+            "name": "Line Status Detail"
+          },
+          "pill_label": {
+            "name": "Pill Label"
+          },
+          "next_summary": {
+            "name": "Next Summary"
+          }
         }
       }
     }

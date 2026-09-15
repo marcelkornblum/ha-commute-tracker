@@ -63,7 +63,7 @@ def test_parse_bus_line_status(
 
     line_status = tfl_provider.parse_line_status(payload=status_json)
     assert line_status.status_label == "Special Service"
-    assert "STRAND, WC2" in (line_status.reason or "")
+    assert "STRAND, WC2" in (line_status.detail or "")
     assert line_status.status_colour != ""
     assert line_status.status_icon.startswith("mdi:")
 
@@ -74,7 +74,7 @@ def test_parse_line_status_fallback_unknown(tfl_provider: TfLTransitProvider) ->
     assert status_empty_list.status_label == "Unknown"
     assert status_empty_list.status_colour == "#757575"
     assert status_empty_list.status_icon == "mdi:help-circle"
-    assert status_empty_list.reason is None
+    assert status_empty_list.detail is None
 
     status_no_statuses = tfl_provider.parse_line_status(payload={"id": "central"})
     assert status_no_statuses.status_label == "Unknown"
@@ -178,11 +178,11 @@ def test_tfl_provider_telemetry_from_snapshot(
         mode=TransitMode.BUS,
         line="26",
         provider="tfl",
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         prep_seconds=120,
         grace_seconds=180,
         boarding_stop="490013766F",
-        destination_stop="490005524F",
+        alighting_stop="490005524F",
         corridor_stops=[
             "490000248H",
             "490014496N",
@@ -241,7 +241,7 @@ def test_tfl_provider_tube_corridor_telemetry_extraction(
         mode=TransitMode.TUBE,
         line="central",
         boarding_stop="940GZZLUTCR",
-        destination_stop="940GZZLULVT",
+        alighting_stop="940GZZLULVT",
         corridor_stops=[
             "940GZZLUNAN",
             "940GZZLUEAN",
@@ -382,7 +382,7 @@ async def test_tfl_provider_async_get_telemetry_train(
         mode=TransitMode.TRAIN,
         line="southeastern",
         boarding_stop="910GCHRX",
-        destination_stop="910GLNDNBDC",
+        alighting_stop="910GLNDNBDC",
     )
 
     telemetry = await provider.async_get_telemetry(route=route)

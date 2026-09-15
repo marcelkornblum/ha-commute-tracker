@@ -13,7 +13,7 @@ This contract defines the public entity interfaces, sensor states, attributes, d
    - Polling is driven by the state of an external binary sensor (`active_sensor`).
    - When the active sensor is `off`, the coordinator suspends polling and all sensors transition to the `idle` state.
 3. **No Standalone Timeliness Sensors**:
-   - Timeliness status (`timeliness`, `target_slack_minutes`, `will_arrive_in_time`) is exposed directly as attributes on both Master and Child sensors.
+   - Timeliness status (`timeliness`, `expected_destination_margin_seconds`, `will_arrive_on_time`) is exposed directly as attributes on both Master and Child sensors.
 4. **Exact Lovelace Card Parity**:
    - All attribute names and value formats maintain 100% compatibility with the Lovelace card interface developed in the legacy proof of concept.
 
@@ -26,9 +26,9 @@ To protect user privacy and eliminate personal commute data from the test suite 
 - **Commute ID**: `nelson_to_brick_lane`
 - **Commute Title**: `"Nelson's Column to Brick Lane"`
 - **Commuter Name**: `"Commuter"`
-- **Origin**: Nelson's Column, Trafalgar Square (`51.5078, -0.1280`)
+- **Doorstep (Origin)**: Nelson's Column, Trafalgar Square (`51.5078, -0.1280`)
 - **Destination**: Brick Lane, London E1 (`51.5215, -0.0715`)
-- **Target Destination Arrival**: `09:00`
+- **Target Destination Time**: `09:00`
 - **Active Binary Sensor**: `binary_sensor.commute_nelson_to_brick_lane_relevant`
 
 ```
@@ -52,19 +52,21 @@ To protect user privacy and eliminate personal commute data from the test suite 
 ```
 
 ### Route 1: Daytime Bus 26 (Victoria to Hackney Wick / Shoreditch)
-- **Mode**: `bus` (vehicle type: `bus`)
-- **Line Code**: `"26"` (Daytime service)
-- **Operator**: `"TfL"`
+- **Mode**: `bus`
+- **Line**: `"26"` (Daytime service)
+- **Provider**: `"tfl"`
+- **Direction**: `from_home`
 - **Route Colour**: `"#DC241F"` (London Bus Red)
 - **Headway / Frequency**: ~8–10 minutes
 - **Boarding Stop**: `Charing Cross Stn / Trafalgar Square` (Stop F, NaPTAN `490013766F`)
-- **Destination / Alighting Stop**: `Shoreditch High Street Station` (Stop F, NaPTAN `490005524F`)
-- **Walking Offsets**:
-  - Walk from Nelson's Column to Stop F: `4` minutes
-  - Prep buffer: `2` minutes
-  - Doorstep leave threshold: $\text{timeToStation} - (4 + 2) \times 60$ seconds
-  - Walk from Shoreditch High St to Brick Lane: `10` minutes
-  - In-bus journey duration: `32` minutes
+- **Alighting Stop**: `Shoreditch High Street Station` (Stop F, NaPTAN `490005524F`)
+- **Destination**: `"Shoreditch"`
+- **Journey Timings**:
+  - `boarding_walk_seconds`: `240` (4 minutes from Nelson's Column doorstep to Stop F)
+  - `prep_seconds`: `120` (2 minutes preparation buffer)
+  - Doorstep leave countdown: $\text{seconds\_to\_leave} = \text{seconds\_to\_board} - (240 + 120)$
+  - `transit_duration_seconds`: `1920` (32 minutes in-bus transit)
+  - `alighting_walk_seconds`: `600` (10 minutes walk from Shoreditch High St to Brick Lane)
 - **Corridor Stop Geometry** (approaching boarding stop):
   1. Terminus: Victoria Station (`490000248H`, `"Victoria"`, ~20–25m transit to target, ~14–19m advance warning before doorstep threshold)
   2. Intermediate 1: Westminster Cathedral (`490014496N`, `"Westminster Cathedral"`)
@@ -73,42 +75,46 @@ To protect user privacy and eliminate personal commute data from the test suite 
   5. Intermediate 4: Westminster Abbey (`490014495R`, `"Westminster Abbey"`)
   6. Intermediate 5: Westminster Stn / Parliament Square (`490015048A`, `"Westminster"`)
   7. Intermediate 6: Horse Guards Parade (`490008376N`, `"Horse Guards"`)
-  8. Boarding Target: Charing Cross Stn / Trafalgar Square (`490013766F`, `"Trafalgar Sq"`, `is_target: true`)
+  8. Boarding Stop: Charing Cross Stn / Trafalgar Square (`490013766F`, `"Trafalgar Sq"`, `is_target: true`)
 
 ### Route 2: Train (Southeastern Rail)
-- **Mode**: `train` (vehicle type: `train`)
-- **Line Code**: `"southeastern"`
-- **Operator**: `"Southeastern"`
+- **Mode**: `train`
+- **Line**: `"southeastern"`
+- **Provider**: `"tfl"`
+- **Direction**: `from_home`
 - **Route Colour**: `"#0019A8"` (Southeastern Blue)
 - **Headway / Frequency**: ~15 minutes
-- **Boarding Station**: `London Charing Cross Rail Station` (NaPTAN `910GCHRX`, terminus station)
-- **Alighting Station**: `London Bridge Rail Station` (NaPTAN `910GLNDNBDC`)
-- **Walking Offsets**:
-  - Walk from Nelson's Column to station concourse: `4` minutes
-  - Prep buffer: `2` minutes
-  - Doorstep leave threshold: $\text{departureCountdown} - (4 + 2) \times 60$ seconds
-  - Scheduled rail transit duration: `8` minutes
-  - Walk / transfer from London Bridge to Brick Lane: `15` minutes
+- **Boarding Stop**: `London Charing Cross Rail Station` (NaPTAN `910GCHRX`, terminus station)
+- **Alighting Stop**: `London Bridge Rail Station` (NaPTAN `910GLNDNBDC`)
+- **Destination**: `"London Bridge"`
+- **Journey Timings**:
+  - `boarding_walk_seconds`: `240` (4 minutes walk from doorstep to station concourse)
+  - `prep_seconds`: `120` (2 minutes preparation buffer)
+  - Doorstep leave countdown: $\text{seconds\_to\_leave} = \text{seconds\_to\_board} - (240 + 120)$
+  - `transit_duration_seconds`: `480` (8 minutes scheduled rail transit)
+  - `alighting_walk_seconds`: `900` (15 minutes walk / transfer from London Bridge to Brick Lane)
 - **Corridor Stop Geometry** (approaching boarding station):
   - *Terminus Concourse Tracking Model*: Because London Charing Cross is a buffer-stop rail terminus where trains originate from the platform, there is no upstream approach corridor of pre-boarding stations. The tracking model evaluates scheduled platform departure boards and gate status rather than multi-station progression. To ensure the commuter receives sufficient advance warning prior to the doorstep threshold (4m walk + 2m prep = 6m), the journey planner query evaluates forward schedule pagination (`timeAdjustments.later`), maintaining a 45–60 minute forward departure horizon (minimum 8–10 scheduled services).
-  1. Origin & Boarding Target: London Charing Cross Rail Station (`910GCHRX`, `"Charing Cross"`, `is_target: true`, terminus concourse)
+  1. Origin & Boarding Stop: London Charing Cross Rail Station (`910GCHRX`, `"Charing Cross"`, `is_target: true`, terminus concourse)
   2. Direct Rail Transit: London Charing Cross $\rightarrow$ London Bridge (non-stop direct line)
-  3. Alighting Destination: London Bridge Rail Station (`910GLNDNBDC`, `"London Bridge"`)
+  3. Alighting Stop: London Bridge Rail Station (`910GLNDNBDC`, `"London Bridge"`)
 
 ### Route 3: Deep Underground Tube (Central Line)
-- **Mode**: `tube` (vehicle type: `tube`)
-- **Line Code**: `"central"`
-- **Operator**: `"London Underground"`
+- **Mode**: `tube`
+- **Line**: `"central"`
+- **Provider**: `"tfl"`
+- **Direction**: `from_home`
 - **Route Colour**: `"#E32017"` (Central Line Red)
 - **Headway / Frequency**: ~2–3 minutes (24–30 trains/hour)
-- **Boarding Station**: `Tottenham Court Road Underground Station` (NaPTAN `940GZZLUTCR`, through-station)
-- **Alighting Station**: `Liverpool Street Underground Station` (NaPTAN `940GZZLULVT`)
-- **Walking Offsets**:
-  - Walk from Nelson's Column to Tottenham Court Road station concourse: `10` minutes (750m north via Charing Cross Road)
-  - Prep buffer: `2` minutes
-  - Doorstep leave threshold: $\text{departureCountdown} - (10 + 2) \times 60$ seconds
-  - Scheduled transit duration: `8` minutes (5 intermediate stations direct)
-  - Walk from Liverpool Street to Brick Lane: `8` minutes (650m east via Spitalfields)
+- **Boarding Stop**: `Tottenham Court Road Underground Station` (NaPTAN `940GZZLUTCR`, through-station)
+- **Alighting Stop**: `Liverpool Street Underground Station` (NaPTAN `940GZZLULVT`)
+- **Destination**: `"Liverpool Street"`
+- **Journey Timings**:
+  - `boarding_walk_seconds`: `600` (10 minutes walk from Nelson's Column doorstep to Tottenham Court Road concourse)
+  - `prep_seconds`: `120` (2 minutes preparation buffer)
+  - Doorstep leave countdown: $\text{seconds\_to\_leave} = \text{seconds\_to\_board} - (600 + 120)$
+  - `transit_duration_seconds`: `480` (8 minutes scheduled transit direct)
+  - `alighting_walk_seconds`: `480` (8 minutes walk from Liverpool Street to Brick Lane)
 - **Corridor Stop Geometry** (approaching boarding station):
   1. Approach 1: North Acton Underground Station (`940GZZLUNAN`, `"North Acton"`, trunk merge, ~24m transit to target, ~12m advance warning before doorstep threshold)
   2. Approach 2: East Acton Underground Station (`940GZZLUEAN`, `"East Acton"`, ~20m transit to target)
@@ -138,17 +144,17 @@ String representation of the current urgency stage, matching the architectural s
 - `"standby"`: Commute is inactive or outside tracking window (`active_sensor` is `off` or no service scheduled).
 - `"relaxed"`: Transit service is active with comfortable buffer before the preparation window (e.g. $> 8$ minutes to leave).
 - `"prepare"`: Commuter preparation window active (e.g. $\le 8$ minutes to leave).
-- `"leave_now"`: Doorstep departure deadline reached ($\text{leave\_in\_seconds} \le 0$).
+- `"leave_now"`: Doorstep departure deadline reached ($\text{seconds\_to\_leave} \le 0$).
 
 > [!IMPORTANT]
 > **Reachability Rollover (Pre-Departure Miss Detection)**:
 > Rollover occurs **before the vehicle departs**, governed strictly by physical reachability from the commuter's doorstep:
-> 1. **Comfortable Departure Target**: Calculated as $\text{leave\_by\_time} = \text{departure\_time} - (\text{walk} + \text{prep})$.
-> 2. **Leeway / Grace Window**: Once $\text{leave\_in\_seconds} \le 0$, the state transitions to `"leave_now"`. The vehicle remains the active candidate for a configurable leeway window ($\text{grace\_seconds}$, typically $180\text{s}$ for buses, $360\text{s}$ for trains) allowing the commuter to rush or run to the stop.
-> 3. **Unreachable / Missed Cutoff**: Once $\text{leave\_in\_seconds} < -\text{grace\_seconds}$, the commuter has mathematically **no chance** of reaching the stop before the vehicle leaves. At that moment, the vehicle is discarded as **missed** and removed from the active plan, regardless of its actual physical location along the corridor or whether it has arrived at the boarding stop yet.
-> 4. **Rollover Transition**: The engine immediately advances to track the subsequent scheduled transit service. If a next vehicle exists, urgency rolls back to `"relaxed"` (or `"prepare"` if close behind). If no reachable service remains or the active window closes, the state transitions to `"standby"`.
+> 1. **Comfortable Departure Target**: Calculated as $\text{leave\_by\_time} = \text{expected\_boarding\_time} - (\text{boarding\_walk\_seconds} + \text{prep\_seconds})$.
+> 2. **Leeway / Grace Window**: Once $\text{seconds\_to\_leave} \le 0$, the state transitions to `"leave_now"`. The vehicle remains the active candidate while physically reachable: $\text{seconds\_to\_board} \ge \text{boarding\_walk\_seconds} - \text{grace\_seconds}$ (or equivalently $\text{seconds\_to\_leave} \ge -(\text{prep\_seconds} + \text{grace\_seconds})$), allowing the commuter to rush or run to the stop.
+> 3. **Unreachable / Missed Cutoff**: Once $\text{seconds\_to\_board} < \text{boarding\_walk\_seconds} - \text{grace\_seconds}$, the commuter has mathematically **no chance** of reaching the stop before the vehicle leaves. At that moment, the vehicle is discarded as **missed** and removed from the active plan, regardless of its actual physical location along the corridor or whether it has arrived at the boarding stop yet.
+> 4. **Rollover Transition**: The engine immediately advances to track the subsequent scheduled transit service. If a next vehicle exists, urgency rolls back to `"relaxed"` (or `"prepare"` if close behind). If no reachable service remains or the active window closes, the state transitions to `"idle"`.
 
-All departure times and countdown metrics are provided via attributes (`expected_time`, `leave_by_time`, `seconds_to_arrival`, `leave_in_seconds`).
+All departure times and countdown metrics are provided via attributes (`expected_boarding_time`, `leave_by_time`, `seconds_to_board`, `seconds_to_leave`).
 
 ### Attributes Table
 
@@ -156,10 +162,11 @@ All departure times and countdown metrics are provided via attributes (`expected
 | :--- | :--- | :--- | :--- |
 | `commute_id` | `str` | Unique identifier of the commute | `"nelson_to_brick_lane"` |
 | `commute_title` | `str` | Display title for the card header | `"Nelson's Column to Brick Lane"` |
-| `person_name` | `str` | Name of the commuter | `"Commuter"` |
-| `person_picture` | `str` | URL or local path to person image | `""` |
+| `person_name` | `str` | Name of the commuter (if configured) | `"Commuter"` |
+| `person_picture` | `str` | URL or local path to person image (if configured) | `""` |
 | `active_option` | `str` | ID of the currently selected optimal route | `"bus_26"` |
 | `options` | `list[str]` | List of all configured child route option IDs | `["bus_26", "train_southeastern", "tube_central"]` |
+| `child_entities` | `list[str]` | Entity IDs of all associated child route sensors | `["sensor.commute_nelson_to_brick_lane_bus_26", ...]` |
 | `is_relevant` | `bool` | Whether the commute is currently active | `true` |
 | `urgency_stage` | `str` | Commute urgency lifecycle phase | `"standby"` \| `"relaxed"` \| `"prepare"` \| `"leave_now"` |
 | `pill_label` | `str` | Header badge text | `"Standby"` \| `"Leave in 4m"` \| `"🚨 LEAVE NOW"` |
@@ -168,25 +175,22 @@ All departure times and countdown metrics are provided via attributes (`expected
 | `pill_border` | `str` | Border colour for badge | `"#4CAF50"` |
 | `route_label` | `str` | Line or route short identifier | `"26"` \| `"Southeastern"` \| `"Central"` |
 | `route_color` | `str` | Primary branding colour of active route | `"#DC241F"` \| `"#0019A8"` \| `"#E32017"` |
-| `route_destination` | `str` | Final destination of active route transit | `"Shoreditch"` \| `"London Bridge"` \| `"Liverpool Street"` |
-| `line_status` | `str` | TfL / Operator service status description | `"Good Service"` \| `"Minor Delays"` |
-| `line_status_icon` | `str` | Status icon symbol | `"✓"` \| `"⚠"` |
+| `destination` | `str` | Final destination of active route transit | `"Shoreditch"` \| `"London Bridge"` \| `"Liverpool Street"` |
+| `line_status_label` | `str` | TfL / Operator service status description | `"Good Service"` \| `"Minor Delays"` |
+| `line_status_detail` | `str` \| `None` | Disruption reasoning text if applicable | `None` |
 | `line_status_color` | `str` | Status icon colour hex | `"#4CAF50"` \| `"#FF9800"` \| `"#F44336"` |
-| `line_status_reason` | `str` | Disruption reasoning text if applicable | `""` |
-| `detail_navigation_path` | `str` | Optional Lovelace sub-view navigation path | `"/lovelace/commute-detail-26"` |
-| `expected_time` | `str` | Expected departure time at boarding stop | `"08:24"` \| `"none"` |
-| `minutes_to_arrival` | `int` \| `str` | Minutes until transit arrives at boarding stop | `5` \| `"none"` |
-| `seconds_to_arrival` | `int` \| `str` | Seconds until transit arrives at boarding stop | `312` \| `"none"` |
-| `leave_by_time` | `str` | Recommended doorstep departure time (`HH:MM`) | `"08:18"` \| `"none"` |
-| `leave_in_minutes` | `int` \| `str` | Minutes until commuter must leave | `2` \| `"none"` |
-| `leave_in_seconds` | `int` \| `str` | Seconds until commuter must leave | `132` \| `"none"` |
-| `corridor_location` | `str` | Natural language vehicle position | `"Between Horse Guards and Trafalgar Sq"` |
-| `corridor_stops` | `list[dict]` | Ordered schematic corridor stops | `[{"short_name": "...", "is_target": false}]` |
-| `corridor_progress` | `float` | Fractional progression index along corridor | `3.5` |
-| `target_arrival_time` | `str` | Planned destination arrival deadline | `"09:00"` |
-| `target_slack_minutes` | `int` \| `str` | Buffer minutes relative to deadline | `4` \| `"-3"` \| `"none"` |
-| `will_arrive_in_time` | `bool` | Whether route arrives before target deadline | `true` |
+| `line_status_icon` | `str` | Status icon symbol | `"mdi:check-circle"` \| `"mdi:alert"` |
+| `is_delayed` | `bool` | Boolean flag indicating operational delay | `false` |
+| `is_cancelled` | `bool` | Boolean flag indicating suspension or cancellation | `false` |
+| `expected_boarding_time` | `str` | Expected departure time at boarding stop (`HH:MM`) | `"08:24"` |
+| `expected_destination_time` | `str` | Expected arrival time at journey destination (`HH:MM`) | `"09:06"` |
+| `leave_by_time` | `str` | Recommended doorstep departure time (`HH:MM`) | `"08:18"` |
+| `seconds_to_board` | `int` \| `None` | Seconds until transit arrives at boarding stop | `312` |
+| `seconds_to_leave` | `int` \| `None` | Seconds until commuter must leave doorstep | `132` |
+| `expected_destination_margin_seconds` | `int` \| `None` | Buffer seconds relative to target deadline | `240` |
+| `will_arrive_on_time` | `bool` | Whether route arrives before target deadline | `true` |
 | `timeliness` | `str` | Normalised timeliness classification | `"on_time"` \| `"early"` \| `"late"` \| `"delayed"` \| `"cancelled"` |
+| `strategy` | `str` | Arbitration strategy applied | `"late_with_buffer"` \| `"soonest"` \| `"latest"` |
 | `next_summary` | `str` | Formatted summary of subsequent service | `"Next at 08:36 (in 12m)"` \| `"None scheduled"` |
 
 ---
@@ -198,15 +202,50 @@ All departure times and countdown metrics are provided via attributes (`expected
 - Train: `sensor.commute_nelson_to_brick_lane_train_southeastern`
 - Tube: `sensor.commute_nelson_to_brick_lane_tube_central`
 
-### State & Additional Attributes
-Same format as Master Rollup, plus:
-- `option_id`: `"bus_26"`, `"train_southeastern"`, or `"tube_central"`
-- `mode`: `"bus"`, `"train"`, or `"tube"`
-- `vehicle_type`: `"bus"`, `"train"`, or `"tube"`
-- `journey_duration_minutes`: `32` (bus), `8` (train), or `8` (tube)
-- `estimated_transit_arrival`: `"08:56"` (Shoreditch), `"08:38"` (London Bridge), or `"08:38"` (Liverpool Street)
-- `estimated_destination_arrival`: `"09:06"` (Brick Lane via bus), `"08:53"` (Brick Lane via rail), or `"08:46"` (Brick Lane via tube)
-- `corridor_stage_id`: e.g. `"transit:horse_guards_to_trafalgar"` or `"transit:oxford_circus_to_tottenham_court_road"`
+### State
+Urgency stage matching the Master Rollup: `"standby"`, `"relaxed"`, `"prepare"`, `"leave_now"` (or `"idle"` when coordinator is dormant).
+
+### Attributes Table
+
+| Attribute | Type | Description | Exemplar Value |
+| :--- | :--- | :--- | :--- |
+| `commute_id` | `str` | Unique identifier of the commute | `"nelson_to_brick_lane"` |
+| `route_id` | `str` | Unique route option identifier | `"bus_26"` |
+| `mode` | `str` | Transit mode identifier | `"bus"` \| `"train"` \| `"tube"` |
+| `line` | `str` | Line identifier or service code | `"26"` \| `"southeastern"` \| `"central"` |
+| `provider` | `str` | Transit provider plugin ID | `"tfl"` |
+| `direction` | `str` | Direction of travel | `"from_home"` \| `"to_home"` |
+| `route_label` | `str` | Short display label | `"26"` |
+| `route_color` | `str` | Branding hex colour code | `"#DC241F"` |
+| `destination` | `str` | Transit vehicle destination | `"Shoreditch"` |
+| `is_relevant` | `bool` | Whether route evaluation is active | `true` |
+| `urgency_stage` | `str` | Route urgency lifecycle phase | `"relaxed"` |
+| `leave_by_time` | `str` | Recommended doorstep departure time (`HH:MM`) | `"08:18"` |
+| `expected_boarding_time` | `str` | Boarding stop expected time (`HH:MM`) | `"08:24"` |
+| `expected_alighting_time` | `str` | Alighting stop expected time (`HH:MM`) | `"08:56"` |
+| `expected_destination_time` | `str` | Final destination arrival time (`HH:MM`) | `"09:06"` |
+| `seconds_to_leave` | `int` \| `None` | Seconds until commuter must leave | `132` |
+| `seconds_to_board` | `int` \| `None` | Seconds until transit arrives at stop | `312` |
+| `expected_destination_margin_seconds` | `int` \| `None` | Buffer seconds relative to target deadline | `240` |
+| `will_arrive_on_time` | `bool` | Whether route arrives before target deadline | `true` |
+| `timeliness` | `str` | Normalised timeliness classification | `"on_time"` |
+| `vehicle_id` | `str` \| `None` | Active transit vehicle registration/identifier | `"LX11BFA"` |
+| `corridor_location` | `str` \| `None` | Natural language vehicle position | `"Between Horse Guards and Trafalgar Sq"` |
+| `corridor_progress` | `float` \| `None` | Fractional progression index along corridor | `6.5` |
+| `corridor_stops` | `list[dict]` \| `None` | Ordered schematic corridor stops | `[{"short_name": "...", "is_target": false}]` |
+| `next_vehicle_id` | `str` \| `None` | Subsequent service vehicle identifier | `"LX11BFB"` |
+| `seconds_to_next_board` | `int` \| `None` | Seconds until subsequent vehicle boards | `720` |
+| `next_summary` | `str` | Formatted summary of subsequent service | `"Next at 08:36 (in 12m)"` |
+| `line_status_label` | `str` | Operator line status description | `"Good Service"` |
+| `line_status_detail` | `str` \| `None` | Disruption reasoning text if applicable | `None` |
+| `line_status_color` | `str` | Status icon colour hex | `"#4CAF50"` |
+| `line_status_icon` | `str` | Status icon symbol | `"mdi:check-circle"` |
+| `is_delayed` | `bool` | Operational delay indicator | `false` |
+| `is_cancelled` | `bool` | Operational cancellation indicator | `false` |
+| `pill_label` | `str` | Header badge text | `"Leave in 4m"` |
+| `pill_color` | `str` | Hex colour code for badge text | `"#FF9800"` |
+| `pill_bg` | `str` | RGBA colour for badge background | `"rgba(255, 152, 0, 0.15)"` |
+| `pill_border` | `str` | Border colour for badge | `"#FF9800"` |
 
 ---
 
@@ -280,15 +319,20 @@ uv run python scripts/capture_tfl.py \
 ## 6. Reachability & Optimal Route Arbitration
 
 ### Reachability Filter
-A transit departure $k$ with arrival countdown $t_k$ (seconds to arrive at boarding stop) is deemed **reachable** if and only if:
-$$\text{leave\_in\_seconds}_k = t_k - (\text{walk\_minutes} + \text{prep\_minutes}) \times 60 \ge -\text{grace\_seconds}$$
-- If $\text{leave\_in\_seconds}_k < -\text{grace\_seconds}$, departure $k$ is mathematically unreachable and marked **missed**. The engine immediately discards it and evaluates departure $k+1$, regardless of whether vehicle $k$ is still en route.
-- $\text{grace\_seconds}$ provides user leeway beyond the comfortable recommendation (e.g. running to the stop), after which reaching the stop is impossible.
+A transit departure $k$ with arrival countdown $t_k$ (`seconds_to_board` at the boarding stop) is deemed **physically reachable** from the commuter's doorstep if and only if:
+$$\text{seconds\_to\_board}_k \ge \text{boarding\_walk\_seconds} - \text{grace\_seconds}$$
+or in terms of the doorstep departure countdown:
+$$\text{seconds\_to\_leave}_k = \text{seconds\_to\_board}_k - (\text{boarding\_walk\_seconds} + \text{prep\_seconds}) \ge -(\text{prep\_seconds} + \text{grace\_seconds})$$
+- If $\text{seconds\_to\_board}_k < \text{boarding\_walk\_seconds} - \text{grace\_seconds}$, departure $k$ is mathematically unreachable and marked **missed**. The engine immediately discards it and evaluates departure $k+1$, regardless of whether vehicle $k$ is still en route.
+- $\text{grace\_seconds}$ provides user leeway beyond the comfortable recommendation (e.g. running to the stop), after which reaching the stop before departure is impossible.
 
 ### Multi-Route Arbitration
 When evaluating multiple routes for the Master Rollup:
 1. **Filter Reachable**: Eliminate routes with no reachable services.
-2. **Timeliness Priority**: Prioritise routes that arrive before the target deadline ($\text{target\_slack\_minutes} \ge 0$).
-3. **Immediacy Priority**: Between multiple on-time (or multiple late) routes, promote the route requiring departure soonest ($\text{leave\_in\_seconds}$).
-4. **Standby Fallback**: If no reachable service exists across all options, the commute transitions to `"standby"`.
+2. **Timeliness Partitioning**: Prioritise routes that arrive before the target deadline (`will_arrive_on_time: true`, where $\text{expected\_destination\_margin\_seconds} \ge 0$). Late routes are only considered if no reachable on-time route exists.
+3. **Catchability Partitioning**: Prioritise comfortable departures ($\text{seconds\_to\_leave} \ge 0$) over sprint options ($\text{seconds\_to\_leave} < 0$).
+4. **Arbitration Strategy**: Apply the configured `rollup_strategy` (`late_with_buffer`, `soonest`, or `latest`) based on `seconds_to_leave`.
+5. **Tie-Breaking**: When multiple candidates have equal `seconds_to_leave`, the candidate with greater `expected_destination_margin_seconds` is selected.
+6. **Idle Fallback**: If no reachable service exists across all options, the commute transitions to `"standby"` (or `"idle"` if inactive).
+
 

@@ -9,13 +9,18 @@
 
 2. **[Control Flow & Decision Engine](./control-flow.md)**
    - Traces the end-to-end execution path from raw API ingestion to entity state emission.
-   - Explains specific algorithmic responsibilities: direction filtering, doorstep reachability, corridor interpolation, urgency state transitions, destination slack maths, and master option arbitration.
+   - Explains specific algorithmic responsibilities: direction filtering, doorstep reachability, corridor interpolation, urgency state transitions, destination margin maths, and master option arbitration.
 
 3. **[Transit Provider Architecture & Guide](./transit-providers.md)**
    - Explains the mode-agnostic `TransitProvider` plugin architecture.
    - Describes normalised domain models (`RouteTelemetry`, `DeparturePrediction`, `LineStatus`).
    - Details the `TransitProviderRegistry`, contract validation (`validate_provider`), and dynamic auto-discovery.
    - Provides a comprehensive, step-by-step walkthrough for building and registering a new transit provider.
+
+4. **[Configuration Reference & Schema Guide](./configuration.md)**
+   - Comprehensive guide to all configuration options across Root, Commute, and Route scopes.
+   - Details option purposes, types, defaults, units, cascading inheritance rules, and mutual exclusivity.
+   - Provides fully annotated YAML configuration examples for single and multi-modal commutes.
 
 ---
 

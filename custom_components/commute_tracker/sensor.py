@@ -159,7 +159,7 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
         )
         route_color = (
             (
-                active_route_cfg.corridor_color
+                active_route_cfg.route_color
                 or MODE_COLOURS.get(active_route_cfg.mode, DEFAULT_LINE_COLOUR)
             )
             if active_route_cfg
@@ -172,60 +172,59 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
             "active_option": master.active_option,
             "is_relevant": self.coordinator.is_active and master.is_active,
             "urgency_stage": master.urgency_stage.value,
-            "expected_time": master.expected_time,
-            "seconds_to_arrival": master.seconds_to_arrival,
-            "minutes_to_arrival": master.minutes_to_arrival,
-            "leave_in_seconds": master.leave_in_seconds,
-            "leave_in_minutes": master.leave_in_minutes,
             "leave_by_time": master.leave_by_time,
+            "expected_boarding_time": master.expected_boarding_time,
+            "expected_destination_time": master.expected_destination_time,
+            "seconds_to_leave": master.seconds_to_leave,
+            "seconds_to_board": master.seconds_to_board,
+            "expected_destination_margin_seconds": (
+                master.expected_destination_margin_seconds
+            ),
             "route_label": master.route_label,
             "route_color": route_color,
-            "corridor_color": route_color,
-            "route_destination": master.route_destination,
+            "destination": master.destination,
+            "will_arrive_on_time": master.will_arrive_on_time,
+            "timeliness": master.timeliness,
             "strategy": (
                 master.strategy.value
                 if hasattr(master.strategy, "value")
                 else str(master.strategy)
             ),
-            "will_arrive_in_time": master.will_arrive_in_time,
-            "target_slack_minutes": master.target_slack_minutes,
-            "timeliness": master.timeliness,
-            "estimated_transit_arrival": master.estimated_transit_arrival,
-            "estimated_destination_arrival": master.estimated_destination_arrival,
+            "line_status_label": (
+                line_status.status_label
+                if line_status is not None
+                else DEFAULT_LINE_STATUS
+            ),
+            "line_status_detail": (
+                line_status.detail if line_status is not None else None
+            ),
+            "line_status_color": (
+                line_status.status_colour
+                if line_status is not None
+                else DEFAULT_LINE_COLOUR
+            ),
+            "line_status_icon": (
+                line_status.status_icon
+                if line_status is not None
+                else DEFAULT_LINE_ICON
+            ),
+            "is_delayed": line_status.is_delayed if line_status is not None else False,
+            "is_cancelled": (
+                line_status.is_cancelled if line_status is not None else False
+            ),
+            "pill_label": pill.label if pill is not None else "Standby",
+            "pill_color": pill.color if pill is not None else "#8E8E93",
+            "pill_bg": pill.bg if pill is not None else "rgba(142,142,147,0.2)",
+            "pill_border": pill.border if pill is not None else "#8E8E93",
             "next_summary": master.next_summary,
-            "next_bus_summary": master.next_summary,
-            "child_entities": self._get_child_entity_ids(),
             "options": [r.route_id for r in cfg.routes],
-            "route_options": [r.route_id for r in cfg.routes],
+            "child_entities": self._get_child_entity_ids(),
         }
 
         if cfg.person_name:
             attrs["person_name"] = cfg.person_name
         if cfg.person_picture:
             attrs["person_picture"] = cfg.person_picture
-
-        if line_status is not None:
-            attrs["line_status"] = line_status.status_label
-            attrs["line_status_color"] = line_status.status_colour
-            attrs["line_status_icon"] = line_status.status_icon
-            attrs["line_status_reason"] = line_status.reason
-            attrs["is_delayed"] = line_status.is_delayed
-            attrs["is_cancelled"] = line_status.is_cancelled
-        else:
-            attrs["line_status"] = DEFAULT_LINE_STATUS
-            attrs["line_status_color"] = DEFAULT_LINE_COLOUR
-            attrs["line_status_icon"] = DEFAULT_LINE_ICON
-
-        if pill is not None:
-            attrs["pill_label"] = pill.label
-            attrs["pill_color"] = pill.color
-            attrs["pill_bg"] = pill.bg
-            attrs["pill_border"] = pill.border
-        else:
-            attrs["pill_label"] = "Standby"
-            attrs["pill_color"] = "#8E8E93"
-            attrs["pill_bg"] = "rgba(142,142,147,0.2)"
-            attrs["pill_border"] = "#8E8E93"
 
         return attrs
 
@@ -280,69 +279,71 @@ class CommuteChildRouteSensor(CoordinatorEntity[CommuteCoordinator], SensorEntit
         pill = child.pill_badge
         line_status = child.line_status
 
-        route_col = (
-            self.route_config.corridor_color
-            or MODE_COLOURS.get(self.route_config.mode, DEFAULT_LINE_COLOUR)
+        route_col = self.route_config.route_color or MODE_COLOURS.get(
+            self.route_config.mode, DEFAULT_LINE_COLOUR
+        )
+        direction_val = (
+            self.route_config.direction.value
+            if hasattr(self.route_config.direction, "value")
+            else str(self.route_config.direction)
         )
 
         attrs: dict[str, Any] = {
             "commute_id": cfg.commute_id,
             "route_id": self.route_config.route_id,
-            "option_id": self.route_config.route_id,
             "mode": self.route_config.mode.value,
-            "vehicle_type": self.route_config.mode.value,
             "line": self.route_config.line,
             "provider": self.route_config.provider,
+            "direction": direction_val,
             "route_label": child.route_label,
             "route_color": route_col,
-            "route_destination": child.route_destination,
-            "destination": child.route_destination,
+            "destination": child.destination,
             "is_relevant": self.coordinator.is_active and child.is_active,
             "urgency_stage": child.urgency_stage.value,
-            "expected_time": child.scheduled_departure or "",
-            "seconds_to_arrival": child.seconds_to_arrival,
-            "minutes_to_arrival": child.minutes_to_arrival,
-            "leave_in_seconds": child.leave_in_seconds,
-            "leave_in_minutes": child.leave_in_minutes,
-            "leave_by_time": child.leave_by_time or "",
+            "leave_by_time": child.leave_by_time,
+            "expected_boarding_time": child.expected_boarding_time,
+            "expected_alighting_time": child.expected_alighting_time,
+            "expected_destination_time": child.expected_destination_time,
+            "seconds_to_leave": child.seconds_to_leave,
+            "seconds_to_board": child.seconds_to_board,
+            "expected_destination_margin_seconds": (
+                child.expected_destination_margin_seconds
+            ),
+            "will_arrive_on_time": child.will_arrive_on_time,
+            "timeliness": child.timeliness,
             "vehicle_id": child.vehicle_id,
             "corridor_location": child.corridor_location,
             "corridor_progress": child.corridor_progress,
             "corridor_stops": child.corridor_stops,
-            "corridor_color": route_col,
-            "will_arrive_in_time": child.will_arrive_in_time,
-            "target_slack_minutes": child.target_slack_minutes,
-            "timeliness": child.timeliness,
-            "estimated_transit_arrival": child.estimated_transit_arrival or "",
-            "estimated_destination_arrival": (
-                child.estimated_destination_arrival or ""
-            ),
             "next_vehicle_id": child.next_vehicle_id,
-            "next_seconds_to_arrival": child.next_seconds_to_arrival,
+            "seconds_to_next_board": child.seconds_to_next_board,
             "next_summary": child.next_summary,
+            "line_status_label": (
+                line_status.status_label
+                if line_status is not None
+                else DEFAULT_LINE_STATUS
+            ),
+            "line_status_detail": (
+                line_status.detail if line_status is not None else None
+            ),
+            "line_status_color": (
+                line_status.status_colour
+                if line_status is not None
+                else DEFAULT_LINE_COLOUR
+            ),
+            "line_status_icon": (
+                line_status.status_icon
+                if line_status is not None
+                else DEFAULT_LINE_ICON
+            ),
+            "is_delayed": line_status.is_delayed if line_status is not None else False,
+            "is_cancelled": (
+                line_status.is_cancelled if line_status is not None else False
+            ),
+            "pill_label": pill.label if pill is not None else "Standby",
+            "pill_color": pill.color if pill is not None else "#8E8E93",
+            "pill_bg": pill.bg if pill is not None else "rgba(142,142,147,0.2)",
+            "pill_border": pill.border if pill is not None else "#8E8E93",
         }
-
-        if line_status is not None:
-            attrs["line_status"] = line_status.status_label
-            attrs["line_status_color"] = line_status.status_colour
-            attrs["line_status_icon"] = line_status.status_icon
-            attrs["line_status_reason"] = line_status.reason
-            attrs["is_delayed"] = line_status.is_delayed
-            attrs["is_cancelled"] = line_status.is_cancelled
-        else:
-            attrs["line_status"] = DEFAULT_LINE_STATUS
-            attrs["line_status_color"] = DEFAULT_LINE_COLOUR
-            attrs["line_status_icon"] = DEFAULT_LINE_ICON
-
-        if pill is not None:
-            attrs["pill_label"] = pill.label
-            attrs["pill_color"] = pill.color
-            attrs["pill_bg"] = pill.bg
-            attrs["pill_border"] = pill.border
-        else:
-            attrs["pill_label"] = "Standby"
-            attrs["pill_color"] = "#8E8E93"
-            attrs["pill_bg"] = "rgba(142,142,147,0.2)"
-            attrs["pill_border"] = "#8E8E93"
 
         return attrs

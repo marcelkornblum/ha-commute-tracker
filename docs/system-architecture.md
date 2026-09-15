@@ -45,7 +45,7 @@ graph TD
 
 ### What Home Assistant is Responsible For
 1. **Configuration & Schemas**: Parses `configuration.yaml` via strict Voluptuous schemas, validating routes, lines, stops, walking thresholds, and provider credentials.
-2. **Runtime Threshold Overrides**: Exposes integration parameters to user-configurable Home Assistant Input Helpers (`input_number.walk_minutes`, `input_datetime.target_arrival`).
+2. **Runtime Threshold Overrides**: Exposes integration parameters to user-configurable Home Assistant Input Helpers (`input_number.boarding_walk_seconds`, `input_datetime.target_destination_time`).
 3. **Sleep/Wake Governance**: Evaluates user automations or schedule helpers (e.g. `binary_sensor.commute_relevant`) to instruct the coordinator when to poll and when to idle.
 4. **State Machine Exposure**: Registers and updates public state entities (`sensor.commute_*`), triggering native Home Assistant automations based on urgency state transitions.
 5. **Static Asset Hosting**: Registers and serves the bundled custom Lovelace card (`commute-tracker-card.js`) directly through Home Assistant's HTTP server (`add_extra_html_url`).
@@ -54,7 +54,7 @@ graph TD
 1. **Asynchronous I/O & Caching**: Efficiently fetches remote transit payloads with in-flight request coalescing and TTL caching via [`DebouncedCache`](../custom_components/commute_tracker/providers/base.py).
 2. **Normalisation**: Ingests vendor-specific payloads (e.g. TfL Unified API, National Rail) and converts them into uniform, mode-agnostic domain models.
 3. **Internal State Management**: Holds raw transit arrivals and multi-stop corridor predictions in memory without cluttering Home Assistant's state engine or recorder database.
-4. **Pure Mathematical Evaluation**: Executes all doorstep departure deadlines, trajectory direction filtering, physical reachability checks, fractional corridor interpolation, and destination slack maths without external platform dependencies.
+4. **Pure Mathematical Evaluation**: Executes all doorstep departure deadlines, trajectory direction filtering, physical reachability checks, fractional corridor interpolation, and destination margin maths without external platform dependencies.
 5. **Master Option Arbitration**: Determines which route (e.g. Bus vs Train vs Tube) is currently optimal and dictates the master urgency level.
 
 ---
@@ -71,8 +71,8 @@ A common anti-pattern in transit tracking integrations is registering every inte
 
 | Entity ID | Entity Role | State | Key Attributes |
 | :--- | :--- | :--- | :--- |
-| `sensor.commute_<commute_id>` | **Master Rollup** | Urgency stage (`standby`, `relaxed`, `prepare`, `leave_now`) | `active_option`, `expected_time`, `seconds_to_arrival`, `leave_in_seconds`, `route_label`, `will_arrive_in_time`, `target_slack_minutes` |
-| `sensor.commute_<commute_id>_<route_id>` | **Child Route** | Primary arrival display time or departure status | `route_id`, `mode`, `urgency_stage`, `vehicle_id`, `seconds_to_arrival`, `leave_in_seconds`, `corridor_location`, `corridor_progress`, `next_vehicle_id`, `line_status` |
+| `sensor.commute_<commute_id>` | **Master Rollup** | Urgency stage (`standby`, `relaxed`, `prepare`, `leave_now`, `idle`) | `active_option`, `expected_boarding_time`, `seconds_to_board`, `seconds_to_leave`, `route_label`, `route_color`, `destination`, `will_arrive_on_time`, `expected_destination_margin_seconds`, `line_status_label`, `pill_label` |
+| `sensor.commute_<commute_id>_<route_id>` | **Child Route** | Urgency stage (`standby`, `relaxed`, `prepare`, `leave_now`, `idle`) | `route_id`, `mode`, `line`, `provider`, `direction`, `expected_boarding_time`, `expected_destination_time`, `seconds_to_board`, `seconds_to_leave`, `destination`, `corridor_location`, `corridor_progress`, `next_vehicle_id`, `line_status_label` |
 
 All intermediate stop arrivals, raw arrival arrays, and trajectory calculation steps are kept exclusively in Python memory inside the coordinator.
 

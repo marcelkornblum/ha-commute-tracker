@@ -31,9 +31,9 @@ def create_idle_commute_state(config: CommuteConfig) -> CommuteState:
     master = MasterRollupState(
         active_option="none",
         urgency_stage=UrgencyStage.STANDBY,
-        expected_time="",
-        seconds_to_arrival=0,
-        leave_in_seconds=0,
+        expected_boarding_time="",
+        seconds_to_board=0,
+        seconds_to_leave=0,
         route_label="",
         is_active=False,
     )

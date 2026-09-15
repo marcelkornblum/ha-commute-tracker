@@ -67,11 +67,10 @@ def test_valid_full_configuration_with_providers() -> None:
                 "id": "morning_commute",
                 "name": "Morning Commute",
                 "active_sensor": "binary_sensor.morning_active",
-                "target_arrival_time": "08:45",
+                "target_destination_time": "08:45",
                 "person_name": "Marcel",
                 "person_picture": "/local/marcel.png",
-                "default_grace_seconds": 120,
-                "default_grace_fraction": 0.2,
+                "grace_seconds": 120,
                 "rollup_strategy": "latest",
                 "route_late_buffer_seconds": 180,
                 "poll_interval": 15,
@@ -81,16 +80,14 @@ def test_valid_full_configuration_with_providers() -> None:
                         "mode": "train",
                         "line": "southern",
                         "provider": "tfl",
-                        "walk_seconds": 300,
+                        "boarding_walk_seconds": 300,
                         "prep_seconds": 180,
-                        "grace_seconds": 90,
                         "grace_fraction": 0.15,
                         "boarding_stop": "910GWNORWOD",
-                        "destination_stop": "910GLNDNBDC",
-                        "direction": "inbound",
-                        "in_vehicle_duration_seconds": 720,
+                        "alighting_stop": "910GLNDNBDC",
+                        "direction": "from_home",
+                        "transit_duration_seconds": 720,
                         "alighting_walk_seconds": 600,
-                        "target_arrival_time": "08:45",
                         "corridor_stops": ["910GWNORWOD", "910GTWH", "910GLNDNBDC"],
                     }
                 ],
@@ -108,20 +105,18 @@ def test_valid_full_configuration_with_providers() -> None:
     assert commute["rollup_strategy"] == "latest"
 
     route = commute["routes"][0]
-    assert route["walk_seconds"] == 300
+    assert route["boarding_walk_seconds"] == 300
     assert len(route["corridor_stops"]) == 3
 
 
-def test_aliases_and_normalisation() -> None:
-    """Validate alias normalisation for target_arrival and thresholds."""
+def test_deprecated_aliases_rejected() -> None:
+    """Validate that deprecated aliases are rejected and not permitted."""
     raw_config = {
         "commutes": [
             {
                 "name": "Evening Commute",
                 "active_sensor": "binary_sensor.evening_active",
                 "target_arrival": "17:30",
-                "grace_seconds": 150,
-                "grace_fraction": 0.3,
                 "routes": [
                     {
                         "mode": "tube",
@@ -132,16 +127,25 @@ def test_aliases_and_normalisation() -> None:
             }
         ]
     }
-    validated = COMMUTE_TRACKER_SCHEMA(raw_config)
-    commute = validated["commutes"][0]
-    assert commute["id"] == "evening_commute"
-    assert commute["target_arrival_time"] == "17:30"
-    assert commute["default_grace_seconds"] == 150
-    assert commute["default_grace_fraction"] == 0.3
+    with pytest.raises(vol.Invalid):
+        COMMUTE_TRACKER_SCHEMA(raw_config)
 
-    route = commute["routes"][0]
-    assert route["id"] == "northern"
-    assert route["boarding_stop"] == "940GZZLUBXN"
+
+def test_grace_mutual_exclusivity() -> None:
+    """Verify that specifying both grace_seconds and grace_fraction fails validation."""
+    config_both = {
+        "commutes": [
+            {
+                "name": "Work",
+                "active_sensor": "binary_sensor.work",
+                "grace_seconds": 60,
+                "grace_fraction": 0.2,
+                "routes": [{"mode": "bus", "line": "26"}],
+            }
+        ]
+    }
+    with pytest.raises(vol.Invalid):
+        COMMUTE_TRACKER_SCHEMA(config_both)
 
 
 @pytest.mark.parametrize(
@@ -232,6 +236,33 @@ def test_aliases_and_normalisation() -> None:
             },
             r"value must be at most 1",
         ),
+        (
+            {
+                "rollup_strategy": "invalid_strat",
+                "commutes": [
+                    {
+                        "name": "Work",
+                        "active_sensor": "binary_sensor.work",
+                        "routes": [{"mode": "bus", "line": "26"}],
+                    }
+                ],
+            },
+            r"value must be one of",
+        ),
+        (
+            {
+                "grace_seconds": 120,
+                "grace_fraction": 0.25,
+                "commutes": [
+                    {
+                        "name": "Work",
+                        "active_sensor": "binary_sensor.work",
+                        "routes": [{"mode": "bus", "line": "26"}],
+                    }
+                ],
+            },
+            r"Cannot specify both grace_seconds and grace_fraction",
+        ),
     ],
 )
 def test_invalid_configurations(
@@ -241,3 +272,87 @@ def test_invalid_configurations(
     """Validate that invalid configurations raise voluptuous validation errors."""
     with pytest.raises(vol.Invalid, match=expected_error):
         COMMUTE_TRACKER_SCHEMA(invalid_config)
+
+
+def test_root_level_options_cascade_to_commutes_and_routes() -> None:
+    """Validate that root-level defaults cascade down to child commutes and routes."""
+    raw_config = {
+        "rollup_strategy": "soonest",
+        "route_late_buffer_seconds": 180,
+        "prep_seconds": 200,
+        "boarding_walk_seconds": 350,
+        "poll_interval": 45,
+        "grace_seconds": 90,
+        "commutes": [
+            {
+                "name": "Work",
+                "active_sensor": "binary_sensor.work_active",
+                "routes": [
+                    {
+                        "mode": "bus",
+                        "line": "73",
+                        "boarding_stop": "490013766F",
+                    }
+                ],
+            }
+        ],
+    }
+    validated = COMMUTE_TRACKER_SCHEMA(raw_config)
+    commute = validated["commutes"][0]
+    assert commute["rollup_strategy"] == "soonest"
+    assert commute["route_late_buffer_seconds"] == 180
+    assert commute["prep_seconds"] == 200
+    assert commute["boarding_walk_seconds"] == 350
+    assert commute["poll_interval"] == 45
+    assert commute["grace_seconds"] == 90
+
+    route = commute["routes"][0]
+    assert route["prep_seconds"] == 200
+    assert route["boarding_walk_seconds"] == 350
+
+
+def test_commute_and_route_overrides_root_level_options() -> None:
+    """Validate that commute/route options take precedence over root defaults."""
+    raw_config = {
+        "rollup_strategy": "soonest",
+        "route_late_buffer_seconds": 180,
+        "prep_seconds": 200,
+        "boarding_walk_seconds": 350,
+        "poll_interval": 45,
+        "grace_seconds": 90,
+        "commutes": [
+            {
+                "name": "Work",
+                "active_sensor": "binary_sensor.work_active",
+                "rollup_strategy": "latest",
+                "route_late_buffer_seconds": 240,
+                "prep_seconds": 150,
+                "grace_fraction": 0.2,
+                "poll_interval": 20,
+                "routes": [
+                    {
+                        "mode": "bus",
+                        "line": "73",
+                        "boarding_stop": "490013766F",
+                        "boarding_walk_seconds": 180,
+                        "prep_seconds": 60,
+                        "grace_seconds": 45,
+                    }
+                ],
+            }
+        ],
+    }
+    validated = COMMUTE_TRACKER_SCHEMA(raw_config)
+    commute = validated["commutes"][0]
+    assert commute["rollup_strategy"] == "latest"
+    assert commute["route_late_buffer_seconds"] == 240
+    assert commute["prep_seconds"] == 150
+    assert commute["boarding_walk_seconds"] == 350
+    assert commute["poll_interval"] == 20
+    assert commute["grace_fraction"] == 0.2
+    assert "grace_seconds" not in commute
+
+    route = commute["routes"][0]
+    assert route["prep_seconds"] == 60
+    assert route["boarding_walk_seconds"] == 180
+    assert route["grace_seconds"] == 45

@@ -177,7 +177,7 @@ async def test_master_and_child_attributes_contract(hass: HomeAssistant) -> None
         status_label="Good Service",
         status_colour="#00A859",
         status_icon="mdi:check-circle",
-        reason=None,
+        detail=None,
         is_delayed=False,
         is_cancelled=False,
     )
@@ -186,20 +186,17 @@ async def test_master_and_child_attributes_contract(hass: HomeAssistant) -> None
     mock_master = MasterRollupState(
         active_option="bus_73",
         urgency_stage=UrgencyStage.LEAVE_NOW,
-        expected_time="08:35",
-        seconds_to_arrival=360,
-        leave_in_seconds=60,
+        expected_boarding_time="08:35",
+        expected_destination_time="08:55",
+        seconds_to_board=360,
+        seconds_to_leave=60,
+        expected_destination_margin_seconds=300,
         route_label="73",
-        will_arrive_in_time=True,
-        target_slack_minutes=5,
+        will_arrive_on_time=True,
         strategy=RollupStrategy.LATE_WITH_BUFFER,
-        minutes_to_arrival=6,
-        leave_in_minutes=1,
         leave_by_time="08:31",
         timeliness="on_time",
-        estimated_transit_arrival="08:50",
-        estimated_destination_arrival="08:55",
-        route_destination="Victoria",
+        destination="Victoria",
         line_status=line_st,
         next_summary="Next at 08:45 (in 16m)",
         pill_badge=pill,
@@ -210,26 +207,24 @@ async def test_master_and_child_attributes_contract(hass: HomeAssistant) -> None
         mode="bus",
         urgency_stage=UrgencyStage.LEAVE_NOW,
         vehicle_id="LTZ1234",
-        scheduled_departure="08:35",
-        seconds_to_arrival=360,
-        minutes_to_arrival=6,
-        leave_in_seconds=60,
-        leave_in_minutes=1,
+        expected_boarding_time="08:35",
+        expected_alighting_time="08:50",
+        expected_destination_time="08:55",
+        seconds_to_board=360,
+        seconds_to_leave=60,
         leave_by_time="08:31",
         corridor_location="Approaching Royal Circus",
         corridor_progress=0.75,
         corridor_stops=stops,
         next_vehicle_id="LTZ5678",
-        next_seconds_to_arrival=960,
+        seconds_to_next_board=960,
         next_summary="Next at 08:45 (in 16m)",
-        will_arrive_in_time=True,
-        target_slack_minutes=5,
+        will_arrive_on_time=True,
+        expected_destination_margin_seconds=300,
         timeliness="on_time",
-        estimated_transit_arrival="08:50",
-        estimated_destination_arrival="08:55",
         line_status=line_st,
         route_label="73",
-        route_destination="Victoria",
+        destination="Victoria",
         pill_badge=pill,
         is_active=True,
     )
@@ -257,31 +252,40 @@ async def test_master_and_child_attributes_contract(hass: HomeAssistant) -> None
     assert m_attrs["active_option"] == "bus_73"
     assert m_attrs["is_relevant"] is True
     assert m_attrs["urgency_stage"] == "leave_now"
-    assert m_attrs["expected_time"] == "08:35"
+    assert m_attrs["expected_boarding_time"] == "08:35"
+    assert m_attrs["expected_destination_time"] == "08:55"
+    assert m_attrs["seconds_to_board"] == 360
+    assert m_attrs["seconds_to_leave"] == 60
     assert m_attrs["leave_by_time"] == "08:31"
     assert m_attrs["timeliness"] == "on_time"
-    assert m_attrs["target_slack_minutes"] == 5
+    assert m_attrs["expected_destination_margin_seconds"] == 300
+    assert m_attrs["will_arrive_on_time"] is True
     assert m_attrs["pill_label"] == "Leave in 4m"
     assert m_attrs["pill_color"] == "#4CAF50"
-    assert m_attrs["line_status"] == "Good Service"
+    assert m_attrs["line_status_label"] == "Good Service"
+    assert m_attrs["destination"] == "Victoria"
     assert m_attrs["next_summary"] == "Next at 08:45 (in 16m)"
-    assert m_attrs["next_bus_summary"] == "Next at 08:45 (in 16m)"
 
     assert child_sensor.native_value == "leave_now"
     c_attrs = child_sensor.extra_state_attributes
     assert c_attrs["commute_id"] == "work"
     assert c_attrs["route_id"] == "bus_73"
-    assert c_attrs["option_id"] == "bus_73"
     assert c_attrs["mode"] == "bus"
-    assert c_attrs["vehicle_type"] == "bus"
+    assert c_attrs["direction"] == "from_home"
     assert c_attrs["route_label"] == "73"
-    assert c_attrs["route_destination"] == "Victoria"
     assert c_attrs["destination"] == "Victoria"
+    assert c_attrs["route_color"] == "#DC241F"
     assert c_attrs["corridor_location"] == "Approaching Royal Circus"
     assert c_attrs["corridor_progress"] == 0.75
     assert c_attrs["corridor_stops"] == stops
-    assert c_attrs["corridor_color"] == "#DC241F"
     assert c_attrs["vehicle_id"] == "LTZ1234"
+    assert c_attrs["expected_boarding_time"] == "08:35"
+    assert c_attrs["expected_alighting_time"] == "08:50"
+    assert c_attrs["expected_destination_time"] == "08:55"
+    assert c_attrs["seconds_to_board"] == 360
+    assert c_attrs["seconds_to_leave"] == 60
+    assert c_attrs["expected_destination_margin_seconds"] == 300
+    assert c_attrs["will_arrive_on_time"] is True
     assert c_attrs["next_summary"] == "Next at 08:45 (in 16m)"
 
 
@@ -331,9 +335,9 @@ async def test_sensor_sleep_and_wake_transitions(hass: HomeAssistant) -> None:
     live_master = MasterRollupState(
         active_option="bus_73",
         urgency_stage=UrgencyStage.RELAXED,
-        expected_time="08:40",
-        seconds_to_arrival=600,
-        leave_in_seconds=300,
+        expected_boarding_time="08:40",
+        seconds_to_board=600,
+        seconds_to_leave=300,
         route_label="73",
         is_active=True,
     )

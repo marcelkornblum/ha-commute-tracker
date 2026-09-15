@@ -75,7 +75,7 @@ Represents the operational health of a transit line:
 - `status_label`: e.g. `"Good Service"`, `"Minor Delays"`, `"Suspended"`.
 - `status_colour`: Hex colour code for UI indicators (e.g. `"#00A859"`).
 - `status_icon`: Material Design icon string (e.g. `"mdi:check-circle"`).
-- `reason`: Optional natural language description of disruptions.
+- `detail`: Optional natural language description of disruptions.
 - `is_delayed`: Boolean flag indicating delay.
 - `is_cancelled`: Boolean flag indicating suspension or cancellation.
 

@@ -40,6 +40,13 @@ class RollupStrategy(StrEnum):
     LATE_WITH_BUFFER = "late_with_buffer"
 
 
+class RouteDirection(StrEnum):
+    """Direction of travel relative to home."""
+
+    FROM_HOME = "from_home"
+    TO_HOME = "to_home"
+
+
 @dataclass(slots=True, frozen=True)
 class PillBadge:
     """Styling and text tokens for Lovelace card pill badge."""
@@ -57,7 +64,7 @@ class LineStatus:
     status_label: str = DEFAULT_LINE_STATUS
     status_colour: str = DEFAULT_LINE_COLOUR
     status_icon: str = DEFAULT_LINE_ICON
-    reason: str | None = None
+    detail: str | None = None
     is_delayed: bool = False
     is_cancelled: bool = False
 
@@ -83,24 +90,24 @@ class RouteConfig:
     mode: TransitMode
     line: str
     provider: str = "tfl"
-    walk_seconds: int | None = None
+    direction: RouteDirection = RouteDirection.FROM_HOME
+    route_color: str | None = None
+    boarding_stop: str | None = None
+    alighting_stop: str | None = None
+    destination: str | None = None
+    boarding_walk_seconds: int | None = None
     prep_seconds: int | None = None
     grace_seconds: int | None = None
     grace_fraction: float | None = None
-    boarding_stop: str | None = None
-    destination_stop: str | None = None
-    in_vehicle_duration_seconds: int | None = None
+    transit_duration_seconds: int | None = None
     alighting_walk_seconds: int | None = None
-    target_arrival_time: str | None = None
     corridor_stops: list[str] = field(default_factory=list)
     name: str | None = None
-    corridor_color: str | None = None
 
     @property
-
     def total_buffer_seconds(self) -> int:
         """Calculate combined walking and preparation buffer threshold."""
-        return (self.walk_seconds or 0) + (self.prep_seconds or 0)
+        return (self.boarding_walk_seconds or 0) + (self.prep_seconds or 0)
 
 
 @dataclass(slots=True, frozen=True)
@@ -135,15 +142,17 @@ class CommuteConfig:
     commute_id: str
     routes: list[RouteConfig]
     active_sensor: str | None = None
-    target_arrival_time: str | None = None
+    target_destination_time: str | None = None
     commute_title: str | None = None
     person_name: str | None = None
     person_picture: str | None = None
-    default_grace_seconds: int | None = None
-    default_grace_fraction: float | None = None
+    grace_seconds: int | None = None
+    grace_fraction: float | None = None
     rollup_strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER
     route_late_buffer_seconds: int = DEFAULT_ROUTE_LATE_BUFFER_SECONDS
     poll_interval: int = DEFAULT_POLL_INTERVAL_SECONDS
+    prep_seconds: int | None = None
+    boarding_walk_seconds: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CommuteConfig":
@@ -156,8 +165,16 @@ class CommuteConfig:
         for r in data.get("routes", []):
             route_id = r.get("id") or r.get("route_id", "")
             mode = TransitMode(r["mode"])
+            dir_raw = r.get("direction", RouteDirection.FROM_HOME.value)
+            try:
+                direction = RouteDirection(dir_raw)
+            except ValueError:
+                direction = RouteDirection.FROM_HOME
+
             walk_sec = (
-                int(r["walk_seconds"]) if r.get("walk_seconds") is not None else None
+                int(r["boarding_walk_seconds"])
+                if r.get("boarding_walk_seconds") is not None
+                else None
             )
             prep_sec = (
                 int(r["prep_seconds"]) if r.get("prep_seconds") is not None else None
@@ -170,6 +187,16 @@ class CommuteConfig:
                 if r.get("grace_fraction") is not None
                 else None
             )
+            transit_dur = (
+                int(r["transit_duration_seconds"])
+                if r.get("transit_duration_seconds") is not None
+                else None
+            )
+            alight_walk = (
+                int(r["alighting_walk_seconds"])
+                if r.get("alighting_walk_seconds") is not None
+                else None
+            )
 
             routes.append(
                 RouteConfig(
@@ -177,32 +204,32 @@ class CommuteConfig:
                     mode=mode,
                     line=r["line"],
                     provider=r.get("provider", "tfl"),
-                    walk_seconds=walk_sec,
+                    direction=direction,
+                    route_color=r.get("route_color"),
+                    boarding_stop=r.get("boarding_stop"),
+                    alighting_stop=r.get("alighting_stop"),
+                    destination=r.get("destination"),
+                    boarding_walk_seconds=walk_sec,
                     prep_seconds=prep_sec,
                     grace_seconds=grace_sec,
                     grace_fraction=grace_frac,
-                    boarding_stop=r.get("boarding_stop"),
-                    destination_stop=r.get("destination_stop"),
-                    in_vehicle_duration_seconds=r.get("in_vehicle_duration_seconds"),
-                    alighting_walk_seconds=r.get("alighting_walk_seconds"),
-                    target_arrival_time=r.get("target_arrival_time"),
+                    transit_duration_seconds=transit_dur,
+                    alighting_walk_seconds=alight_walk,
                     corridor_stops=list(r.get("corridor_stops", [])),
                     name=r.get("name"),
-                    corridor_color=r.get("corridor_color"),
                 )
             )
 
-        def_grace_sec = data.get("default_grace_seconds")
-        if def_grace_sec is None:
-            def_grace_sec = data.get("grace_seconds")
-        if def_grace_sec is not None:
-            def_grace_sec = int(def_grace_sec)
-
-        def_grace_frac = data.get("default_grace_fraction")
-        if def_grace_frac is None:
-            def_grace_frac = data.get("grace_fraction")
-        if def_grace_frac is not None:
-            def_grace_frac = float(def_grace_frac)
+        grace_sec = (
+            int(data["grace_seconds"])
+            if data.get("grace_seconds") is not None
+            else None
+        )
+        grace_frac = (
+            float(data["grace_fraction"])
+            if data.get("grace_fraction") is not None
+            else None
+        )
 
         strategy_raw = data.get("rollup_strategy", "late_with_buffer")
         try:
@@ -221,18 +248,28 @@ class CommuteConfig:
         active_sensor = data.get("active_sensor")
         poll_interval = int(data.get("poll_interval", DEFAULT_POLL_INTERVAL_SECONDS))
         person_picture = data.get("person_picture")
+        prep_sec = (
+            int(data["prep_seconds"]) if data.get("prep_seconds") is not None else None
+        )
+        boarding_walk_sec = (
+            int(data["boarding_walk_seconds"])
+            if data.get("boarding_walk_seconds") is not None
+            else None
+        )
 
         return cls(
             commute_id=commute_id,
             routes=routes,
             active_sensor=active_sensor,
-            target_arrival_time=data.get("target_arrival_time"),
+            target_destination_time=data.get("target_destination_time"),
             commute_title=title,
             person_name=data.get("person_name"),
             person_picture=person_picture,
-            default_grace_seconds=def_grace_sec,
-            default_grace_fraction=def_grace_frac,
+            grace_seconds=grace_sec,
+            grace_fraction=grace_frac,
             rollup_strategy=strategy,
             route_late_buffer_seconds=route_late_buf,
             poll_interval=poll_interval,
+            prep_seconds=prep_sec,
+            boarding_walk_seconds=boarding_walk_sec,
         )

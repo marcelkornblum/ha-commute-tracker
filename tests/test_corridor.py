@@ -307,7 +307,7 @@ def test_select_active_departures_skips_unreachable() -> None:
 
     active, follower = select_active_departures(
         departures=[dep_unreachable, dep_reachable, dep_subsequent],
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         grace_seconds=180,
     )
 
@@ -326,7 +326,7 @@ def test_select_active_departures_empty_and_unreachable() -> None:
 
     active, follower = select_active_departures(
         departures=[],
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         grace_seconds=180,
     )
     assert active is None
@@ -334,7 +334,7 @@ def test_select_active_departures_empty_and_unreachable() -> None:
 
     active, follower = select_active_departures(
         departures=[dep_unreachable],
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         grace_seconds=180,
     )
     assert active is None
@@ -348,7 +348,7 @@ def test_select_active_departures_empty_and_unreachable() -> None:
     )
     active, follower = select_active_departures(
         departures=[dep_only_one],
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         grace_seconds=180,
     )
     assert active == dep_only_one

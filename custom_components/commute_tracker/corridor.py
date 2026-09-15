@@ -142,8 +142,9 @@ def calculate_corridor_progression(
 
 def select_active_departures(
     departures: list[DeparturePrediction],
-    walk_seconds: int,
+    boarding_walk_seconds: int,
     grace_seconds: int,
+    total_buffer_seconds: int | None = None,
 ) -> tuple[DeparturePrediction | None, DeparturePrediction | None]:
     """Select the lead viable departure and its subsequent follower departure.
 
@@ -151,14 +152,15 @@ def select_active_departures(
     walk and grace window.
 
     :param departures: Sorted candidate departure predictions.
-    :param walk_seconds: Doorstep walking duration in seconds.
+    :param boarding_walk_seconds: Doorstep walking duration in seconds.
     :param grace_seconds: Grace leeway period in seconds.
+    :param total_buffer_seconds: Optional total buffer threshold.
     :return: Tuple of (active_departure, follower_departure).
     """
     for idx, dep in enumerate(departures):
         if not is_departure_reachable(
-            seconds_to_arrival=dep.seconds_to_arrival,
-            walk_seconds=walk_seconds,
+            departure_seconds=dep.seconds_to_arrival,
+            boarding_walk_seconds=boarding_walk_seconds,
             grace_seconds=grace_seconds,
         ):
             continue

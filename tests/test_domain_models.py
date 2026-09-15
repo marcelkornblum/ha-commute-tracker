@@ -39,12 +39,12 @@ def test_line_status_immutability_and_attributes() -> None:
         status_label="Good Service",
         status_colour="#00A859",
         status_icon="mdi:check-circle",
-        reason=None,
+        detail=None,
     )
     assert status.status_label == "Good Service"
     assert status.status_colour == "#00A859"
     assert status.status_icon == "mdi:check-circle"
-    assert status.reason is None
+    assert status.detail is None
 
     with pytest.raises(FrozenInstanceError):
         # Mutating frozen dataclass must raise
@@ -57,7 +57,7 @@ def test_line_status_defaults() -> None:
     assert status.status_label == "Unknown"
     assert status.status_colour == "#757575"
     assert status.status_icon == "mdi:help-circle"
-    assert status.reason is None
+    assert status.detail is None
     assert status.is_delayed is False
     assert status.is_cancelled is False
 
@@ -92,12 +92,12 @@ def test_route_config_attributes() -> None:
         mode=TransitMode.BUS,
         line="26",
         provider="tfl",
-        walk_seconds=240,
+        boarding_walk_seconds=240,
         prep_seconds=120,
         grace_seconds=180,
         boarding_stop="490013766F",
-        destination_stop="490005524F",
-        in_vehicle_duration_seconds=1920,
+        alighting_stop="490005524F",
+        transit_duration_seconds=1920,
         alighting_walk_seconds=600,
         corridor_stops=["490000248H", "490014496N", "490013766F"],
     )
