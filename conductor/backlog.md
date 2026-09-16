@@ -10,3 +10,4 @@ This document tracks features and enhancements that are deliberately out of scop
   - **Connection Feasibility & Transfer Slack:** Dynamically propagate delays across legs, recalculating whether subsequent connections will be made and updating destination slack and urgency accordingly.
   - **Minimalist Entity & Lovelace Schema:** Expose multi-leg breakdown within child route sensor attributes to preserve strict entity minimalism while supporting rich visualisations on the custom Lovelace card.
 
+

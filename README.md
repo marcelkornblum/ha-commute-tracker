@@ -4,9 +4,9 @@
 [![HACS Default](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Home Assistant custom integration and companion dashboard card that removes the stress of timing your daily journeys. It monitors multiple transit options simultaneously, compares route options in real time, and provides clear, glanceable urgency stages so you always leave at the right moment.
+A Home Assistant custom integration and companion dashboard card that removes the stress of timing your daily journeys. It monitors multiple single-leg transit options simultaneously, compares route options in real time, and provides clear, glanceable urgency stages so you always leave at the right moment.
 
-Whether your commute involves choosing between buses or trains, Commute Tracker tracks live departures, computes your arrival time, and distils complex transit feeds into simple, actionable guidance: *Standby*, *Get Ready*, or *Leave Now*.
+Whether your commute involves choosing between alternative direct buses or trains, Commute Tracker tracks live departures, computes your arrival time, and distils complex transit feeds into simple, actionable guidance: *Standby*, *Get Ready*, or *Leave Now*.
 
 ---
 
@@ -44,12 +44,15 @@ Whether your commute involves choosing between buses or trains, Commute Tracker 
 
 Copy the `custom_components/commute_tracker` directory into your Home Assistant `<config_dir>/custom_components/` directory and restart Home Assistant.
 
+The companion custom card (`commute-tracker-card`) is bundled with the integration and registered automatically with Home Assistant's frontend at `/commute_tracker/commute-tracker-card.js`.
+
 ---
 
 ## Configuration & Documentation
 
 Configure your commutes directly in `configuration.yaml`. For complete option specifications, units, cascading hierarchy, and annotated YAML examples, see:
 
+- **[Lovelace Custom Card Guide](docs/lovelace-card.md)**: Installation, card YAML options, corridor schematics, and in-card details overlay.
 - **[Configuration Reference & Schema Guide](docs/configuration.md)**: Exhaustive reference of all Root, Commute, and Route options.
 - **[System Architecture & Component Boundaries](docs/system-architecture.md)**: Entity model and platform split.
 - **[Control Flow & Decision Engine](docs/control-flow.md)**: Reachability math, arbitration, and timeliness stages.
