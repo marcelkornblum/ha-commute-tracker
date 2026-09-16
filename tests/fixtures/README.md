@@ -6,7 +6,7 @@ This guide details how and when to capture real-time Transport for London (TfL) 
 
 ## Exemplar Journey: Nelson's Column to Brick Lane
 
-To ensure reproducibility while maintaining commuter privacy, all integration tests and sample fixtures model an anonymous canonical London commute with three multi-modal options:
+To ensure reproducibility while maintaining commuter privacy, all integration tests and sample fixtures model an anonymous canonical London commute with three route options:
 
 - **Origin**: Nelson's Column, Trafalgar Square (`51.5078, -0.1280`)
 - **Destination**: Brick Lane, London E1 (`51.5215, -0.0715`)
@@ -63,7 +63,7 @@ uv run python scripts/capture_tfl.py --time-series-count 90 --time-series-interv
 ### Execution Details
 - **Duration**: ~45 minutes total.
 - **Poll Interval**: 30 seconds.
-- **Snapshot Count**: 90 multi-modal snapshots capturing multiple full vehicle arrival cycles, doorstep reachability rollovers, approach progression, and multi-vehicle headway tracking for both surface road and underground rail corridors.
+- **Snapshot Count**: 90 time-series snapshots capturing multiple full vehicle arrival cycles, doorstep reachability rollovers, approach progression, and multi-vehicle headway tracking for both surface road and underground rail corridors.
 
 ---
 
@@ -116,7 +116,7 @@ tests/fixtures/
     │   ├── line_arrivals.json
     │   ├── journey_results.json
     │   └── line_status.json
-    └── time_series/                           # 45-minute multi-modal corridor progression
+    └── time_series/                           # 45-minute corridor progression across all route options
         ├── snapshot_001.json                  # Combined bus + tube corridor snapshot
         ├── ...
         ├── snapshot_090.json

@@ -1,8 +1,8 @@
 """End-to-end acceptance test suite for forthcoming CommuteEngine (Phases 3 and 4).
 
-Validates multi-modal ingestion, vehicle progression, doorstep reachability,
-rollover events, and Master Rollup arbitration against concrete time codes
-and vehicles captured in the 45-minute multi-modal time-series fixtures.
+Validates transit ingestion across route options, vehicle progression,
+doorstep reachability, rollover events, and Master Rollup arbitration against
+concrete time codes and vehicles captured in the 45-minute time-series fixtures.
 """
 
 from collections.abc import Callable

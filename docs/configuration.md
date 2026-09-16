@@ -206,9 +206,9 @@ commute_tracker:
 
 ---
 
-### Multi-Modal Exemplar: Nelson's Column to Brick Lane
+### Multi-Option Exemplar: Nelson's Column to Brick Lane
 
-A complete multi-modal setup replicating the canonical reference commute with Bus 26, Southeastern Rail, and Central Line Tube:
+A complete configuration setup replicating the canonical reference commute with three route options (Bus 26, Southeastern Rail, and Central Line Tube):
 
 ```yaml
 commute_tracker:

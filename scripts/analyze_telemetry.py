@@ -1,4 +1,4 @@
-"""Comprehensive telemetry analysis of multi-modal TfL time-series snapshots.
+"""Comprehensive telemetry analysis of multi-route TfL time-series snapshots.
 
 Analyses vehicle progression along the corridor, doorstep leave thresholds,
 reachability windows, and rollover events for Bus 26, Southeastern Rail,
@@ -54,7 +54,7 @@ EASTBOUND_DESTINATIONS = {
 
 @dataclass
 class SnapshotTelemetry:
-    """Parsed metrics for a single multi-modal snapshot."""
+    """Parsed metrics for a single time-series snapshot across routes."""
 
     index: int
     elapsed_seconds: float
@@ -122,7 +122,7 @@ def calculate_train_tts(departure_iso: str, snapshot_iso: str) -> int:
 
 
 def analyse_snapshots() -> tuple[list[SnapshotTelemetry], dict[str, Any]]:
-    """Parse all snapshots and calculate multi-modal telemetry timelines."""
+    """Parse all snapshots and calculate multi-route telemetry timelines."""
     snapshot_files = sorted(TIME_SERIES_DIR.glob("snapshot_*.json"))
     telemetry_timeline: list[SnapshotTelemetry] = []
 
@@ -360,9 +360,9 @@ def generate_markdown_report(
 ) -> str:
     """Format analysis into an exhaustive markdown document."""
     lines: list[str] = [
-        "# Detailed Telemetry & Reachability Analysis: Multi-Modal Live Capture",
+        "# Detailed Telemetry & Reachability Analysis: Multi-Route Live Capture",
         "",
-        "Empirical analysis of the multi-modal snapshots captured across "
+        "Empirical analysis of the time-series snapshots captured across "
         "the canonical Nelson's Column to Brick Lane commute corridor.",
         "",
         "---",

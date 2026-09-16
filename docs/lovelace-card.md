@@ -1,6 +1,6 @@
 # Lovelace Custom Card Guide (`commute-tracker-card`)
 
-The `commute-tracker-card` is a custom Home Assistant Lovelace dashboard card designed specifically for the Commute Tracker integration. Built with LitElement and TypeScript, it displays multi-modal transit corridors side-by-side with live vehicle positioning, real-time urgency stages, and an in-card details overlay.
+The `commute-tracker-card` is a custom Home Assistant Lovelace dashboard card designed specifically for the Commute Tracker integration. Built with LitElement and TypeScript, it displays transit corridor options side-by-side with live vehicle positioning, real-time urgency stages, and an in-card details overlay.
 
 ---
 

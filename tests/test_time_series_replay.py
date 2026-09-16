@@ -1,4 +1,4 @@
-"""Integration test suite replaying 90 consecutive multi-modal TfL snapshots."""
+"""Integration test suite replaying 90 consecutive TfL time-series snapshots."""
 
 import json
 from pathlib import Path
@@ -168,7 +168,7 @@ def test_tube_central_line_progression() -> None:
 
 
 def test_master_rollup_arbitration_simulation() -> None:
-    """Verify multi-modal arbitration arbitrates across all 3 routes."""
+    """Verify commute arbitration arbitrates across all 3 route options."""
     timeline, _ = analyse_snapshots()
     assert len(timeline) == 90
 

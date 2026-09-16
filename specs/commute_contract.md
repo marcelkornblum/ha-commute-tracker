@@ -295,8 +295,8 @@ tests/fixtures/commute_nelson_to_brick_lane/
 │   ├── line_arrivals.json                 # /Line/central/Arrivals
 │   ├── journey_results.json
 │   └── line_status.json
-└── time_series/                           # 45-minute multi-modal corridor snapshots (90 iterations @ 30s)
-    ├── snapshot_001.json                  # Multi-modal bus + tube corridor snapshot
+└── time_series/                           # 45-minute multi-route corridor snapshots (90 iterations @ 30s)
+    ├── snapshot_001.json                  # Multi-route corridor snapshot (bus, train, tube)
     ├── ...
     ├── snapshot_090.json
     └── series_manifest.json               # Index of all snapshots and tracked vehicle IDs

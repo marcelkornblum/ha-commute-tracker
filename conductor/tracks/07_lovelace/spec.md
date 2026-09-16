@@ -13,7 +13,7 @@
 - **Mock State Fixtures**: Standardised Home Assistant state store providing realistic fixtures derived directly from `specs/commute_contract.md`.
 - **Interactive Scenarios**: The harness must provide an interactive scenario selector allowing immediate switching between canonical lifecycle states:
   1. *Standby / Inactive*: Commute outside operating window (`urgency_stage: standby`, `is_relevant: false`).
-  2. *Relaxed (Multi-modal)*: Comfortable departure window with multiple options (Bus 26 recommended on top, Southeastern rail alternative underneath, Good Service).
+  2. *Relaxed (Multiple Options)*: Comfortable departure window with multiple options (Bus 26 recommended on top, Southeastern rail alternative underneath, Good Service).
   3. *Prepare Window*: Countdown within preparation threshold ($\le 8\text{m}$ to leave, amber badge).
   4. *Leave Now*: Doorstep departure deadline reached ($\le 0\text{m}$ to leave, urgent red pulsing badge).
   5. *Line Disruption*: Live delays or cancellations reported by transit provider (warning indicators and colours).

@@ -1,6 +1,6 @@
 """Pure-Python commute tracking and arbitration engine (Phases 3 and 4).
 
-Ingests multi-modal transit payloads, evaluates corridor vehicle progress,
+Ingests transit payloads across route options, evaluates corridor vehicle progress,
 calculates doorstep leave thresholds, and arbitrates Master Rollup state.
 """
 

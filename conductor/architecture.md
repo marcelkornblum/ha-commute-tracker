@@ -1,6 +1,6 @@
 # Implementation Plan: Python Commute Tracker (`ha-commute-tracker`)
 
-A standalone, spec-driven Home Assistant custom integration built with Red/Green Test-Driven Development (TDD) via Conductor, providing multi-modal transit tracking, corridor schematics, and urgency staging.
+A standalone, spec-driven Home Assistant custom integration built with Red/Green Test-Driven Development (TDD) via Conductor, providing transit tracking across commute route options, corridor schematics, and urgency staging.
 
 ---
 
@@ -21,7 +21,7 @@ A standalone, spec-driven Home Assistant custom integration built with Red/Green
 
 ---
 
-## Universal Multi-Modal Transit Provider Plugin Architecture
+## Universal Transit Provider Plugin Architecture
 
 To support any transit mode (bus, train, tram, ferry) and any transit data provider without refactoring the core commute engine, data ingestion is decoupled via a **Universal Provider Plugin Pattern**:
 

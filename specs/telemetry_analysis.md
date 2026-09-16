@@ -1,6 +1,6 @@
-# Detailed Telemetry & Reachability Analysis: Multi-Modal Live Capture
+# Detailed Telemetry & Reachability Analysis: Multi-Route Live Capture
 
-Empirical analysis of the multi-modal snapshots captured across the canonical Nelson's Column to Brick Lane commute corridor.
+Empirical analysis of the time-series snapshots captured across the canonical Nelson's Column to Brick Lane commute corridor.
 
 ---
 

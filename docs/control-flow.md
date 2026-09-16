@@ -176,7 +176,7 @@ Countdown (seconds_to_leave):
    - `on_time`: Arriving within 0–299 seconds of target deadline.
 
 ### G. Master Rollup Arbitration ([`engine._arbitrate_master_rollup`](../custom_components/commute_tracker/engine.py))
-*Responsibility: Arbitrate the winning active option across multi-modal alternatives (e.g. Bus vs Tube vs Train).*
+*Responsibility: Arbitrate the winning active option across alternative commute routes (e.g. Bus vs Tube vs Train).*
 
 1. **Timeliness Partitioning**:
    - Candidates are evaluated against the target deadline (`will_arrive_on_time`).

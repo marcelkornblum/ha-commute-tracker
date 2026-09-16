@@ -676,7 +676,7 @@ def capture_time_series(
     interval_seconds: float = DEFAULT_TIME_SERIES_INTERVAL,
     export_initial_sets: bool = True,
 ) -> Path:
-    """Capture multi-modal time-series snapshots for all 3 routes and both paradigms.
+    """Capture time-series snapshots across all 3 routes and both paradigms.
 
     :param client: Transit capture client.
     :param output_dir: Directory to store snapshots.
@@ -951,7 +951,7 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(arguments: list[str] | None = None) -> int:
-    """Entrypoint executing unified multi-modal fixture capture.
+    """Entrypoint executing unified multi-route fixture capture.
 
     :param arguments: Command-line arguments list or None for sys.argv.
     :return: Exit code.
@@ -963,7 +963,7 @@ def main(arguments: list[str] | None = None) -> int:
 
     try:
         print(
-            f"Capturing Multi-Modal Time Series ({args.time_series_count} iterations, "
+            f"Capturing Multi-Route Time Series ({args.time_series_count} iterations, "
             f"interval {args.time_series_interval}s) with synchronised Sets 1-6..."
         )
         capture_time_series(
