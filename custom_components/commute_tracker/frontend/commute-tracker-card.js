@@ -890,7 +890,7 @@ let T = class extends I {
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time">${$}</span>

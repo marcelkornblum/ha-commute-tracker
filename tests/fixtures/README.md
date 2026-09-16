@@ -6,7 +6,7 @@ This guide details how and when to capture real-time Transport for London (TfL) 
 
 ## Exemplar Journey: Nelson's Column to Brick Lane
 
-To ensure reproducibility while maintaining commuter privacy, all integration tests and sample fixtures model an anonymous canonical London commute with three route options:
+To ensure reproducibility while maintaining commuter privacy, all integration tests and sample fixtures model an anonymous canonical London commute with three single-leg route options:
 
 - **Origin**: Nelson's Column, Trafalgar Square (`51.5078, -0.1280`)
 - **Destination**: Brick Lane, London E1 (`51.5215, -0.0715`)

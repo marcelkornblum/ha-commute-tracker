@@ -96,7 +96,7 @@ routes:
 - **Schematic Track**: Renders transit corridor stops (`is_target: true` boarding node with highlight halo) and the real-time vehicle marker.
 - **Live Timings Grid**:
   - **Left**: Doorstep departure pill (`👟 07:42`).
-  - **Centre**: Transit leg boarding & arrival (`07:50 🚌 08:15`).
+  - **Centre**: Transit vehicle boarding & arrival (`07:50 🚌 08:15`).
   - **Right**: Destination arrival pill (`🏫 08:28`). If the journey is projected to arrive past the target buffer, this pill dynamically shifts to a red alert border and text.
 
 ### 2. Details Overlay

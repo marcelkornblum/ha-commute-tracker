@@ -327,7 +327,7 @@ $$\text{seconds\_to\_leave}_k = \text{seconds\_to\_board}_k - (\text{boarding\_w
 - $\text{grace\_seconds}$ provides user leeway beyond the comfortable recommendation (e.g. running to the stop), after which reaching the stop before departure is impossible.
 
 ### Multi-Route Arbitration
-When evaluating multiple routes for the Master Rollup:
+When evaluating multiple single-leg routes for the Master Rollup:
 1. **Filter Reachable**: Eliminate routes with no reachable services.
 2. **Timeliness Partitioning**: Prioritise routes that arrive before the target deadline (`will_arrive_on_time: true`, where $\text{expected\_destination\_margin\_seconds} \ge 0$). Late routes are only considered if no reachable on-time route exists.
 3. **Catchability Partitioning**: Prioritise comfortable departures ($\text{seconds\_to\_leave} \ge 0$) over sprint options ($\text{seconds\_to\_leave} < 0$).

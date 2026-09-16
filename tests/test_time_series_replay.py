@@ -168,7 +168,7 @@ def test_tube_central_line_progression() -> None:
 
 
 def test_master_rollup_arbitration_simulation() -> None:
-    """Verify commute arbitration arbitrates across all 3 route options."""
+    """Verify commute arbitration arbitrates across all 3 single-leg route options."""
     timeline, _ = analyse_snapshots()
     assert len(timeline) == 90
 

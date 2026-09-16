@@ -22,6 +22,7 @@ Before configuring journeys, it is helpful to understand the core terminology us
   When a vehicle fails this condition, it is marked **missed** and the engine rolls over to track the next departure.
 - **Transit Duration (`transit_duration_seconds`)**: Scheduled or in-vehicle transit time between the boarding stop and alighting stop.
 - **Alighting Walk (`alighting_walk_seconds`)**: Walking duration from the alighting stop to the final destination.
+- **Single-Leg Route Options**: Each configured route represents a single direct transit leg from boarding stop to alighting stop (e.g. Bus 26 or Central Line Tube). A commute models multiple alternative single-leg routes side-by-side, arbitrating the best option for the journey. Multi-leg journeys requiring transfers between transit services are explicitly not supported.
 - **Expected Destination Margin (`expected_destination_margin_seconds`)**: Spare seconds between the expected arrival time at the final destination and the planned deadline (`target_destination_time`). Positive values indicate arriving early; negative values indicate arriving late.
 
 ---
@@ -208,7 +209,7 @@ commute_tracker:
 
 ### Multi-Option Exemplar: Nelson's Column to Brick Lane
 
-A complete configuration setup replicating the canonical reference commute with three route options (Bus 26, Southeastern Rail, and Central Line Tube):
+A complete configuration setup replicating the canonical reference commute with three alternative single-leg route options (Bus 26, Southeastern Rail, and Central Line Tube):
 
 ```yaml
 commute_tracker:

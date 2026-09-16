@@ -20,7 +20,7 @@
 4. **[Configuration Reference & Schema Guide](./configuration.md)**
    - Comprehensive guide to all configuration options across Root, Commute, and Route scopes.
    - Details option purposes, types, defaults, units, cascading inheritance rules, and mutual exclusivity.
-   - Provides fully annotated YAML configuration examples for single-route and multi-option commutes.
+   - Provides fully annotated YAML configuration examples for single-route and multiple single-leg route options.
 
 5. **[Lovelace Custom Card Guide](./lovelace-card.md)**
    - Instructions for installing, configuring, and styling the companion `<commute-tracker-card>`.

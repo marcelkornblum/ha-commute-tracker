@@ -4,9 +4,9 @@
 [![HACS Default](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Home Assistant custom integration and companion dashboard card that removes the stress of timing your daily journeys. It monitors multiple transit options simultaneously, compares route options in real time, and provides clear, glanceable urgency stages so you always leave at the right moment.
+A Home Assistant custom integration and companion dashboard card that removes the stress of timing your daily journeys. It monitors multiple single-leg transit options simultaneously, compares route options in real time, and provides clear, glanceable urgency stages so you always leave at the right moment.
 
-Whether your commute involves choosing between buses or trains, Commute Tracker tracks live departures, computes your arrival time, and distils complex transit feeds into simple, actionable guidance: *Standby*, *Get Ready*, or *Leave Now*.
+Whether your commute involves choosing between alternative direct buses or trains, Commute Tracker tracks live departures, computes your arrival time, and distils complex transit feeds into simple, actionable guidance: *Standby*, *Get Ready*, or *Leave Now*.
 
 ---
 

@@ -245,7 +245,7 @@ def calculate_milestone_times(
     reference_time: datetime | None = None,
     expected_boarding_time_str: str | None = None,
 ) -> tuple[str, str, str]:
-    """Calculate formatted milestone times (HH:MM) for transit legs.
+    """Calculate formatted milestone times (HH:MM) for single-leg transit journeys.
 
     :param seconds_to_board: Countdown to transit departure at boarding stop.
     :param transit_duration_seconds: Duration of transit journey in seconds.

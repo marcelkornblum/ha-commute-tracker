@@ -1,6 +1,6 @@
 # Implementation Plan: Python Commute Tracker (`ha-commute-tracker`)
 
-A standalone, spec-driven Home Assistant custom integration built with Red/Green Test-Driven Development (TDD) via Conductor, providing transit tracking across commute route options, corridor schematics, and urgency staging.
+A standalone, spec-driven Home Assistant custom integration built with Red/Green Test-Driven Development (TDD) via Conductor, providing transit tracking across multiple single-leg route options, corridor schematics, and urgency staging.
 
 ---
 

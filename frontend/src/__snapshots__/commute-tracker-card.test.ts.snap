@@ -99,7 +99,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches disruption scenario snapsh
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:24</span>
@@ -190,7 +190,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches disruption scenario snapsh
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:26</span>
@@ -317,7 +317,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches late arrival warning snaps
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:24</span>
@@ -408,7 +408,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches late arrival warning snaps
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:26</span>
@@ -535,7 +535,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches leave now urgent snapshot 
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:24</span>
@@ -626,7 +626,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches leave now urgent snapshot 
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:26</span>
@@ -753,7 +753,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches prepare window snapshot 1`
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:24</span>
@@ -844,7 +844,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches prepare window snapshot 1`
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:26</span>
@@ -971,7 +971,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches relaxed scenario snapshot 
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:24</span>
@@ -1062,7 +1062,7 @@ exports[`CommuteTrackerCard > DOM Snapshots > matches relaxed scenario snapshot 
                     </span>
                   </div>
 
-                  <!-- Centre: Transit Leg (Departure + Icon + Transit Arrival) -->
+                  <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
                       <span class="transit-time"><!--?lit-->08:26</span>
