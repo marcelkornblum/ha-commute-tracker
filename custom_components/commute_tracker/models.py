@@ -10,6 +10,7 @@ from custom_components.commute_tracker.const import (
     DEFAULT_LINE_STATUS,
     DEFAULT_POLL_INTERVAL_SECONDS,
     DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
+    DEFAULT_STAGING_MODE,
 )
 
 
@@ -151,6 +152,7 @@ class CommuteConfig:
     poll_interval: int = DEFAULT_POLL_INTERVAL_SECONDS
     prep_seconds: int | None = None
     boarding_walk_seconds: int | None = None
+    staging_mode: bool = DEFAULT_STAGING_MODE
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CommuteConfig":
@@ -254,6 +256,7 @@ class CommuteConfig:
             if data.get("boarding_walk_seconds") is not None
             else None
         )
+        staging_mode = bool(data.get("staging_mode", DEFAULT_STAGING_MODE))
 
         return cls(
             commute_id=commute_id,
@@ -270,4 +273,5 @@ class CommuteConfig:
             poll_interval=poll_interval,
             prep_seconds=prep_sec,
             boarding_walk_seconds=boarding_walk_sec,
+            staging_mode=staging_mode,
         )

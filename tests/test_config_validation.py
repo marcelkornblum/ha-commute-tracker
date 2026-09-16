@@ -356,3 +356,48 @@ def test_commute_and_route_overrides_root_level_options() -> None:
     assert route["prep_seconds"] == 60
     assert route["boarding_walk_seconds"] == 180
     assert route["grace_seconds"] == 45
+
+
+def test_staging_mode_configuration_cascades() -> None:
+    """Validate that root staging_mode cascades to commutes when not overridden."""
+    raw_config = {
+        "staging_mode": True,
+        "commutes": [
+            {
+                "name": "Work",
+                "active_sensor": "binary_sensor.work_active",
+                "routes": [
+                    {
+                        "mode": "bus",
+                        "line": "73",
+                    }
+                ],
+            }
+        ],
+    }
+    validated = COMMUTE_TRACKER_SCHEMA(raw_config)
+    commute = validated["commutes"][0]
+    assert commute["staging_mode"] is True
+
+
+def test_staging_mode_commute_override() -> None:
+    """Validate that commute staging_mode overrides root staging_mode."""
+    raw_config = {
+        "staging_mode": False,
+        "commutes": [
+            {
+                "name": "Work",
+                "active_sensor": "binary_sensor.work_active",
+                "staging_mode": True,
+                "routes": [
+                    {
+                        "mode": "bus",
+                        "line": "73",
+                    }
+                ],
+            }
+        ],
+    }
+    validated = COMMUTE_TRACKER_SCHEMA(raw_config)
+    commute = validated["commutes"][0]
+    assert commute["staging_mode"] is True
