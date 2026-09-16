@@ -44,12 +44,15 @@ Whether your commute involves choosing between buses or trains, Commute Tracker 
 
 Copy the `custom_components/commute_tracker` directory into your Home Assistant `<config_dir>/custom_components/` directory and restart Home Assistant.
 
+The companion custom card (`commute-tracker-card`) is bundled with the integration and registered automatically with Home Assistant's frontend at `/commute_tracker/commute-tracker-card.js`.
+
 ---
 
 ## Configuration & Documentation
 
 Configure your commutes directly in `configuration.yaml`. For complete option specifications, units, cascading hierarchy, and annotated YAML examples, see:
 
+- **[Lovelace Custom Card Guide](docs/lovelace-card.md)**: Installation, card YAML options, corridor schematics, and in-card details overlay.
 - **[Configuration Reference & Schema Guide](docs/configuration.md)**: Exhaustive reference of all Root, Commute, and Route options.
 - **[System Architecture & Component Boundaries](docs/system-architecture.md)**: Entity model and platform split.
 - **[Control Flow & Decision Engine](docs/control-flow.md)**: Reachability math, arbitration, and timeliness stages.

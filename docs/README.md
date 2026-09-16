@@ -22,6 +22,11 @@
    - Details option purposes, types, defaults, units, cascading inheritance rules, and mutual exclusivity.
    - Provides fully annotated YAML configuration examples for single and multi-modal commutes.
 
+5. **[Lovelace Custom Card Guide](./lovelace-card.md)**
+   - Instructions for installing, configuring, and styling the companion `<commute-tracker-card>`.
+   - Explains the corridor schematic rendering, real-time vehicle positioning, and in-card details overlay.
+   - Includes standalone preview harness instructions and Vitest automated testing guides.
+
 ---
 
 ## High-Level Repository Layout

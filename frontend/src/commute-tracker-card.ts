@@ -5,6 +5,7 @@ export interface CommuteCardConfig {
   type: string;
   entity: string;
   title?: string;
+  routes?: string[];
 }
 
 export interface CorridorStop {
@@ -519,7 +520,7 @@ export class CommuteTrackerCard extends LitElement {
     const pillBorder = attr.pill_border || "#8E8E93";
     const activeOpt = attr.active_option || "";
 
-    const childEntities: string[] = attr.child_entities || [];
+    const childEntities: string[] = this._config?.routes || attr.child_entities || [];
     const isRelevant =
       attr.is_relevant === true ||
       attr.is_relevant === "true" ||
@@ -596,6 +597,20 @@ export class CommuteTrackerCard extends LitElement {
     this._selectedRouteId = entId;
   }
 
+  private _renderStatusIcon(iconStr: string) {
+    if (!iconStr) return html``;
+    if (iconStr.startsWith("mdi:")) {
+      if (typeof customElements !== "undefined" && customElements.get("ha-icon")) {
+        return html`<ha-icon .icon=${iconStr} style="--mdc-icon-size: 14px; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; vertical-align: -1px;"></ha-icon>`;
+      }
+      if (iconStr.includes("check") || iconStr === "✓") return "✓";
+      if (iconStr.includes("alert") || iconStr.includes("warning") || iconStr === "⚠️") return "⚠️";
+      if (iconStr.includes("close") || iconStr.includes("cancel") || iconStr === "✕") return "✕";
+      if (iconStr.includes("help") || iconStr === "?") return "?";
+    }
+    return iconStr;
+  }
+
   private _closeDetails(): void {
     this._selectedRouteId = undefined;
   }
@@ -659,7 +674,7 @@ export class CommuteTrackerCard extends LitElement {
           <div class="line-status-box" style="border-left-color: ${lineCol};">
             <div class="line-status-feed-badge">Transit Provider Feed · ${provider}</div>
             <div class="line-status-headline" style="color: ${lineCol};">
-              <span>${lineIcon}</span>
+              <span>${this._renderStatusIcon(lineIcon)}</span>
               <span>${lineSt}</span>
             </div>
             <p class="line-status-desc">${lineDetail}</p>
@@ -851,7 +866,7 @@ export class CommuteTrackerCard extends LitElement {
             <span class="destination-label">${dest}</span>
           </div>
           <div class="line-health" style="color: ${lineCol};">
-            <span>${lineIcon}</span>
+            <span>${this._renderStatusIcon(lineIcon)}</span>
             <span>${lineSt}</span>
           </div>
         </div>
