@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Pre-push hook to build frontend card and ensure committed bundle is up to date.
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ -n "${ASDF_DATA_DIR:-}" ] && [ -d "$ASDF_DATA_DIR/shims" ]; then
+    export PATH="$ASDF_DATA_DIR/shims:$PATH"
+elif [ -d "$HOME/.asdf/shims" ]; then
+    export PATH="$HOME/.asdf/shims:$PATH"
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+    echo "⚠️  [pre-push] npm command not found. Skipping frontend build check."
+    exit 0
+fi
+
+# Determine if any frontend source files are being pushed
+MODIFIED_FRONTEND=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        continue
+    fi
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        BASE="$(git merge-base "$local_sha" origin/main 2>/dev/null || echo "HEAD~1")"
+        RANGE="$BASE..$local_sha"
+    else
+        RANGE="$remote_sha..$local_sha"
+    fi
+
+    if git diff --name-only "$RANGE" 2>/dev/null | grep -qE '^frontend/'; then
+        MODIFIED_FRONTEND=1
+        break
+    fi
+done
+
+if [ "$MODIFIED_FRONTEND" -eq 0 ] && ! git diff --name-only | grep -qE '^frontend/'; then
+    exit 0
+fi
+
+echo "📦 [pre-push] Building Lovelace card frontend..."
+(cd frontend && npm run build)
+
+if ! git diff --quiet custom_components/commute_tracker/frontend/commute-tracker-card.js; then
+    echo ""
+    echo "❌ [pre-push] ERROR: Committed frontend bundle is out of date with frontend/src/!"
+    echo "    The file custom_components/commute_tracker/frontend/commute-tracker-card.js has been freshly rebuilt."
+    echo ""
+    echo "    Please stage and commit the updated bundle before pushing:"
+    echo "      git add custom_components/commute_tracker/frontend/commute-tracker-card.js"
+    echo "      git commit -m \"build(frontend): update compiled bundle\""
+    echo "      git push"
+    echo ""
+    exit 1
+fi
+
+echo "✅ [pre-push] Frontend card bundle is up to date."
+exit 0

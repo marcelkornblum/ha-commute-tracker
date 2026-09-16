@@ -67,6 +67,55 @@ def test_unique_id_explicit_overrides() -> None:
     )
 
 
+def test_unique_id_staging_mode() -> None:
+    """Verify unique_id generation appends _staging suffix when staging_mode is True."""
+    assert (
+        derive_commute_unique_id(
+            commute_title="Work Commute",
+            staging_mode=True,
+        )
+        == "work_commute_staging"
+    )
+    assert (
+        derive_commute_unique_id(
+            commute_title="Work Commute",
+            explicit_id="custom_master_id",
+            staging_mode=True,
+        )
+        == "custom_master_id_staging"
+    )
+    assert (
+        derive_commute_unique_id(
+            commute_title="Work Commute",
+            explicit_id="custom_master_id_staging",
+            staging_mode=True,
+        )
+        == "custom_master_id_staging"
+    )
+
+    child_uid = derive_child_unique_id(
+        commute_unique_id="work_commute",
+        route_id="bus_73",
+        staging_mode=True,
+    )
+    assert child_uid == "work_commute_bus_73_staging"
+
+    child_uid_explicit = derive_child_unique_id(
+        commute_unique_id="work_commute",
+        route_id="bus_73",
+        explicit_id="custom_child_id",
+        staging_mode=True,
+    )
+    assert child_uid_explicit == "custom_child_id_staging"
+
+    child_uid_already_staging = derive_child_unique_id(
+        commute_unique_id="work_commute_staging",
+        route_id="bus_73",
+        staging_mode=True,
+    )
+    assert child_uid_already_staging == "work_commute_bus_73_staging"
+
+
 def test_child_sensor_icons() -> None:
     """Verify appropriate transit icons are assigned based on transit mode."""
     coord = AsyncMock(spec=CommuteCoordinator)
@@ -366,3 +415,59 @@ async def test_sensor_sleep_and_wake_transitions(hass: HomeAssistant) -> None:
     assert master_state_active.attributes["is_relevant"] is True
 
     coordinator.async_unload()
+
+
+async def test_sensor_setup_staging_mode(hass: HomeAssistant) -> None:
+    """Verify staging_mode: true appends _staging to entity_ids and child_entities."""
+    raw_config = {
+        DOMAIN: {
+            "staging_mode": True,
+            "commutes": [
+                {
+                    "name": "Work Commute",
+                    "active_sensor": "binary_sensor.work_active",
+                    "routes": [
+                        {
+                            "id": "bus_73",
+                            "mode": "bus",
+                            "line": "73",
+                            "boarding_stop": "490013766F",
+                        },
+                    ],
+                }
+            ],
+        }
+    }
+
+    hass.states.async_set("binary_sensor.work_active", "off")
+
+    with patch(
+        "custom_components.commute_tracker.CommuteEngine.async_evaluate_commute",
+        new_callable=AsyncMock,
+    ):
+        setup_success = await async_setup_component(
+            hass=hass,
+            domain=DOMAIN,
+            config=raw_config,
+        )
+        assert setup_success is True
+        await hass.async_block_till_done()
+
+    domain_states = [
+        state
+        for state in hass.states.async_all()
+        if state.entity_id.startswith("sensor.commute_")
+    ]
+    registered_ids = {s.entity_id for s in domain_states}
+
+    assert "sensor.commute_work_commute_staging" in registered_ids
+    assert "sensor.commute_work_commute_bus_73_staging" in registered_ids
+
+    master_state = hass.states.get("sensor.commute_work_commute_staging")
+    assert master_state is not None
+    assert master_state.attributes["child_entities"] == [
+        "sensor.commute_work_commute_bus_73_staging"
+    ]
+
+    for coordinator in hass.data[DOMAIN]["coordinators"].values():
+        coordinator.async_unload()

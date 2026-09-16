@@ -37,6 +37,7 @@ from custom_components.commute_tracker.const import (
     CONF_ROUTE_LATE_BUFFER_SECONDS,
     CONF_ROUTE_NAME,
     CONF_ROUTES,
+    CONF_STAGING_MODE,
     CONF_TARGET_DESTINATION_TIME,
     CONF_TRANSIT_DURATION_SECONDS,
     CONF_UNIQUE_ID,
@@ -44,6 +45,7 @@ from custom_components.commute_tracker.const import (
     DEFAULT_PROVIDER,
     DEFAULT_ROLLUP_STRATEGY,
     DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
+    DEFAULT_STAGING_MODE,
     DOMAIN,
 )
 from custom_components.commute_tracker.models import (
@@ -176,6 +178,7 @@ COMMUTE_SCHEMA = vol.All(
             vol.Optional(CONF_POLL_INTERVAL): cv.positive_int,
             vol.Optional(CONF_PREP_SECONDS): cv.positive_int,
             vol.Optional(CONF_BOARDING_WALK_SECONDS): cv.positive_int,
+            vol.Optional(CONF_STAGING_MODE): cv.boolean,
             vol.Required(CONF_ROUTES): vol.All(
                 cv.ensure_list,
                 [ROUTE_SCHEMA],
@@ -203,10 +206,14 @@ def _normalise_commute_tracker(config: dict[str, Any]) -> dict[str, Any]:
     root_grace_frac = data.get(CONF_GRACE_FRACTION)
     root_prep = data.get(CONF_PREP_SECONDS)
     root_walk = data.get(CONF_BOARDING_WALK_SECONDS)
+    root_staging = data.get(CONF_STAGING_MODE, DEFAULT_STAGING_MODE)
 
     normalised_commutes: list[dict[str, Any]] = []
     for commute_raw in data.get(CONF_COMMUTES, []):
         commute = dict(commute_raw)
+
+        if CONF_STAGING_MODE not in commute:
+            commute[CONF_STAGING_MODE] = root_staging
 
         if CONF_POLL_INTERVAL not in commute:
             commute[CONF_POLL_INTERVAL] = (
@@ -277,6 +284,7 @@ COMMUTE_TRACKER_SCHEMA = vol.All(
             vol.Optional(CONF_ROUTE_LATE_BUFFER_SECONDS): cv.positive_int,
             vol.Optional(CONF_PREP_SECONDS): cv.positive_int,
             vol.Optional(CONF_BOARDING_WALK_SECONDS): cv.positive_int,
+            vol.Optional(CONF_STAGING_MODE, default=DEFAULT_STAGING_MODE): cv.boolean,
             vol.Required(CONF_COMMUTES): COMMUTES_SCHEMA,
         }
     ),

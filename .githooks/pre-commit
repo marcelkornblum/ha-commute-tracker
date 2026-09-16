@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Pre-commit hook to automatically build and stage frontend card bundle when frontend files change.
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ -n "${ASDF_DATA_DIR:-}" ] && [ -d "$ASDF_DATA_DIR/shims" ]; then
+    export PATH="$ASDF_DATA_DIR/shims:$PATH"
+elif [ -d "$HOME/.asdf/shims" ]; then
+    export PATH="$HOME/.asdf/shims:$PATH"
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+    exit 0
+fi
+
+if git diff --cached --name-only | grep -qE '^frontend/'; then
+    echo "📦 [pre-commit] Frontend files staged. Rebuilding Lovelace card bundle..."
+    (cd frontend && npm run build)
+    git add custom_components/commute_tracker/frontend/commute-tracker-card.js
+    echo "✅ [pre-commit] Bundled and staged custom_components/commute_tracker/frontend/commute-tracker-card.js."
+fi

@@ -47,29 +47,57 @@ MODE_COLORS: dict[TransitMode, str] = {
 def derive_commute_unique_id(
     commute_title: str,
     explicit_id: str | None = None,
+    staging_mode: bool = False,
 ) -> str:
     """Generate master sensor unique_id with fallback to slugified name."""
-    if explicit_id:
-        return explicit_id
-    return slugify(commute_title)
+    base = explicit_id if explicit_id else slugify(commute_title)
+    if staging_mode and not base.endswith("_staging"):
+        return f"{base}_staging"
+    return base
 
 
 def derive_child_unique_id(
     commute_unique_id: str,
     route_id: str,
     explicit_id: str | None = None,
+    staging_mode: bool = False,
 ) -> str:
     """Generate child route sensor unique_id with fallback to composite key."""
     if explicit_id:
-        return explicit_id
-    return f"{commute_unique_id}_{route_id}"
+        base = explicit_id
+    else:
+        clean_commute_uid = commute_unique_id.removesuffix("_staging")
+        base = f"{clean_commute_uid}_{route_id}"
+    if staging_mode and not base.endswith("_staging"):
+        return f"{base}_staging"
+    return base
 
 
-def _format_display_commute_name(commute_title: str) -> str:
+def _format_display_commute_name(
+    commute_title: str,
+    staging_mode: bool = False,
+) -> str:
     """Format human-readable commute name, prefixing 'Commute ' if absent."""
-    if commute_title.lower().startswith("commute"):
-        return commute_title
-    return f"Commute {commute_title}"
+    base = (
+        commute_title
+        if commute_title.lower().startswith("commute")
+        else f"Commute {commute_title}"
+    )
+    if staging_mode and not base.lower().endswith("staging"):
+        return f"{base} Staging"
+    return base
+
+
+def _format_child_display_name(
+    master_display_name: str,
+    route_display: str,
+    staging_mode: bool = False,
+) -> str:
+    """Format human-readable child route name with optional staging suffix."""
+    base = f"{master_display_name} {route_display}"
+    if staging_mode and not base.lower().endswith("staging"):
+        return f"{base} Staging"
+    return base
 
 
 def _format_route_display(route_config: RouteConfig) -> str:
@@ -118,18 +146,33 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
         super().__init__(coordinator=coordinator)
         cfg = coordinator.commute_config
         commute_title = cfg.commute_title or cfg.commute_id
-        self._attr_name = _format_display_commute_name(commute_title=commute_title)
+        self._attr_name = _format_display_commute_name(
+            commute_title=commute_title,
+            staging_mode=cfg.staging_mode,
+        )
         self._attr_unique_id = derive_commute_unique_id(
             commute_title=commute_title,
             explicit_id=cfg.commute_id,
+            staging_mode=cfg.staging_mode,
         )
 
     def _get_child_entity_ids(self) -> list[str]:
         """Compute expected child route entity IDs for dashboard navigation."""
+        cfg = self.coordinator.commute_config
+        commute_title = cfg.commute_title or cfg.commute_id
+        base_master_name = _format_display_commute_name(
+            commute_title=commute_title,
+            staging_mode=False,
+        )
         child_ids: list[str] = []
-        for route in self.coordinator.commute_config.routes:
+        for route in cfg.routes:
             route_display = _format_route_display(route_config=route)
-            child_slug = slugify(f"{self._attr_name} {route_display}")
+            child_name = _format_child_display_name(
+                master_display_name=base_master_name,
+                route_display=route_display,
+                staging_mode=cfg.staging_mode,
+            )
+            child_slug = slugify(child_name)
             child_ids.append(f"sensor.{child_slug}")
         return child_ids
 
@@ -244,15 +287,23 @@ class CommuteChildRouteSensor(CoordinatorEntity[CommuteCoordinator], SensorEntit
         self.route_config = route_config
         cfg = coordinator.commute_config
         commute_title = cfg.commute_title or cfg.commute_id
-        master_display_name = _format_display_commute_name(commute_title=commute_title)
+        base_master_name = _format_display_commute_name(
+            commute_title=commute_title,
+            staging_mode=False,
+        )
         route_display = _format_route_display(route_config=route_config)
-        self._attr_name = f"{master_display_name} {route_display}"
+        self._attr_name = _format_child_display_name(
+            master_display_name=base_master_name,
+            route_display=route_display,
+            staging_mode=cfg.staging_mode,
+        )
         self._attr_icon = MODE_ICONS.get(
             route_config.mode, "mdi:transit-connection-variant"
         )
         self._attr_unique_id = derive_child_unique_id(
             commute_unique_id=cfg.commute_id,
             route_id=route_config.route_id,
+            staging_mode=cfg.staging_mode,
         )
 
     def _get_child_state(self) -> ChildRouteState | None:

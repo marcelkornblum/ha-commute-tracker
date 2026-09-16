@@ -101,6 +101,7 @@ The root block defines shared provider credentials and global defaults.
 | `prep_seconds` | `positive_int` | Optional | `120` | Global default preparation buffer in seconds before doorstep departure. |
 | `boarding_walk_seconds` | `positive_int` | Optional | `240` | Global default walking duration in seconds from doorstep to transit boarding stop. |
 | `poll_interval` | `positive_int` | Optional | `30` | Default polling interval in seconds for all commutes while awake. |
+| `staging_mode` | `bool` | Optional | `false` | When `true`, artificially appends `_staging` to all generated Entity IDs and unique IDs to allow side-by-side parallel testing with legacy setups without collisions. |
 | `commutes` | `list` | **Required** | — | List of one or more commute definitions. |
 
 ### Provider Credentials (`providers:`)
@@ -132,6 +133,7 @@ Each entry in `commutes` represents a distinct daily journey (e.g. "Morning Comm
 | `target_destination_time` | `str` | Optional | `None` | Target arrival deadline at final destination in `HH:MM` or ISO timestamp format (e.g. `"09:00"`). Used to compute destination margins and timeliness. |
 | `person_name` | `str` | Optional | `None` | Commuter's display name, shown in the Lovelace card header badge. |
 | `person_picture` | `str` | Optional | `None` | Image URL or local path (`/local/...`) for commuter avatar on the card. |
+| `staging_mode` | `bool` | Optional | Inherited / `false` | When `true`, appends `_staging` to this commute's generated entity IDs and unique IDs. |
 | `rollup_strategy` | `enum` | Optional | `"late_with_buffer"` | Strategy used to arbitrate the active route promoted to the Master Rollup. Choices: `"late_with_buffer"`, `"soonest"`, `"latest"`. |
 | `route_late_buffer_seconds` | `positive_int` | Optional | `300` | Safety buffer in seconds used by `"late_with_buffer"` strategy (5 minutes default). |
 | `prep_seconds` | `positive_int` | Optional | Inherited / `120` | Commute-wide preparation buffer in seconds before doorstep departure. |
