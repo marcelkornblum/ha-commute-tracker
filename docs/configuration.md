@@ -156,6 +156,14 @@ When multiple routes are active, the Master Rollup promotes one route as the rec
 3. **`latest`**:
    - Strictly promotes the route that departs latest while still arriving at the destination on time. Maximises your time at home.
 
+### Setting Up the Active Commute Sensor (`active_sensor`)
+
+Commute Tracker does not run internal cron jobs or continuous background polling loops. Instead, transit API polling and timeline calculations are governed entirely by the state of your configured `active_sensor`.
+
+When the active sensor is `on`, the coordinator wakes up and polls transit feeds at your specified `poll_interval`. When `off`, the integration idles and emits `idle` urgency stages, conserving cloud API limits and host compute.
+
+You can bind `active_sensor` to any binary sensor or helper that fits your household routine, whether that is a built-in Schedule helper (`schedule.*`), a manual toggle (`input_boolean.*`), or an automation-driven presence flag.
+
 ---
 
 ## 6. Route-Level Options (`routes:`)

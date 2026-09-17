@@ -260,8 +260,9 @@ class TransitProvider(ABC):
         :param target_stop: Target boarding stop identifier.
         :param line_id: Optional line identifier filter.
         :return: Sorted list of DeparturePrediction instances.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return []
+        raise NotImplementedError
 
     def adapt_journey(
         self,
@@ -277,16 +278,18 @@ class TransitProvider(ABC):
         :param destination: Destination stop identifier.
         :param reference_time_iso: Optional reference snapshot timestamp.
         :return: Ordered list of DeparturePrediction instances.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return []
+        raise NotImplementedError
 
     def adapt_stop_names(self, raw_payload: Any) -> dict[str, str]:
         """Extract mapping of stop identifier to clean station name.
 
         :param raw_payload: Raw arrivals payload from API.
         :return: Mapping of stop ID to cleaned station name label.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return {}
+        raise NotImplementedError
 
     def build_route_telemetry(
         self,
@@ -332,8 +335,9 @@ class TransitProvider(ABC):
         :param line_id: Transit line identifier.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_fetch_stop_arrivals(
         self,
@@ -350,8 +354,9 @@ class TransitProvider(ABC):
         :param line_id: Optional line filter.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_fetch_journey(
         self, origin: str, destination: str, mode: TransitMode
@@ -365,8 +370,9 @@ class TransitProvider(ABC):
         :param destination: Arrival station code.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_fetch_line_status(self, line_id: str, mode: TransitMode) -> Any:
         """Fetch raw operational line status from provider API.
@@ -377,8 +383,9 @@ class TransitProvider(ABC):
         :param line_id: Transit line identifier.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_get_line_status(
         self, line_id: str, mode: TransitMode
@@ -386,7 +393,8 @@ class TransitProvider(ABC):
         """Retrieve operational line status with debounced caching.
 
         Calls ``async_fetch_line_status`` and adapts via ``adapt_line_status``.
-        If fetch fails or returns None, defaults to ``UNKNOWN_LINE_STATUS``.
+        If fetch fails, raises NotImplementedError, or returns None, defaults
+        to ``UNKNOWN_LINE_STATUS``.
 
         :param line_id: Transit line identifier.
         :param mode: Transit mode of the line.
@@ -400,6 +408,8 @@ class TransitProvider(ABC):
                 if raw is None:
                     return UNKNOWN_LINE_STATUS
                 return self.adapt_line_status(raw_payload=raw, mode=mode)
+            except NotImplementedError:
+                return UNKNOWN_LINE_STATUS
             except Exception as err:
                 _LOGGER.warning(
                     "Failed to fetch line status for %s:%s: %s",
@@ -443,8 +453,9 @@ class TransitProvider(ABC):
         :param line_id: Transit line identifier.
         :param direction: Transit direction string.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_fetch_timetable(
         self, line_id: str, from_stop_id: str
@@ -454,8 +465,9 @@ class TransitProvider(ABC):
         :param line_id: Transit line identifier.
         :param from_stop_id: Origin or terminal stop identifier.
         :return: Vendor timetable JSON payload or None.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     def parse_route_sequences(
         self, sequence_payload: dict[str, Any] | list[Any]
@@ -466,8 +478,9 @@ class TransitProvider(ABC):
 
         :param sequence_payload: Vendor-specific route sequence API response.
         :return: Normalised list of branch sequences containing CorridorStop objects.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return []
+        raise NotImplementedError
 
     async def async_get_corridor_stops(
         self,
@@ -485,8 +498,9 @@ class TransitProvider(ABC):
         :param direction: Direction string.
         :param target_time_window_seconds: Optional time window to constrain stops.
         :return: Ordered list of CorridorStop objects.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return []
+        raise NotImplementedError
 
     @abstractmethod
     async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:

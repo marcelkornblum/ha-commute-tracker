@@ -173,6 +173,37 @@ def select_active_departures(
     return None, None
 
 
+def find_target_branch(
+    sequences: Sequence[Sequence[CorridorStop]] | Sequence[CorridorStop],
+    target_query: str,
+) -> tuple[Sequence[CorridorStop], int] | None:
+    """Find branch sequence and stop index containing the target boarding stop.
+
+    :param sequences: Branch sequences containing CorridorStop objects.
+    :param target_query: Boarding stop identifier or friendly name.
+    :return: Tuple of (matching_branch, target_index), or None if not found.
+    """
+    if not sequences or not target_query:
+        return None
+
+    query = target_query.strip().lower()
+    first_elem = sequences[0]
+    branches: list[Sequence[CorridorStop]]
+    if isinstance(first_elem, CorridorStop):
+        branches = [cast(Sequence[CorridorStop], sequences)]
+    else:
+        branches = list(cast(Sequence[Sequence[CorridorStop]], sequences))
+
+    for branch in branches:
+        for idx, st in enumerate(branch):
+            sid = st.id.strip().lower()
+            sname = st.name.strip().lower()
+            if sid == query or sname == query or query in sname:
+                return branch, idx
+
+    return None
+
+
 def slice_upstream_corridor(
     sequences: Sequence[Sequence[CorridorStop]] | Sequence[CorridorStop],
     boarding_stop: str,
@@ -194,32 +225,11 @@ def slice_upstream_corridor(
     if not sequences or not boarding_stop:
         return []
 
-    target_query = boarding_stop.strip().lower()
-
-    first_elem = sequences[0]
-    branches: list[Sequence[CorridorStop]]
-    if isinstance(first_elem, CorridorStop):
-        branches = [cast(Sequence[CorridorStop], sequences)]
-    else:
-        branches = list(cast(Sequence[Sequence[CorridorStop]], sequences))
-
-    matching_branch: Sequence[CorridorStop] | None = None
-    target_index: int = -1
-
-    for branch in branches:
-        for idx, st in enumerate(branch):
-            sid = st.id.strip().lower()
-            sname = st.name.strip().lower()
-            if sid == target_query or sname == target_query or target_query in sname:
-                matching_branch = branch
-                target_index = idx
-                break
-        if matching_branch is not None:
-            break
-
-    if matching_branch is None or target_index < 0:
+    match = find_target_branch(sequences=sequences, target_query=boarding_stop)
+    if match is None:
         return []
 
+    matching_branch, target_index = match
     candidate_stops = matching_branch[: target_index + 1]
 
     if target_time_window_seconds is not None:

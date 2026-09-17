@@ -4,6 +4,7 @@ from custom_components.commute_tracker.corridor import (
     calculate_corridor_progression,
     discover_upstream_corridor,
     filter_approaching_departures,
+    find_target_branch,
     select_active_departures,
     slice_upstream_corridor,
 )
@@ -517,3 +518,36 @@ def test_slice_upstream_corridor_with_scheduled_lead_times() -> None:
     assert corridor[1].scheduled_lead_seconds == 180
     assert corridor[2].scheduled_lead_seconds == 0
     assert corridor[2].is_target is True
+
+
+def test_find_target_branch_matching() -> None:
+    """Verify find_target_branch locates branch and index by id or substring name."""
+    b1 = [CorridorStop(id="S1", name="Alpha"), CorridorStop(id="S2", name="Beta")]
+    b2 = [
+        CorridorStop(id="S3", name="Gamma"),
+        CorridorStop(id="S4", name="Delta Station"),
+    ]
+
+    assert find_target_branch(sequences=[], target_query="S1") is None
+    assert find_target_branch(sequences=[b1, b2], target_query="") is None
+
+    # Match by ID
+    res = find_target_branch(sequences=[b1, b2], target_query="S2")
+    assert res is not None
+    assert res[0] == b1
+    assert res[1] == 1
+
+    # Match by friendly name substring case-insensitively
+    res = find_target_branch(sequences=[b1, b2], target_query="delta")
+    assert res is not None
+    assert res[0] == b2
+    assert res[1] == 1
+
+    # Single flat sequence
+    res = find_target_branch(sequences=b1, target_query="alpha")
+    assert res is not None
+    assert res[0] == b1
+    assert res[1] == 0
+
+    # Non-matching query
+    assert find_target_branch(sequences=[b1, b2], target_query="Omega") is None

@@ -76,6 +76,8 @@
     "error": {
       "cannot_connect": "Failed to connect to transit provider.",
       "invalid_auth": "Invalid authentication credentials.",
+      "invalid_name": "Please enter a valid commute name.",
+      "invalid_sensor": "Please select a valid entity for the active commute sensor.",
       "invalid_line": "Line identifier not recognised by provider.",
       "invalid_boarding_stop": "Boarding stop not found along this line.",
       "invalid_alighting_stop": "Alighting stop not found along this line.",
@@ -86,7 +88,8 @@
       "unknown": "Unexpected error occurred."
     },
     "abort": {
-      "already_configured": "This commute is already configured."
+      "already_configured": "This commute is already configured.",
+      "no_routes": "At least one route must be configured."
     }
   },
   "options": {
@@ -153,6 +156,12 @@
           "idle": "Idle"
         },
         "state_attributes": {
+          "commute_id": {
+            "name": "Commute ID"
+          },
+          "commute_title": {
+            "name": "Commute Title"
+          },
           "active_option": {
             "name": "Active Option"
           },
@@ -193,6 +202,9 @@
               "cancelled": "Cancelled"
             }
           },
+          "strategy": {
+            "name": "Arbitration Strategy"
+          },
           "route_label": {
             "name": "Route Label"
           },
@@ -208,11 +220,44 @@
           "line_status_detail": {
             "name": "Line Status Detail"
           },
+          "line_status_color": {
+            "name": "Line Status Colour"
+          },
+          "line_status_icon": {
+            "name": "Line Status Icon"
+          },
+          "is_delayed": {
+            "name": "Delayed"
+          },
+          "is_cancelled": {
+            "name": "Cancelled"
+          },
           "pill_label": {
             "name": "Pill Label"
           },
+          "pill_color": {
+            "name": "Pill Colour"
+          },
+          "pill_bg": {
+            "name": "Pill Background"
+          },
+          "pill_border": {
+            "name": "Pill Border"
+          },
           "next_summary": {
             "name": "Next Summary"
+          },
+          "options": {
+            "name": "Route Options"
+          },
+          "child_entities": {
+            "name": "Child Route Entities"
+          },
+          "person_name": {
+            "name": "Commuter Name"
+          },
+          "person_picture": {
+            "name": "Commuter Picture"
           }
         }
       },
@@ -226,6 +271,9 @@
           "idle": "Idle"
         },
         "state_attributes": {
+          "commute_id": {
+            "name": "Commute ID"
+          },
           "route_id": {
             "name": "Route ID"
           },
@@ -249,6 +297,12 @@
           },
           "destination": {
             "name": "Destination"
+          },
+          "is_relevant": {
+            "name": "Relevant"
+          },
+          "urgency_stage": {
+            "name": "Urgency Stage"
           },
           "leave_by_time": {
             "name": "Leave By Time"
@@ -284,11 +338,26 @@
               "cancelled": "Cancelled"
             }
           },
+          "vehicle_id": {
+            "name": "Lead Vehicle ID"
+          },
           "corridor_location": {
             "name": "Corridor Location"
           },
           "corridor_progress": {
             "name": "Corridor Progress"
+          },
+          "corridor_stops": {
+            "name": "Corridor Stops"
+          },
+          "next_vehicle_id": {
+            "name": "Next Vehicle ID"
+          },
+          "seconds_to_next_board": {
+            "name": "Seconds to Next Board"
+          },
+          "next_summary": {
+            "name": "Next Summary"
           },
           "line_status_label": {
             "name": "Line Status"
@@ -296,11 +365,29 @@
           "line_status_detail": {
             "name": "Line Status Detail"
           },
+          "line_status_color": {
+            "name": "Line Status Colour"
+          },
+          "line_status_icon": {
+            "name": "Line Status Icon"
+          },
+          "is_delayed": {
+            "name": "Delayed"
+          },
+          "is_cancelled": {
+            "name": "Cancelled"
+          },
           "pill_label": {
             "name": "Pill Label"
           },
-          "next_summary": {
-            "name": "Next Summary"
+          "pill_color": {
+            "name": "Pill Colour"
+          },
+          "pill_bg": {
+            "name": "Pill Background"
+          },
+          "pill_border": {
+            "name": "Pill Border"
           }
         }
       }

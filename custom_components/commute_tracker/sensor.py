@@ -165,6 +165,7 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
 
     _attr_has_entity_name = False
     _attr_icon = "mdi:transit-connection-variant"
+    _attr_translation_key = "master_rollup"
 
     def __init__(self, coordinator: CommuteCoordinator) -> None:
         """Initialise master rollup sensor."""
@@ -301,6 +302,7 @@ class CommuteChildRouteSensor(CoordinatorEntity[CommuteCoordinator], SensorEntit
     """Child route sensor exposing per-route metrics and corridor telemetry."""
 
     _attr_has_entity_name = False
+    _attr_translation_key = "child_route"
 
     def __init__(
         self,

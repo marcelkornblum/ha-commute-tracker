@@ -206,3 +206,50 @@ def test_registry_is_valid_provider_boolean_response() -> None:
         pass
 
     assert TransitProviderRegistry.is_valid_provider(provider_cls=BadProvider) is False
+
+
+@pytest.mark.asyncio
+async def test_transit_provider_base_hooks_raise_not_implemented() -> None:
+    """Verify default implementations of hook methods raise NotImplementedError."""
+
+    class MinimalProvider(TransitProvider):
+        provider_id = "minimal"
+        supported_modes = {TransitMode.BUS}
+
+        async def async_get_telemetry(self, route: Any) -> Any:
+            raise NotImplementedError
+
+    provider = MinimalProvider()
+
+    with pytest.raises(NotImplementedError):
+        await provider.async_fetch_line_arrivals("26", TransitMode.BUS)
+
+    with pytest.raises(NotImplementedError):
+        await provider.async_fetch_stop_arrivals("490000001A")
+
+    with pytest.raises(NotImplementedError):
+        await provider.async_fetch_journey("ORIGIN", "DEST", TransitMode.BUS)
+
+    with pytest.raises(NotImplementedError):
+        await provider.async_fetch_line_status("26", TransitMode.BUS)
+
+    with pytest.raises(NotImplementedError):
+        await provider.async_fetch_route_sequence("26")
+
+    with pytest.raises(NotImplementedError):
+        await provider.async_fetch_timetable("26", "490000001A")
+
+    with pytest.raises(NotImplementedError):
+        provider.parse_route_sequences({})
+
+    with pytest.raises(NotImplementedError):
+        await provider.async_get_corridor_stops("26", "490000001A")
+
+    with pytest.raises(NotImplementedError):
+        provider.adapt_departures([], "490000001A")
+
+    with pytest.raises(NotImplementedError):
+        provider.adapt_journey([], "ORIGIN", "DEST")
+
+    with pytest.raises(NotImplementedError):
+        provider.adapt_stop_names([])
