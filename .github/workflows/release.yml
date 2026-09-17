@@ -28,6 +28,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Sync manifest version with release tag
+        run: |
+          python3 -c "import json, os; p = 'custom_components/commute_tracker/manifest.json'; d = json.load(open(p)); d['version'] = os.environ['RELEASE_TAG'].lstrip('v'); json.dump(d, open(p, 'w'), indent=2); print(f'Synced manifest.json version to {d[\"version\"]}')"
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+
       - name: Package custom_components directory into zip
         run: |
           cd custom_components/commute_tracker

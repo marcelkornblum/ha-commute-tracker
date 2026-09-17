@@ -3,10 +3,15 @@
   "name": "Commute Tracker",
   "codeowners": ["@marcelkornblum"],
   "config_flow": true,
+  "after_dependencies": [
+    "frontend",
+    "http",
+    "lovelace"
+  ],
   "documentation": "https://github.com/marcelkornblum/ha-commute-tracker",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/marcelkornblum/ha-commute-tracker/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.0.0-dev"
 }

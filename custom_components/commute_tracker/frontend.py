@@ -63,14 +63,13 @@ async def _async_sync_storage_collection(
     base_url = versioned_url.split("?")[0]
     existing_items: list[dict[str, Any]] = resources.async_items()
 
-    matching_item: dict[str, Any] | None = None
-    for item in existing_items:
-        raw_url = str(item.get("url", ""))
-        if raw_url.split("?")[0] == base_url:
-            matching_item = item
-            break
+    matching_items = [
+        item
+        for item in existing_items
+        if str(item.get("url", "")).split("?")[0] == base_url
+    ]
 
-    if matching_item is None:
+    if not matching_items:
         if hasattr(resources, "async_create_item"):
             _LOGGER.debug("Registering Lovelace card resource: %s", versioned_url)
             await resources.async_create_item(
@@ -78,18 +77,23 @@ async def _async_sync_storage_collection(
             )
         return
 
-    if matching_item.get("url") != versioned_url and hasattr(
+    primary_item = matching_items[0]
+    if primary_item.get("url") != versioned_url and hasattr(
         resources, "async_update_item"
     ):
         _LOGGER.debug(
             "Updating Lovelace card resource %s to %s",
-            matching_item.get("id"),
+            primary_item.get("id"),
             versioned_url,
         )
         await resources.async_update_item(
-            matching_item["id"],
+            primary_item["id"],
             {"res_type": "module", "url": versioned_url},
         )
+
+    if hasattr(resources, "async_delete_item"):
+        for extra_item in matching_items[1:]:
+            await resources.async_delete_item(extra_item["id"])
 
 
 async def _async_sync_legacy_lovelace(
@@ -200,7 +204,14 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     versioned_url = f"{card_url}?v={version}"
 
     try:
-        cast(dict[Any, Any], hass.data).setdefault(DATA_EXTRA_MODULE_URL, set())
+        extra_urls = cast(dict[Any, Any], hass.data).setdefault(
+            DATA_EXTRA_MODULE_URL, set()
+        )
+        if isinstance(extra_urls, set):
+            card_prefix = f"{URL_BASE}/{CARD_FILENAME}"
+            stale_urls = [u for u in extra_urls if str(u).startswith(card_prefix)]
+            for u in stale_urls:
+                extra_urls.discard(u)
         add_extra_js_url(hass, versioned_url)
     except Exception as err:
         _LOGGER.debug("Frontend JS URL registration failed: %s", err)
