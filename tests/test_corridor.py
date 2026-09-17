@@ -2,10 +2,14 @@
 
 from custom_components.commute_tracker.corridor import (
     calculate_corridor_progression,
+    discover_upstream_corridor,
     filter_approaching_departures,
+    find_target_branch,
     select_active_departures,
+    slice_upstream_corridor,
 )
 from custom_components.commute_tracker.models import (
+    CorridorStop,
     DeparturePrediction,
 )
 
@@ -353,3 +357,197 @@ def test_select_active_departures_empty_and_unreachable() -> None:
     )
     assert active == dep_only_one
     assert follower is None
+
+
+def test_slice_upstream_corridor_empty_payload() -> None:
+    """Verify empty sequence payload yields empty corridor list."""
+    assert discover_upstream_corridor is slice_upstream_corridor
+    assert slice_upstream_corridor([], "490000001A") == []
+
+
+def test_slice_upstream_corridor_match_by_id() -> None:
+    """Verify sequence is extracted up to boarding stop matched by ID."""
+    sequence = [
+        CorridorStop(id="STOP_1", name="Victoria"),
+        CorridorStop(id="STOP_2", name="Hyde Park Corner"),
+        CorridorStop(id="STOP_3", name="Marble Arch"),
+        CorridorStop(id="STOP_4", name="Oxford Circus"),
+        CorridorStop(id="STOP_5", name="Tottenham Court Road"),
+    ]
+
+    corridor = slice_upstream_corridor(
+        sequences=sequence,
+        boarding_stop="STOP_3",
+    )
+
+    assert len(corridor) == 3
+    assert corridor[0] == CorridorStop(id="STOP_1", name="Victoria", is_target=False)
+    assert corridor[1] == CorridorStop(
+        id="STOP_2", name="Hyde Park Corner", is_target=False
+    )
+    assert corridor[2] == CorridorStop(id="STOP_3", name="Marble Arch", is_target=True)
+    # Verify backwards compatibility subscript access
+    assert corridor[0]["id"] == "STOP_1"
+    assert corridor[2]["is_target"] is True
+
+
+def test_slice_upstream_corridor_match_by_name() -> None:
+    """Verify sequence matches boarding stop by station name case-insensitively."""
+    sequence = [
+        CorridorStop(id="STOP_A", name="St Julian's"),
+        CorridorStop(id="STOP_B", name="WN Station"),
+        CorridorStop(id="STOP_C", name="Robson Rd"),
+        CorridorStop(id="STOP_D", name="York Hill"),
+        CorridorStop(id="STOP_E", name="Royal Circus"),
+    ]
+
+    corridor = slice_upstream_corridor(
+        sequences=sequence,
+        boarding_stop="royal circus",
+    )
+
+    assert len(corridor) == 5
+    assert corridor[-1].id == "STOP_E"
+    assert corridor[-1].is_target is True
+    assert corridor[0].id == "STOP_A"
+    assert corridor[0].is_target is False
+
+
+def test_slice_upstream_corridor_with_time_window() -> None:
+    """Verify stops are trimmed to the requested time window ending at boarding stop."""
+    sequence = [CorridorStop(id=f"STOP_{i}", name=f"Station {i}") for i in range(1, 16)]
+
+    corridor = slice_upstream_corridor(
+        sequences=sequence,
+        boarding_stop="STOP_12",
+        target_time_window_seconds=480,
+        seconds_per_stop=120,
+    )
+
+    assert len(corridor) == 4
+    assert [s.id for s in corridor] == [
+        "STOP_9",
+        "STOP_10",
+        "STOP_11",
+        "STOP_12",
+    ]
+    assert corridor[-1].is_target is True
+    assert not any(s.is_target for s in corridor[:-1])
+
+
+def test_slice_upstream_corridor_boarding_stop_is_first() -> None:
+    """Verify single stop returned when boarding stop is terminus/first stop."""
+    sequence = [
+        CorridorStop(id="STOP_FIRST", name="First"),
+        CorridorStop(id="STOP_SECOND", name="Second"),
+    ]
+
+    corridor = slice_upstream_corridor(
+        sequences=sequence,
+        boarding_stop="STOP_FIRST",
+    )
+
+    assert len(corridor) == 1
+    assert corridor[0] == CorridorStop(id="STOP_FIRST", name="First", is_target=True)
+
+
+def test_slice_upstream_corridor_stop_not_found() -> None:
+    """Verify empty list when boarding stop is not present in line sequences."""
+    sequence = [
+        CorridorStop(id="STOP_1", name="Station 1"),
+        CorridorStop(id="STOP_2", name="Station 2"),
+    ]
+
+    assert (
+        slice_upstream_corridor(
+            sequences=sequence,
+            boarding_stop="NONEXISTENT_STOP",
+        )
+        == []
+    )
+
+
+def test_slice_upstream_corridor_branch_selection() -> None:
+    """Verify correct branch is picked when line has multiple branches."""
+    branches = [
+        [
+            CorridorStop(id="BRANCH_1_A", name="Branch 1 Alpha"),
+            CorridorStop(id="BRANCH_1_B", name="Branch 1 Beta"),
+        ],
+        [
+            CorridorStop(id="BRANCH_2_A", name="Branch 2 Alpha"),
+            CorridorStop(id="BRANCH_2_B", name="Branch 2 Beta"),
+            CorridorStop(id="BRANCH_2_C", name="Branch 2 Target"),
+        ],
+    ]
+
+    corridor = slice_upstream_corridor(
+        sequences=branches,
+        boarding_stop="BRANCH_2_C",
+    )
+
+    assert len(corridor) == 3
+    assert [s.id for s in corridor] == [
+        "BRANCH_2_A",
+        "BRANCH_2_B",
+        "BRANCH_2_C",
+    ]
+    assert corridor[-1].is_target is True
+
+
+def test_slice_upstream_corridor_with_scheduled_lead_times() -> None:
+    """Verify corridor trimming uses scheduled lead times when annotated."""
+    sequence = [
+        CorridorStop(id="STOP_1", name="Far Origin", scheduled_lead_seconds=720),
+        CorridorStop(id="STOP_2", name="Way Upstream", scheduled_lead_seconds=540),
+        CorridorStop(id="STOP_3", name="Mid Corridor", scheduled_lead_seconds=360),
+        CorridorStop(id="STOP_4", name="Near Upstream", scheduled_lead_seconds=180),
+        CorridorStop(id="STOP_5", name="Boarding Target", scheduled_lead_seconds=0),
+    ]
+
+    corridor = slice_upstream_corridor(
+        sequences=sequence,
+        boarding_stop="STOP_5",
+        target_time_window_seconds=400,
+        seconds_per_stop=120,
+    )
+
+    assert len(corridor) == 3
+    assert [s.id for s in corridor] == ["STOP_3", "STOP_4", "STOP_5"]
+    assert corridor[0].scheduled_lead_seconds == 360
+    assert corridor[1].scheduled_lead_seconds == 180
+    assert corridor[2].scheduled_lead_seconds == 0
+    assert corridor[2].is_target is True
+
+
+def test_find_target_branch_matching() -> None:
+    """Verify find_target_branch locates branch and index by id or substring name."""
+    b1 = [CorridorStop(id="S1", name="Alpha"), CorridorStop(id="S2", name="Beta")]
+    b2 = [
+        CorridorStop(id="S3", name="Gamma"),
+        CorridorStop(id="S4", name="Delta Station"),
+    ]
+
+    assert find_target_branch(sequences=[], target_query="S1") is None
+    assert find_target_branch(sequences=[b1, b2], target_query="") is None
+
+    # Match by ID
+    res = find_target_branch(sequences=[b1, b2], target_query="S2")
+    assert res is not None
+    assert res[0] == b1
+    assert res[1] == 1
+
+    # Match by friendly name substring case-insensitively
+    res = find_target_branch(sequences=[b1, b2], target_query="delta")
+    assert res is not None
+    assert res[0] == b2
+    assert res[1] == 1
+
+    # Single flat sequence
+    res = find_target_branch(sequences=b1, target_query="alpha")
+    assert res is not None
+    assert res[0] == b1
+    assert res[1] == 0
+
+    # Non-matching query
+    assert find_target_branch(sequences=[b1, b2], target_query="Omega") is None

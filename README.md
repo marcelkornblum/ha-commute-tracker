@@ -46,6 +46,25 @@ Copy the `custom_components/commute_tracker` directory into your Home Assistant 
 
 The companion custom card (`commute-tracker-card`) is bundled with the integration and registered automatically with Home Assistant's frontend at `/commute_tracker/commute-tracker-card.js`.
 
+### Setting Up an Active Commute Sensor
+
+Commute Tracker does live tracking of every configured route, so it can be a heavy API and network user; it therefore relies on a sensor to control its activity. When your configured `active_sensor` is `off`, the integration remains completely dormant, preventing rate limits and unnecessary API traffic. When `on`, it actively polls transit feeds and computes departure countdowns.
+
+You can point `active_sensor` at whatever entity suits your household best: a built-in Schedule helper (`schedule.*`), an `input_boolean` toggle, or even a motion automation.
+
+If you are looking for inspiration, I use a template binary sensor combining person presence (`person.*`), a departure time window, and work days:
+
+```yaml
+template:
+  - binary_sensor:
+      - name: "Morning Commute Active"
+        unique_id: morning_commute_active
+        state: >
+          {{ is_state('person.marcel', 'home') and
+             today_at('07:30') <= now() < today_at('09:00') and
+             now().weekday() in range(0, 5) }}
+```
+
 ---
 
 ## Configuration & Documentation

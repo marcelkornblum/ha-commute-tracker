@@ -31,6 +31,14 @@ def test_translations_validity() -> None:
     assert "no_commutes" in config_errors
     assert "cannot_connect" in config_errors
     assert "invalid_auth" in config_errors
+    assert "invalid_name" in config_errors
+    assert "invalid_sensor" in config_errors
+    assert "invalid_line" in config_errors
+    assert "invalid_boarding_stop" in config_errors
+
+    config_aborts = strings_content.get("config", {}).get("abort", {})
+    assert "already_configured" in config_aborts
+    assert "no_routes" in config_aborts
 
     selectors = strings_content.get("selector", {})
     assert "rollup_strategy" in selectors

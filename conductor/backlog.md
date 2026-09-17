@@ -9,5 +9,6 @@ This document tracks features and enhancements that are deliberately out of scop
   - **Journey Planner API Integration:** Support routing via provider journey planners (e.g., TfL Journey Results API, National Rail, OpenTripPlanner) to fetch live end-to-end itineraries and dynamic arrival times reflecting real-time traffic and service disruptions.
   - **Connection Feasibility & Transfer Slack:** Dynamically propagate delays across legs, recalculating whether subsequent connections will be made and updating destination slack and urgency accordingly.
   - **Minimalist Entity & Lovelace Schema:** Expose multi-leg breakdown within child route sensor attributes to preserve strict entity minimalism while supporting rich visualisations on the custom Lovelace card.
+- [ ] **Built-in Schedule & Commute Active Window:** Add an integrated UI schedule or time window selector directly within the integration configuration, removing the mandatory requirement for an external `active_sensor` entity and automatically generating internal sleep/wake triggers based on user-defined morning/evening commute hours.
 
 

@@ -7,5 +7,5 @@
 - [x] **Track: Phase 5: HA Ingestion & Configuration** *Link: [./tracks/05_ingestion/index.md](./tracks/05_ingestion/index.md)*
 - [x] **Track: Phase 6: Public Entities & State Engine** *Link: [./tracks/06_state_engine/index.md](./tracks/06_state_engine/index.md)*
 - [x] **Track: Phase 7: Lovelace Custom Card** *Link: [./tracks/07_lovelace/index.md](./tracks/07_lovelace/index.md)*
-- [ ] **Track: Phase 8: UI Setup Wizard (Config Flow)** *Link: [./tracks/08_config_flow/index.md](./tracks/08_config_flow/index.md)*
+- [x] **Track: Phase 8: UI Setup Wizard (Config Flow)** *Link: [./tracks/08_config_flow/index.md](./tracks/08_config_flow/index.md)*
 - [ ] **Track: Phase 9: Guarded Staging & Cutover** *Link: [./tracks/09_cutover/index.md](./tracks/09_cutover/index.md)*

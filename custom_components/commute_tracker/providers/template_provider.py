@@ -30,6 +30,7 @@ integration's normalised domain models. To implement a new provider:
 from typing import Any, ClassVar
 
 from custom_components.commute_tracker.models import (
+    CorridorStop,
     DeparturePrediction,
     LineStatus,
     RouteConfig,
@@ -66,6 +67,11 @@ class TemplateTransitProvider(TransitProvider):
             if name.endswith(suffix):
                 name = name[: -len(suffix)]
         return name.strip()
+
+    @property
+    def stop_code_guidance(self) -> str:
+        """Guidance for users on finding stop codes."""
+        return "Enter the detailed station name or stop identifier code."
 
     def adapt_line_status(
         self, raw_payload: Any, mode: TransitMode = TransitMode.BUS
@@ -238,3 +244,95 @@ class TemplateTransitProvider(TransitProvider):
             corridor_departures=corridor_departures,
             stop_names=stop_names,
         )
+
+    async def async_validate_line(self, line_id: str, mode: TransitMode) -> bool:
+        """Validate line existence against template provider."""
+        return bool(line_id and line_id.strip())
+
+    async def async_validate_stop(
+        self,
+        line_id: str,
+        stop_id_or_name: str,
+        mode: TransitMode,
+    ) -> tuple[bool, str | None, str | None]:
+        """Validate stop existence against template provider."""
+        if not stop_id_or_name or not stop_id_or_name.strip():
+            return False, None, None
+        clean_id = stop_id_or_name.strip()
+        clean_name = self.clean_stop_name(clean_id)
+        return True, clean_id, clean_name
+
+    async def async_fetch_route_sequence(
+        self, line_id: str, direction: str = "all"
+    ) -> Any:
+        """Fetch route sequence via template API."""
+        return await self.async_fetch_json(f"lines/{line_id}/sequence")
+
+    def parse_route_sequences(
+        self, sequence_payload: dict[str, Any] | list[Any]
+    ) -> list[list[CorridorStop]]:
+        """Parse raw template sequence payload into normalised branches."""
+        if not sequence_payload:
+            return []
+
+        raw_sequences: list[dict[str, Any]] = []
+        if isinstance(sequence_payload, dict):
+            if "stations" in sequence_payload:
+                raw_sequences = [sequence_payload]
+            elif "stopPointSequences" in sequence_payload:
+                raw_sequences = [
+                    s
+                    for s in sequence_payload.get("stopPointSequences", [])
+                    if isinstance(s, dict)
+                ]
+        elif isinstance(sequence_payload, list):
+            raw_sequences = [s for s in sequence_payload if isinstance(s, dict)]
+
+        branches: list[list[CorridorStop]] = []
+        for seq in raw_sequences:
+            raw_stops = seq.get("stations") or seq.get("stopPoint") or []
+            if not isinstance(raw_stops, list):
+                continue
+            branch: list[CorridorStop] = []
+            for st in raw_stops:
+                if not isinstance(st, dict):
+                    continue
+                sid = str(st.get("id") or "").strip()
+                if not sid:
+                    continue
+                raw_name = str(st.get("name") or sid).strip()
+                branch.append(
+                    CorridorStop(
+                        id=sid,
+                        name=self.clean_stop_name(raw_name=raw_name),
+                    )
+                )
+            if branch:
+                branches.append(branch)
+        return branches
+
+    async def async_get_corridor_stops(
+        self,
+        line_id: str,
+        boarding_stop: str,
+        mode: TransitMode = TransitMode.BUS,
+        direction: str = "all",
+        target_time_window_seconds: int | None = None,
+    ) -> list[CorridorStop]:
+        """Discover and order upstream corridor stops leading to boarding stop."""
+        from custom_components.commute_tracker.corridor import (
+            slice_upstream_corridor,
+        )
+
+        try:
+            seq_data = await self.async_fetch_route_sequence(
+                line_id=line_id, direction=direction
+            )
+            branches = self.parse_route_sequences(sequence_payload=seq_data)
+            return slice_upstream_corridor(
+                sequences=branches,
+                boarding_stop=boarding_stop,
+                target_time_window_seconds=target_time_window_seconds,
+            )
+        except Exception:
+            return []

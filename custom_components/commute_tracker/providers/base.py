@@ -14,6 +14,7 @@ from typing import Any, ClassVar, TypeVar
 import aiohttp
 
 from custom_components.commute_tracker.models import (
+    CorridorStop,
     DeparturePrediction,
     LineStatus,
     RouteConfig,
@@ -228,6 +229,11 @@ class TransitProvider(ABC):
         """
         return raw_name.strip()
 
+    @property
+    def stop_code_guidance(self) -> str:
+        """Guidance for users on locating station names or stop identifiers."""
+        return "Enter the detailed station name or transit authority stop identifier."
+
     def adapt_line_status(
         self, raw_payload: Any, mode: TransitMode = TransitMode.BUS
     ) -> LineStatus:
@@ -254,8 +260,9 @@ class TransitProvider(ABC):
         :param target_stop: Target boarding stop identifier.
         :param line_id: Optional line identifier filter.
         :return: Sorted list of DeparturePrediction instances.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return []
+        raise NotImplementedError
 
     def adapt_journey(
         self,
@@ -271,16 +278,18 @@ class TransitProvider(ABC):
         :param destination: Destination stop identifier.
         :param reference_time_iso: Optional reference snapshot timestamp.
         :return: Ordered list of DeparturePrediction instances.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return []
+        raise NotImplementedError
 
     def adapt_stop_names(self, raw_payload: Any) -> dict[str, str]:
         """Extract mapping of stop identifier to clean station name.
 
         :param raw_payload: Raw arrivals payload from API.
         :return: Mapping of stop ID to cleaned station name label.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return {}
+        raise NotImplementedError
 
     def build_route_telemetry(
         self,
@@ -326,8 +335,9 @@ class TransitProvider(ABC):
         :param line_id: Transit line identifier.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_fetch_stop_arrivals(
         self,
@@ -344,8 +354,9 @@ class TransitProvider(ABC):
         :param line_id: Optional line filter.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_fetch_journey(
         self, origin: str, destination: str, mode: TransitMode
@@ -359,8 +370,9 @@ class TransitProvider(ABC):
         :param destination: Arrival station code.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_fetch_line_status(self, line_id: str, mode: TransitMode) -> Any:
         """Fetch raw operational line status from provider API.
@@ -371,8 +383,9 @@ class TransitProvider(ABC):
         :param line_id: Transit line identifier.
         :param mode: Transit mode.
         :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
         """
-        return None
+        raise NotImplementedError
 
     async def async_get_line_status(
         self, line_id: str, mode: TransitMode
@@ -380,7 +393,8 @@ class TransitProvider(ABC):
         """Retrieve operational line status with debounced caching.
 
         Calls ``async_fetch_line_status`` and adapts via ``adapt_line_status``.
-        If fetch fails or returns None, defaults to ``UNKNOWN_LINE_STATUS``.
+        If fetch fails, raises NotImplementedError, or returns None, defaults
+        to ``UNKNOWN_LINE_STATUS``.
 
         :param line_id: Transit line identifier.
         :param mode: Transit mode of the line.
@@ -394,6 +408,8 @@ class TransitProvider(ABC):
                 if raw is None:
                     return UNKNOWN_LINE_STATUS
                 return self.adapt_line_status(raw_payload=raw, mode=mode)
+            except NotImplementedError:
+                return UNKNOWN_LINE_STATUS
             except Exception as err:
                 _LOGGER.warning(
                     "Failed to fetch line status for %s:%s: %s",
@@ -404,6 +420,87 @@ class TransitProvider(ABC):
                 return UNKNOWN_LINE_STATUS
 
         return await self.async_cached_fetch(cache_key=cache_key, fetch_callable=_fetch)
+
+    async def async_validate_line(self, line_id: str, mode: TransitMode) -> bool:
+        """Validate whether a line identifier is recognised by the provider.
+
+        :param line_id: Transit line identifier.
+        :param mode: Transit mode.
+        :return: True if valid, False otherwise.
+        """
+        return True
+
+    async def async_validate_stop(
+        self,
+        line_id: str,
+        stop_id_or_name: str,
+        mode: TransitMode,
+    ) -> tuple[bool, str | None, str | None]:
+        """Validate whether a stop is recognised along a line.
+
+        :param line_id: Transit line identifier.
+        :param stop_id_or_name: Stop identifier (e.g. NaPTAN) or stop name.
+        :param mode: Transit mode.
+        :return: Tuple of (is_valid, resolved_stop_id, resolved_station_name).
+        """
+        return True, stop_id_or_name, stop_id_or_name
+
+    async def async_fetch_route_sequence(
+        self, line_id: str, direction: str = "all"
+    ) -> Any:
+        """Fetch raw route sequence or station list for a line from provider API.
+
+        :param line_id: Transit line identifier.
+        :param direction: Transit direction string.
+        :return: Raw API payload.
+        :raises NotImplementedError: If not implemented by the provider.
+        """
+        raise NotImplementedError
+
+    async def async_fetch_timetable(
+        self, line_id: str, from_stop_id: str
+    ) -> dict[str, Any] | None:
+        """Fetch scheduled timetable for a line from an origin stop point.
+
+        :param line_id: Transit line identifier.
+        :param from_stop_id: Origin or terminal stop identifier.
+        :return: Vendor timetable JSON payload or None.
+        :raises NotImplementedError: If not implemented by the provider.
+        """
+        raise NotImplementedError
+
+    def parse_route_sequences(
+        self, sequence_payload: dict[str, Any] | list[Any]
+    ) -> list[list[CorridorStop]]:
+        """Parse provider sequence payload into normalised branches of CorridorStop.
+
+        Must be implemented by providers that support corridor sequence discovery.
+
+        :param sequence_payload: Vendor-specific route sequence API response.
+        :return: Normalised list of branch sequences containing CorridorStop objects.
+        :raises NotImplementedError: If not implemented by the provider.
+        """
+        raise NotImplementedError
+
+    async def async_get_corridor_stops(
+        self,
+        line_id: str,
+        boarding_stop: str,
+        mode: TransitMode = TransitMode.BUS,
+        direction: str = "all",
+        target_time_window_seconds: int | None = None,
+    ) -> list[CorridorStop]:
+        """Discover and order upstream corridor stops leading to the boarding stop.
+
+        :param line_id: Transit line identifier.
+        :param boarding_stop: Boarding stop identifier or name.
+        :param mode: Transit mode.
+        :param direction: Direction string.
+        :param target_time_window_seconds: Optional time window to constrain stops.
+        :return: Ordered list of CorridorStop objects.
+        :raises NotImplementedError: If not implemented by the provider.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
@@ -440,6 +537,11 @@ class TransitProviderRegistry:
     def registered_provider_ids(self) -> set[str]:
         """Return set of registered provider identifiers."""
         return set(self._providers.keys())
+
+    @property
+    def consumer_provider_ids(self) -> set[str]:
+        """Return registered provider IDs suitable for consumer UI setup."""
+        return {pid for pid in self._providers if pid not in {"template", "mock"}}
 
     @classmethod
     def validate_provider(cls, provider_cls: type[Any]) -> None:

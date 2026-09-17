@@ -3,6 +3,7 @@
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -10,6 +11,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from custom_components.commute_tracker.const import (
+    CONF_COMMUTE_ID,
     DEFAULT_BUS_COLOR,
     DEFAULT_FERRY_COLOR,
     DEFAULT_LINE_COLOR,
@@ -111,6 +113,19 @@ def _format_route_display(route_config: RouteConfig) -> str:
     return f"{mode_label} {line_label}"
 
 
+def _create_commute_sensors(coordinator: CommuteCoordinator) -> list[SensorEntity]:
+    """Create master rollup sensor and child route sensors for a coordinator."""
+    sensors: list[SensorEntity] = [CommuteMasterRollupSensor(coordinator=coordinator)]
+    for route_cfg in coordinator.commute_config.routes:
+        sensors.append(
+            CommuteChildRouteSensor(
+                coordinator=coordinator,
+                route_config=route_cfg,
+            )
+        )
+    return sensors
+
+
 async def async_setup_platform(
     hass: HomeAssistant,
     config: ConfigType,
@@ -123,16 +138,26 @@ async def async_setup_platform(
 
     entities: list[SensorEntity] = []
     for coordinator in coordinators.values():
-        master_sensor = CommuteMasterRollupSensor(coordinator=coordinator)
-        entities.append(master_sensor)
-        for route_cfg in coordinator.commute_config.routes:
-            child_sensor = CommuteChildRouteSensor(
-                coordinator=coordinator,
-                route_config=route_cfg,
-            )
-            entities.append(child_sensor)
+        entities.extend(_create_commute_sensors(coordinator=coordinator))
 
     async_add_entities(entities)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Commute Tracker sensors from a config entry."""
+    domain_data = hass.data.get(DOMAIN, {})
+    coordinators: dict[str, CommuteCoordinator] = domain_data.get("coordinators", {})
+    coordinator = coordinators.get(entry.entry_id) or coordinators.get(
+        str(entry.data.get(CONF_COMMUTE_ID))
+    )
+    if coordinator is None:
+        return
+
+    async_add_entities(_create_commute_sensors(coordinator=coordinator))
 
 
 class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEntity):
@@ -140,6 +165,7 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
 
     _attr_has_entity_name = False
     _attr_icon = "mdi:transit-connection-variant"
+    _attr_translation_key = "master_rollup"
 
     def __init__(self, coordinator: CommuteCoordinator) -> None:
         """Initialise master rollup sensor."""
@@ -276,6 +302,7 @@ class CommuteChildRouteSensor(CoordinatorEntity[CommuteCoordinator], SensorEntit
     """Child route sensor exposing per-route metrics and corridor telemetry."""
 
     _attr_has_entity_name = False
+    _attr_translation_key = "child_route"
 
     def __init__(
         self,

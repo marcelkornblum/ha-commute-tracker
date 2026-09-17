@@ -84,6 +84,29 @@ class DeparturePrediction:
 
 
 @dataclass(slots=True, frozen=True)
+class CorridorStop:
+    """Normalised stop point along a transit corridor."""
+
+    id: str
+    name: str
+    is_target: bool = False
+    scheduled_lead_seconds: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary representation."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "is_target": self.is_target,
+            "scheduled_lead_seconds": self.scheduled_lead_seconds,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        """Allow subscript access for backwards compatibility."""
+        return getattr(self, key)
+
+
+@dataclass(slots=True, frozen=True)
 class RouteConfig:
     """Normalised route configuration for a transit option within a commute."""
 
