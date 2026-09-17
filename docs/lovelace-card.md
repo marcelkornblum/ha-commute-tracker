@@ -25,7 +25,7 @@ When `ha-commute-tracker` is installed via HACS or as a custom component, Home A
 /commute_tracker/commute-tracker-card.js
 ```
 
-The integration registers this script with Home Assistant's frontend automatically via `add_extra_js_url`. Upon restarting Home Assistant after installing the integration, the card is immediately available in your dashboard.
+The **Commute Tracker Card** should immediately be discoverable in Home Assistant's Lovelace dashboard card picker.
 
 ### Manual Lovelace Resource Registration
 

@@ -1107,3 +1107,37 @@ declare global {
     "commute-tracker-card": CommuteTrackerCard;
   }
 }
+
+interface CustomCardEntry {
+  type: string;
+  name: string;
+  description: string;
+  preview?: boolean;
+  documentationURL?: string;
+}
+
+interface WindowWithCustomCards extends Window {
+  customCards?: CustomCardEntry[];
+}
+
+const windowWithCustomCards = (
+  typeof window !== "undefined" ? window : globalThis
+) as unknown as WindowWithCustomCards;
+
+if (windowWithCustomCards) {
+  windowWithCustomCards.customCards = windowWithCustomCards.customCards || [];
+  if (
+    !windowWithCustomCards.customCards.some(
+      (card) => card.type === "commute-tracker-card"
+    )
+  ) {
+    windowWithCustomCards.customCards.push({
+      type: "commute-tracker-card",
+      name: "Commute Tracker Card",
+      description:
+        "A compact, reactive commute card showing real-time corridor progress, line status, and departure timings.",
+      preview: true,
+      documentationURL: "https://github.com/marcelkornblum/ha-commute-tracker",
+    });
+  }
+}

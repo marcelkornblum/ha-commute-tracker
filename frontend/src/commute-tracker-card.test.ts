@@ -36,6 +36,20 @@ describe("CommuteTrackerCard", () => {
     );
   });
 
+  it("registers card metadata in window.customCards", () => {
+    const customCards = (window as any).customCards;
+    expect(customCards).toBeDefined();
+    const cardEntry = customCards.find((c: any) => c.type === "commute-tracker-card");
+    expect(cardEntry).toEqual({
+      type: "commute-tracker-card",
+      name: "Commute Tracker Card",
+      description:
+        "A compact, reactive commute card showing real-time corridor progress, line status, and departure timings.",
+      preview: true,
+      documentationURL: "https://github.com/marcelkornblum/ha-commute-tracker",
+    });
+  });
+
   it("returns a card size of 4", () => {
     expect(card.getCardSize()).toBe(4);
   });

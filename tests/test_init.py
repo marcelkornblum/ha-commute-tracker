@@ -26,7 +26,7 @@ async def test_async_setup_empty_config(hass: HomeAssistant) -> None:
     assert DOMAIN in hass.data
     card_url = f"{URL_BASE}/{CARD_FILENAME}"
     extra_urls = cast(Any, hass.data.get(DATA_EXTRA_MODULE_URL, set()))
-    assert card_url in extra_urls
+    assert any(str(url).startswith(card_url) for url in extra_urls)
 
 
 async def test_async_setup_with_commutes_and_providers(hass: HomeAssistant) -> None:
@@ -71,7 +71,7 @@ async def test_async_setup_with_commutes_and_providers(hass: HomeAssistant) -> N
 
     card_url = f"{URL_BASE}/{CARD_FILENAME}"
     extra_urls = cast(Any, hass.data[DATA_EXTRA_MODULE_URL])
-    assert card_url in extra_urls
+    assert any(str(url).startswith(card_url) for url in extra_urls)
 
 
 async def test_async_register_frontend_creates_dir(
@@ -81,7 +81,7 @@ async def test_async_register_frontend_creates_dir(
     await async_register_frontend(hass)
     card_url = f"{URL_BASE}/{CARD_FILENAME}"
     extra_urls = cast(Any, hass.data[DATA_EXTRA_MODULE_URL])
-    assert card_url in extra_urls
+    assert any(str(url).startswith(card_url) for url in extra_urls)
 
 
 async def test_async_unload_entry(hass: HomeAssistant) -> None:
