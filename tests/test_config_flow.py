@@ -95,6 +95,7 @@ async def test_user_step_validation_missing_fields(hass: HomeAssistant) -> None:
     )
     assert result2["type"] == FlowResultType.FORM
     assert result2["step_id"] == "user"
+    assert result2["errors"] is not None
     assert "name" in result2["errors"]
 
 
@@ -188,6 +189,7 @@ async def test_route_step_validation_invalid_line(hass: HomeAssistant) -> None:
     )
     assert result3["type"] == FlowResultType.FORM
     assert result3["step_id"] == "route"
+    assert result3["errors"] is not None
     assert result3["errors"]["line"] == "invalid_line"
 
 
@@ -218,6 +220,7 @@ async def test_route_step_validation_invalid_boarding_stop(
     )
     assert result3["type"] == FlowResultType.FORM
     assert result3["step_id"] == "route"
+    assert result3["errors"] is not None
     assert result3["errors"]["boarding_stop"] == "invalid_boarding_stop"
 
 
