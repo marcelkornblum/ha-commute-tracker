@@ -45,6 +45,57 @@ ha-commute-tracker/
 │       └── template_provider.py        # Boilerplate reference provider for extension
 ├── docs/                               # Architectural and developer documentation
 ├── frontend/                           # Lovelace custom card (visual UI layer)
-├── specs/                              # Formal behavioral specifications
+├── specs/                              # Formal behavioural specifications
 └── tests/                              # Pytest test suite, time-series replay, & static fixtures
+```
+
+---
+
+## Architectural Principles
+
+1. **Strict Entity Minimalism**: Intermediary raw API polling sensors are kept strictly within internal Python memory, preventing Home Assistant entity clutter. Only the Master Rollup and Child Route sensors are registered with Home Assistant.
+2. **Universal Transit Provider Architecture**: Decoupled, mode-agnostic provider interfaces supporting buses, trains, trams, tube, and ferries with uniform telemetry models.
+3. **External Polling Triggers (Sleep/Wake)**: Polling intervals are strictly driven by observing the state of a user-configured binary sensor (e.g. presence, schedule, or calendar). The integration avoids internal cron loops or polling while idle.
+4. **Red/Green Test-Driven Development**: Domain logic is authored in pure Python first, verified against frozen API response fixtures before Home Assistant plumbing is introduced.
+5. **Integrated Frontend**: Comes with a dedicated Lovelace custom card (`commute-tracker-card`) built with Lit and TypeScript, auto-registered into Lovelace resources.
+
+---
+
+## Development & Testing
+
+This project uses [`uv`](https://docs.astral.sh/uv/) for Python dependency management and Node.js for frontend card builds.
+
+### Python Environment
+
+```bash
+# Sync dependencies
+uv sync
+
+# Run pytest suite
+uv run pytest
+
+# Run linting and formatting checks
+uv run ruff check .
+uv run ruff format --check .
+
+# Run static type checking
+uv run mypy
+```
+
+### Frontend Card Environment
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run component and snapshot tests
+npm test
+
+# Build production card bundle
+npm run build
+
+# Launch standalone visual verification preview harness
+npm run dev
 ```

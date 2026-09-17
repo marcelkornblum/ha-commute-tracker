@@ -4,91 +4,114 @@
 [![HACS Default](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Home Assistant custom integration and companion dashboard card that removes the stress of timing your daily journeys. It monitors multiple single-leg transit options simultaneously, compares route options in real time, and provides clear, glanceable urgency stages so you always leave at the right moment.
+A Home Assistant custom integration and companion dashboard card that removes the anxiety from your daily travel. Commute Tracker monitors your alternative direct transit options in real time, factors in your walking time to the stop, and gives you a single, glanceable leave-by countdown so you always walk out the door at the perfect moment.
 
-Whether your commute involves choosing between alternative direct buses or trains, Commute Tracker tracks live departures, computes your arrival time, and distils complex transit feeds into simple, actionable guidance: *Standby*, *Get Ready*, or *Leave Now*.
-
----
-
-## Key Features
-
-- **Compare your options**: See buses, trains, and trams side by side to take the quickest way.
-- **Live journey view**: See where your train is right now and how close it is to your stop.
-- **Know when to walk out**: Set your arrival time; it factors in walking time and live progress so you never need to rush.
-- **Simple countdown stages**: Clear states that can trigger smart lights, wall displays, or voice alerts.
-- **Quiet when not needed**: Automatically sleeps outside commute times or once you arrive, saving system resources and API calls.
-- **Glanceable card**: A purpose-built dashboard card designed for wall displays, tablets, and phones.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/marcelkornblum/ha-commute-tracker/main/docs/assets/card-preview.png" alt="Commute Tracker Lovelace Card" width="480">
+</p>
 
 ---
 
-## Architectural Principles
+## Why Commute Tracker?
 
-1. **Entity Minimalism**: Intermediary raw API polling sensors are kept within internal Python state, eliminating entity clutter. Only the Master Rollup and Child Route sensors are registered with Home Assistant.
-2. **Universal Transit Provider Architecture**: Decoupled, mode-agnostic provider interfaces supporting buses, trains, trams, tube, and ferries.
-3. **External Polling Triggers (Sleep/Wake)**: Polling intervals are strictly driven by observing the state of a user-configured binary sensor. No internal cron loops or polling while idle.
-4. **Red/Green Test-Driven Development**: Domain logic is written in pure Python first, verified against frozen API response fixtures before Home Assistant plumbing is introduced.
-5. **Integrated Frontend**: Comes with a dedicated Lovelace custom card (`commute-tracker-card`) built with Lit and TypeScript.
+Most transit apps only tell you when a vehicle arrives at a stop, leaving you to calculate when to leave home, whether you will make it on time, or whether another bus or train has overtaken it.
+
+Commute Tracker does the math for you:
+- **Doorstep Countdown**: Factors in walking time so you know when to walk out your front door, not just when the vehicle departs.
+- **Smart Route Arbitration**: Monitors multiple parallel options (e.g. Bus 26 vs Southeastern Train) and automatically promotes the quickest, most reliable choice to the top.
+- **Visual Corridor Schematic**: A live schematic track that illustrates the vehicle's actual progress towards your boarding stop.
+- **Actionable Urgency States**: Provides clear stages (`Standby`, `Leave in Xm`, `🚨 LEAVE NOW`) that are easy to view on wall tablets or feed into Home Assistant automations (e.g. flashing hallway lights amber when it's time to put your shoes on).
+- **Zero Idle Polling**: Automatically sleeps outside of commute hours or once you have arrived, minimising API usage and preserving system resources.
 
 ---
 
 ## Installation
 
-### Via HACS (Custom Repository)
+### Via HACS (Recommended)
 
-1. Ensure [HACS](https://hacs.xyz) is installed and configured in Home Assistant.
-2. Navigate to **HACS** -> **Integrations** -> **Custom repositories** (three dots top right).
-3. Add repository URL: `https://github.com/marcelkornblum/ha-commute-tracker` with category `Integration`.
-4. Click **Download**, then restart Home Assistant.
+1. Open **HACS** in Home Assistant and go to **Integrations**.
+2. Click the three dots in the top-right corner and select **Custom repositories**.
+3. Add repository URL:
+   ```text
+   https://github.com/marcelkornblum/ha-commute-tracker
+   ```
+4. Set **Category** to `Integration`.
+5. Click **Add**, find **Commute Tracker**, and select **Download**.
+6. Restart Home Assistant.
 
 ### Manual Installation
 
-Copy the `custom_components/commute_tracker` directory into your Home Assistant `<config_dir>/custom_components/` directory and restart Home Assistant.
+1. Download `commute_tracker.zip` from the [Latest Release](https://github.com/marcelkornblum/ha-commute-tracker/releases).
+2. Extract the contents into your Home Assistant directory under:
+   ```text
+   config/custom_components/commute_tracker/
+   ```
+3. Restart Home Assistant.
 
-The companion custom card (`commute-tracker-card`) is bundled with the integration and registered automatically with Home Assistant's frontend at `/commute_tracker/commute-tracker-card.js`.
-
----
-
-## Configuration & Documentation
-
-Configure your commutes directly in `configuration.yaml`. For complete option specifications, units, cascading hierarchy, and annotated YAML examples, see:
-
-- **[Lovelace Custom Card Guide](docs/lovelace-card.md)**: Installation, card YAML options, corridor schematics, and in-card details overlay.
-- **[Configuration Reference & Schema Guide](docs/configuration.md)**: Exhaustive reference of all Root, Commute, and Route options.
-- **[System Architecture & Component Boundaries](docs/system-architecture.md)**: Entity model and platform split.
-- **[Control Flow & Decision Engine](docs/control-flow.md)**: Reachability math, arbitration, and timeliness stages.
-- **[Transit Provider Architecture & Plugin Guide](docs/transit-providers.md)**: Universal provider plugin framework.
-- **[Public Entity & Sensor Contract](specs/commute_contract.md)**: Sensor states and attributes specification.
+The companion custom card (`commute-tracker-card`) is bundled with the integration and automatically registers itself with Home Assistant's Lovelace Resources table so it can be found in the dashboard edit view.
 
 ---
 
-## Development & Testing
+## Quick Start Configuration
 
-This project uses [`uv`](https://docs.astral.sh/uv/) for Python dependency management and Node.js for frontend card builds.
+Add your commute to your `configuration.yaml`:
 
-### Python Environment
+```yaml
+commute_tracker:
+  providers:
+    tfl:
+      app_id: !secret tfl_app_id
+      app_key: !secret tfl_app_key
 
-```bash
-# Sync dependencies
-uv sync
+  commutes:
+    - name: "Nelson's Column to Brick Lane"
+      active_sensor: binary_sensor.morning_commute_window
+      target_time: "09:00"
+      routes:
+        - mode: bus
+          line: "26"
+          boarding_stop: "490013766F"
+          destination_stop: "490004123E"
+          boarding_walk_seconds: 360
 
-# Run test suite
-uv run pytest
-
-# Run linting and formatting checks
-uv run ruff check .
-uv run ruff format --check .
-
-# Run static type checking
-uv run mypy
+        - mode: train
+          line: "southeastern"
+          boarding_stop: "910GCHRX"
+          destination_stop: "910GLNDNBDG"
+          boarding_walk_seconds: 480
 ```
 
-### Frontend Card
+Restart Home Assistant or reload your YAML configuration. Commute Tracker will create:
+- A **Master Rollup Sensor** (`sensor.commute_nelsons_column_to_brick_lane`) representing the overall commute leave-by urgency and top recommended option.
+- Individual **Child Route Sensors** for each configured route option.
 
-```bash
-cd frontend
-npm install
-npm run build
+---
+
+## Dashboard Card
+
+Commute Tracker includes a dedicated custom Lovelace card (`commute-tracker-card`) designed specifically for wall tablets, mobile dashboards, and desktop views.
+
+### Adding via Visual UI
+1. Edit your dashboard and click **Add Card**.
+2. Search for **Commute Tracker Card** in the card picker.
+3. Select your Master Commute sensor.
+
+### Adding via YAML
+
+```yaml
+type: custom:commute-tracker-card
+entity: sensor.commute_nelsons_column_to_brick_lane
 ```
+
+Clicking any transit module on the card opens an in-card details overlay with line disruption notices and diagnostic telemetry without navigating away from your dashboard.
+
+---
+
+## Documentation
+
+- **[Lovelace Custom Card Guide](docs/lovelace-card.md)**: Full card styling options, custom avatars, and configuration options.
+- **[Configuration Reference & Schema](docs/configuration.md)**: Exhaustive reference for all root, commute, and route options, cascading overrides, and time buffers.
+- **[Architecture & Developer Documentation](docs/README.md)**: Internal Python domain models, decision engine control flow, transit provider plugins, and testing instructions.
 
 ---
 
