@@ -14,6 +14,7 @@ from typing import Any, ClassVar, TypeVar
 import aiohttp
 
 from custom_components.commute_tracker.models import (
+    CorridorStop,
     DeparturePrediction,
     LineStatus,
     RouteConfig,
@@ -228,6 +229,11 @@ class TransitProvider(ABC):
         """
         return raw_name.strip()
 
+    @property
+    def stop_code_guidance(self) -> str:
+        """Guidance for users on locating station names or stop identifiers."""
+        return "Enter the detailed station name or transit authority stop identifier."
+
     def adapt_line_status(
         self, raw_payload: Any, mode: TransitMode = TransitMode.BUS
     ) -> LineStatus:
@@ -405,6 +411,83 @@ class TransitProvider(ABC):
 
         return await self.async_cached_fetch(cache_key=cache_key, fetch_callable=_fetch)
 
+    async def async_validate_line(self, line_id: str, mode: TransitMode) -> bool:
+        """Validate whether a line identifier is recognised by the provider.
+
+        :param line_id: Transit line identifier.
+        :param mode: Transit mode.
+        :return: True if valid, False otherwise.
+        """
+        return True
+
+    async def async_validate_stop(
+        self,
+        line_id: str,
+        stop_id_or_name: str,
+        mode: TransitMode,
+    ) -> tuple[bool, str | None, str | None]:
+        """Validate whether a stop is recognised along a line.
+
+        :param line_id: Transit line identifier.
+        :param stop_id_or_name: Stop identifier (e.g. NaPTAN) or stop name.
+        :param mode: Transit mode.
+        :return: Tuple of (is_valid, resolved_stop_id, resolved_station_name).
+        """
+        return True, stop_id_or_name, stop_id_or_name
+
+    async def async_fetch_route_sequence(
+        self, line_id: str, direction: str = "all"
+    ) -> Any:
+        """Fetch raw route sequence or station list for a line from provider API.
+
+        :param line_id: Transit line identifier.
+        :param direction: Transit direction string.
+        :return: Raw API payload.
+        """
+        return None
+
+    async def async_fetch_timetable(
+        self, line_id: str, from_stop_id: str
+    ) -> dict[str, Any] | None:
+        """Fetch scheduled timetable for a line from an origin stop point.
+
+        :param line_id: Transit line identifier.
+        :param from_stop_id: Origin or terminal stop identifier.
+        :return: Vendor timetable JSON payload or None.
+        """
+        return None
+
+    def parse_route_sequences(
+        self, sequence_payload: dict[str, Any] | list[Any]
+    ) -> list[list[CorridorStop]]:
+        """Parse provider sequence payload into normalised branches of CorridorStop.
+
+        Must be implemented by providers that support corridor sequence discovery.
+
+        :param sequence_payload: Vendor-specific route sequence API response.
+        :return: Normalised list of branch sequences containing CorridorStop objects.
+        """
+        return []
+
+    async def async_get_corridor_stops(
+        self,
+        line_id: str,
+        boarding_stop: str,
+        mode: TransitMode = TransitMode.BUS,
+        direction: str = "all",
+        target_time_window_seconds: int | None = None,
+    ) -> list[CorridorStop]:
+        """Discover and order upstream corridor stops leading to the boarding stop.
+
+        :param line_id: Transit line identifier.
+        :param boarding_stop: Boarding stop identifier or name.
+        :param mode: Transit mode.
+        :param direction: Direction string.
+        :param target_time_window_seconds: Optional time window to constrain stops.
+        :return: Ordered list of CorridorStop objects.
+        """
+        return []
+
     @abstractmethod
     async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
         """Retrieve live telemetry and predictions for a configured route.
@@ -440,6 +523,11 @@ class TransitProviderRegistry:
     def registered_provider_ids(self) -> set[str]:
         """Return set of registered provider identifiers."""
         return set(self._providers.keys())
+
+    @property
+    def consumer_provider_ids(self) -> set[str]:
+        """Return registered provider IDs suitable for consumer UI setup."""
+        return {pid for pid in self._providers if pid not in {"template", "mock"}}
 
     @classmethod
     def validate_provider(cls, provider_cls: type[Any]) -> None:

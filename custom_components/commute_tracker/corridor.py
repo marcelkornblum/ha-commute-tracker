@@ -1,9 +1,11 @@
-"""Domain service for corridor trajectory evaluation, filtering, and progression."""
+from collections.abc import Sequence
+from typing import cast
 
 from custom_components.commute_tracker.const import (
     CORRIDOR_UPSTREAM_HORIZON_SECONDS,
 )
 from custom_components.commute_tracker.models import (
+    CorridorStop,
     DeparturePrediction,
 )
 from custom_components.commute_tracker.timeliness import (
@@ -169,3 +171,85 @@ def select_active_departures(
         return dep, follower
 
     return None, None
+
+
+def slice_upstream_corridor(
+    sequences: Sequence[Sequence[CorridorStop]] | Sequence[CorridorStop],
+    boarding_stop: str,
+    target_time_window_seconds: int | None = None,
+    seconds_per_stop: int = 120,
+) -> list[CorridorStop]:
+    """Slice and order upstream corridor stops leading to the target boarding stop.
+
+    Searches normalised branches of stops for the target boarding stop (matching
+    by id or name, case-insensitively). Returns an ordered list of upstream stops
+    ending at the target boarding stop, optionally constrained by travel time window.
+
+    :param sequences: Branch sequences containing CorridorStop objects.
+    :param boarding_stop: Boarding stop identifier or name.
+    :param target_time_window_seconds: Optional duration window for corridor stops.
+    :param seconds_per_stop: Average seconds per stop for window calculation.
+    :return: List of CorridorStop objects with is_target flagged on the final stop.
+    """
+    if not sequences or not boarding_stop:
+        return []
+
+    target_query = boarding_stop.strip().lower()
+
+    first_elem = sequences[0]
+    branches: list[Sequence[CorridorStop]]
+    if isinstance(first_elem, CorridorStop):
+        branches = [cast(Sequence[CorridorStop], sequences)]
+    else:
+        branches = list(cast(Sequence[Sequence[CorridorStop]], sequences))
+
+    matching_branch: Sequence[CorridorStop] | None = None
+    target_index: int = -1
+
+    for branch in branches:
+        for idx, st in enumerate(branch):
+            sid = st.id.strip().lower()
+            sname = st.name.strip().lower()
+            if sid == target_query or sname == target_query or target_query in sname:
+                matching_branch = branch
+                target_index = idx
+                break
+        if matching_branch is not None:
+            break
+
+    if matching_branch is None or target_index < 0:
+        return []
+
+    candidate_stops = matching_branch[: target_index + 1]
+
+    if target_time_window_seconds is not None:
+        has_scheduled_lead = any(
+            s.scheduled_lead_seconds is not None for s in candidate_stops[:-1]
+        )
+        if has_scheduled_lead:
+            candidate_stops = [
+                s
+                for s in candidate_stops
+                if s.scheduled_lead_seconds is None
+                or s.scheduled_lead_seconds <= target_time_window_seconds
+            ]
+        elif seconds_per_stop > 0:
+            max_stops = max(1, target_time_window_seconds // seconds_per_stop)
+            if len(candidate_stops) > max_stops:
+                candidate_stops = candidate_stops[-max_stops:]
+
+    result: list[CorridorStop] = []
+    last_idx = len(candidate_stops) - 1
+    for idx, st in enumerate(candidate_stops):
+        result.append(
+            CorridorStop(
+                id=st.id,
+                name=st.name,
+                is_target=(idx == last_idx),
+                scheduled_lead_seconds=st.scheduled_lead_seconds,
+            )
+        )
+    return result
+
+
+discover_upstream_corridor = slice_upstream_corridor

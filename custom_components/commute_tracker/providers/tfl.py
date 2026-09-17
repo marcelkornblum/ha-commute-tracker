@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, ClassVar
 
 from custom_components.commute_tracker.models import (
+    CorridorStop,
     DeparturePrediction,
     LineStatus,
     RouteConfig,
@@ -95,6 +96,16 @@ class TfLTransitProvider(TransitProvider):
     def clean_stop_name(self, raw_name: str) -> str:
         """Normalise verbose TfL station names into clean concise display labels."""
         return clean_stop_name(raw_name=raw_name)
+
+    @property
+    def stop_code_guidance(self) -> str:
+        """Guidance for TfL users on finding station names and stop codes."""
+        return (
+            "Enter a station name (e.g. 'Victoria', 'Oxford Circus'), "
+            "a stop with letter (e.g. 'Victoria Station (Stop C)'), "
+            "or the 5-digit bus stop SMS code found on the physical bus stop sign. "
+            "You can also look up 7-character stop codes on tfl.gov.uk."
+        )
 
     def adapt_line_status(
         self,
@@ -285,6 +296,250 @@ class TfLTransitProvider(TransitProvider):
         :return: Decoded JSON response.
         """
         return await self.async_fetch_json(f"Line/{line_id}/Status")
+
+    async def async_fetch_route_sequence(
+        self, line_id: str, direction: str = "all"
+    ) -> Any:
+        """Fetch route sequence via TfL API.
+
+        :param line_id: Line identifier (e.g. '73', 'victoria').
+        :param direction: 'all', 'inbound', or 'outbound'.
+        :return: Decoded JSON response.
+        """
+        return await self.async_fetch_json(f"Line/{line_id}/Route/Sequence/{direction}")
+
+    async def async_validate_line(self, line_id: str, mode: TransitMode) -> bool:
+        """Validate whether a line identifier is recognised by TfL."""
+        cache_key = f"tfl_valid_line_{line_id}_{mode.value}"
+
+        async def _check() -> bool:
+            try:
+                data = await self.async_fetch_route_sequence(
+                    line_id=line_id, direction="all"
+                )
+                if isinstance(data, dict) and data.get("lineId"):
+                    return True
+                if isinstance(data, list) and len(data) > 0:
+                    return True
+                status_data = await self.async_fetch_line_status(
+                    line_id=line_id, mode=mode
+                )
+                if isinstance(status_data, list) and len(status_data) > 0:
+                    return True
+                return False
+            except Exception:
+                return False
+
+        return await self.async_cached_fetch(cache_key=cache_key, fetch_callable=_check)
+
+    def parse_route_sequences(
+        self, sequence_payload: dict[str, Any] | list[Any]
+    ) -> list[list[CorridorStop]]:
+        """Parse raw TfL route sequence payload into normalised branches."""
+        if not sequence_payload:
+            return []
+
+        raw_sequences: list[dict[str, Any]] = []
+        if isinstance(sequence_payload, dict):
+            raw_sequences = [
+                s
+                for s in sequence_payload.get("stopPointSequences", [])
+                if isinstance(s, dict)
+            ]
+        elif isinstance(sequence_payload, list):
+            raw_sequences = [s for s in sequence_payload if isinstance(s, dict)]
+
+        branches: list[list[CorridorStop]] = []
+        for seq in raw_sequences:
+            raw_stops = seq.get("stopPoint", [])
+            if not isinstance(raw_stops, list):
+                continue
+            branch: list[CorridorStop] = []
+            for st in raw_stops:
+                if not isinstance(st, dict):
+                    continue
+                sid = str(st.get("id") or st.get("naptanId") or "").strip()
+                if not sid:
+                    continue
+                raw_name = str(
+                    st.get("name")
+                    or st.get("commonName")
+                    or st.get("stationName")
+                    or sid
+                ).strip()
+                branch.append(
+                    CorridorStop(
+                        id=sid,
+                        name=self.clean_stop_name(raw_name=raw_name),
+                    )
+                )
+            if branch:
+                branches.append(branch)
+        return branches
+
+    async def async_validate_stop(
+        self,
+        line_id: str,
+        stop_id_or_name: str,
+        mode: TransitMode,
+    ) -> tuple[bool, str | None, str | None]:
+        """Validate whether a stop is recognised along a line in TfL."""
+        from custom_components.commute_tracker.corridor import (
+            slice_upstream_corridor,
+        )
+
+        try:
+            seq_data = await self.async_fetch_route_sequence(
+                line_id=line_id, direction="all"
+            )
+            branches = self.parse_route_sequences(sequence_payload=seq_data)
+            stops = slice_upstream_corridor(
+                sequences=branches,
+                boarding_stop=stop_id_or_name,
+            )
+            if stops:
+                target_stop = stops[-1]
+                return True, target_stop.id, target_stop.name
+            return False, None, None
+        except Exception:
+            return False, None, None
+
+    async def async_fetch_timetable(
+        self, line_id: str, from_stop_id: str
+    ) -> dict[str, Any] | None:
+        """Fetch scheduled timetable for a line from an origin stop point."""
+        cache_key = f"tfl_timetable_{line_id}_{from_stop_id}"
+
+        async def _fetch() -> dict[str, Any] | None:
+            try:
+                raw = await self.async_fetch_json(
+                    endpoint_or_url=f"Line/{line_id}/Timetable/{from_stop_id}"
+                )
+                if isinstance(raw, dict):
+                    return raw
+                return None
+            except Exception:
+                return None
+
+        result = await self.async_cached_fetch(
+            cache_key=cache_key, fetch_callable=_fetch
+        )
+        if isinstance(result, dict):
+            return result
+        return None
+
+    def parse_timetable_lead_times(
+        self,
+        timetable_payload: dict[str, Any] | None,
+        boarding_stop_id: str,
+    ) -> dict[str, int]:
+        """Extract scheduled travel lead times from timetable station intervals.
+
+        Matches the interval set containing boarding_stop_id and returns a mapping
+        of stop_id to seconds of scheduled travel time leading to the boarding stop.
+        """
+        if not timetable_payload or not isinstance(timetable_payload, dict):
+            return {}
+
+        timetable = timetable_payload.get("timetable", {})
+        routes = timetable.get("routes", [])
+        target_query = boarding_stop_id.strip().lower()
+
+        for route in routes:
+            station_intervals = route.get("stationIntervals", [])
+            for interval_set in station_intervals:
+                intervals = interval_set.get("intervals", [])
+                target_entry = None
+                for item in intervals:
+                    sid = str(item.get("stopId", "")).strip().lower()
+                    if sid == target_query:
+                        target_entry = item
+                        break
+                if target_entry is not None:
+                    target_arr = float(target_entry.get("timeToArrival", 0.0))
+                    lead_times: dict[str, int] = {boarding_stop_id: 0}
+                    for item in intervals:
+                        sid = str(item.get("stopId", "")).strip()
+                        arr = float(item.get("timeToArrival", 0.0))
+                        if arr <= target_arr:
+                            lead_times[sid] = int((target_arr - arr) * 60)
+                    return lead_times
+        return {}
+
+    async def async_get_corridor_stops(
+        self,
+        line_id: str,
+        boarding_stop: str,
+        mode: TransitMode = TransitMode.BUS,
+        direction: str = "all",
+        target_time_window_seconds: int | None = None,
+    ) -> list[CorridorStop]:
+        """Discover and order upstream corridor stops leading to the boarding stop."""
+        from custom_components.commute_tracker.corridor import (
+            slice_upstream_corridor,
+        )
+
+        cache_key = (
+            f"tfl_corridor_{line_id}_{boarding_stop}_{direction}_"
+            f"{target_time_window_seconds}"
+        )
+
+        async def _fetch() -> list[CorridorStop]:
+            try:
+                seq_data = await self.async_fetch_route_sequence(
+                    line_id=line_id, direction=direction
+                )
+                branches = self.parse_route_sequences(sequence_payload=seq_data)
+
+                target_query = boarding_stop.strip().lower()
+                target_branch = None
+                target_stop_id = boarding_stop
+                for branch in branches:
+                    for s in branch:
+                        if (
+                            s.id.strip().lower() == target_query
+                            or target_query in s.name.strip().lower()
+                        ):
+                            target_branch = branch
+                            target_stop_id = s.id
+                            break
+                    if target_branch is not None:
+                        break
+
+                if target_branch and target_branch[0]:
+                    origin_stop_id = target_branch[0].id
+                    timetable_data = await self.async_fetch_timetable(
+                        line_id=line_id, from_stop_id=origin_stop_id
+                    )
+                    lead_times = self.parse_timetable_lead_times(
+                        timetable_payload=timetable_data,
+                        boarding_stop_id=target_stop_id,
+                    )
+                    if lead_times:
+                        annotated_branch = [
+                            CorridorStop(
+                                id=s.id,
+                                name=s.name,
+                                is_target=s.is_target,
+                                scheduled_lead_seconds=lead_times.get(s.id),
+                            )
+                            for s in target_branch
+                        ]
+                        branches = [annotated_branch]
+
+                fallback_seconds_per_stop = (
+                    150 if mode in {TransitMode.TUBE, TransitMode.TRAIN} else 120
+                )
+                return slice_upstream_corridor(
+                    sequences=branches,
+                    boarding_stop=boarding_stop,
+                    target_time_window_seconds=target_time_window_seconds,
+                    seconds_per_stop=fallback_seconds_per_stop,
+                )
+            except Exception:
+                return []
+
+        return await self.async_cached_fetch(cache_key=cache_key, fetch_callable=_fetch)
 
     async def async_fetch_journey(
         self, origin: str, destination: str, mode: TransitMode

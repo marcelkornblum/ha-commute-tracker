@@ -4,25 +4,117 @@
     "step": {
       "user": {
         "title": "Commute Tracker Setup",
-        "description": "Configure your commute tracking options and transit feeds.",
+        "description": "Configure your commute tracking options and household timing defaults.",
         "data": {
           "name": "Commute Name",
-          "active_sensor": "Active Commute Sensor",
-          "target_destination_time": "Target Destination Time",
           "person_name": "Commuter Name",
           "person_picture": "Commuter Picture URL",
+          "active_sensor": "Active Commute Sensor",
+          "poll_interval": "Poll Interval (seconds)",
+          "target_destination_time": "Target Destination Time",
+          "prep_seconds": "Preparation Buffer (seconds)",
           "rollup_strategy": "Rollup Strategy",
-          "poll_interval": "Poll Interval (seconds)"
+          "route_late_buffer_seconds": "Late Route Buffer (seconds)"
+        },
+        "data_description": {
+          "name": "Friendly name for this commute (e.g. Work Morning).",
+          "person_name": "Name of the commuter displayed on dashboard cards.",
+          "person_picture": "Image URL or entity picture for the commuter avatar.",
+          "active_sensor": "Entity that activates tracking; avoids API polling when idle.",
+          "poll_interval": "Seconds between live transit feed refreshes while active.",
+          "target_destination_time": "Desired arrival time at your final destination.",
+          "prep_seconds": "Preparation time before leaving the house. Offsets your notifications.",
+          "rollup_strategy": "Strategy used to choose the best route.",
+          "route_late_buffer_seconds": "Time to allow for a fallback route to be viable. Used in the Late with Buffer strategy."
+        }
+      },
+      "route": {
+        "title": "Add Commute Route",
+        "description": "Configure a transit route option for this commute.\n\n{stop_guidance}",
+        "data": {
+          "provider": "Transit Provider",
+          "app_id": "Application ID",
+          "app_key": "Application Key",
+          "mode": "Transit Mode",
+          "line": "Line / Route Identifier",
+          "route_color": "Route Colour",
+          "name": "Route Display Name",
+          "boarding_stop": "Boarding Stop",
+          "boarding_walk_seconds": "Walk Duration (seconds)",
+          "grace_seconds": "Grace Period (seconds)",
+          "alighting_stop": "Alighting Stop",
+          "destination": "Destination Label",
+          "add_another_route": "Add Another Route"
+        },
+        "data_description": {
+          "provider": "Transit authority or data feed for this route.",
+          "app_id": "Application ID for transit API credentials (optional).",
+          "app_key": "Application Key or API token for transit provider credentials (optional).",
+          "mode": "Transit mode (e.g. Bus, Underground, Train).",
+          "line": "Line name or route number (e.g. 73, victoria).",
+          "route_color": "Hex colour code for badges and timelines (e.g. #DC241F).",
+          "name": "Display label for this option (e.g. Bus 73 or Victoria Line).",
+          "boarding_stop": "Station name or stop identifier code where you board.",
+          "boarding_walk_seconds": "The time you take to comfortably get from home to the boarding stop.",
+          "grace_seconds": "The amount of time you can save if rushing to the boarding stop.",
+          "alighting_stop": "Station name or stop identifier code where you disembark.",
+          "destination": "Optional destination label displayed on the dashboard.",
+          "add_another_route": "Configure an additional route option after saving this one to compare options on your commute."
+        }
+      },
+      "corridor": {
+        "title": "Corridor Stop Configurator",
+        "description": "Select the upstream corridor stops to monitor approaching vehicles. Stops are listed in vehicle travel order toward your boarding stop.",
+        "data": {
+          "corridor_stops": "Monitored Upstream Stops"
+        },
+        "data_description": {
+          "corridor_stops": "Ordered upstream stops used to track approaching vehicles."
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to transit provider.",
       "invalid_auth": "Invalid authentication credentials.",
+      "invalid_line": "Line identifier not recognised by provider.",
+      "invalid_boarding_stop": "Boarding stop not found along this line.",
+      "invalid_alighting_stop": "Alighting stop not found along this line.",
       "mutual_grace": "Cannot specify both grace_seconds and grace_fraction.",
       "no_routes": "At least one route must be configured.",
       "no_commutes": "At least one commute must be configured.",
+      "already_configured": "A commute with this name is already configured.",
       "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This commute is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Commute Options",
+        "description": "Adjust timing thresholds and settings for this commute.",
+        "data": {
+          "boarding_walk_seconds": "Walk Duration (seconds)",
+          "prep_seconds": "Preparation Buffer (seconds)",
+          "grace_seconds": "Grace Period (seconds)",
+          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
+          "target_destination_time": "Target Destination Time",
+          "poll_interval": "Poll Interval (seconds)",
+          "active_sensor": "Active Commute Sensor",
+          "rollup_strategy": "Rollup Strategy"
+        },
+        "data_description": {
+          "boarding_walk_seconds": "The time you take to comfortably get from home to the boarding stop.",
+          "prep_seconds": "Preparation time before leaving the house. Offsets your notifications.",
+          "grace_seconds": "The amount of time you can save if rushing to the boarding stop.",
+          "route_late_buffer_seconds": "Time to allow for a fallback route to be viable. Used in the Late with Buffer strategy.",
+          "target_destination_time": "Desired arrival time at your final destination.",
+          "poll_interval": "Seconds between live transit feed refreshes while active.",
+          "active_sensor": "Entity that activates tracking; avoids API polling when idle.",
+          "rollup_strategy": "Strategy used to choose the best route."
+        }
+      }
     }
   },
   "selector": {

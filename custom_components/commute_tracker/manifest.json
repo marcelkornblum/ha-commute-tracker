@@ -2,7 +2,7 @@
   "domain": "commute_tracker",
   "name": "Commute Tracker",
   "codeowners": ["@marcelkornblum"],
-  "config_flow": false,
+  "config_flow": true,
   "documentation": "https://github.com/marcelkornblum/ha-commute-tracker",
   "integration_type": "hub",
   "iot_class": "cloud_polling",

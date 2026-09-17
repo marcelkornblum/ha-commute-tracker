@@ -407,3 +407,239 @@ async def test_tfl_provider_async_get_telemetry_error_fallback() -> None:
     assert len(telemetry.departures) == 0
     assert telemetry.line_status is not None
     assert telemetry.line_status.status_label == "Unknown"
+
+
+@pytest.mark.asyncio
+async def test_tfl_provider_route_sequence_and_corridor_stops() -> None:
+    """Verify route sequence fetching and corridor stop extraction via TfL provider."""
+    sequence_payload = {
+        "lineId": "73",
+        "lineName": "73",
+        "stopPointSequences": [
+            {
+                "stopPoint": [
+                    {"id": "490000001A", "name": "Victoria Station"},
+                    {"id": "490000001B", "name": "Hyde Park Corner"},
+                    {"id": "490000001C", "name": "Marble Arch Station"},
+                    {"id": "490000001D", "name": "Oxford Circus Station"},
+                ]
+            }
+        ],
+    }
+
+    mock_session = MockSession(
+        routes_map={
+            "/Line/73/Route/Sequence/all": sequence_payload,
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    # Validate valid line
+    assert (
+        await provider.async_validate_line(line_id="73", mode=TransitMode.BUS) is True
+    )
+
+    # Validate stop by ID
+    is_valid, naptan, name = await provider.async_validate_stop(
+        line_id="73",
+        stop_id_or_name="490000001C",
+        mode=TransitMode.BUS,
+    )
+    assert is_valid is True
+    assert naptan == "490000001C"
+    assert name == "Marble Arch"
+
+    # Validate stop by name case-insensitively
+    is_valid, naptan, name = await provider.async_validate_stop(
+        line_id="73",
+        stop_id_or_name="marble arch",
+        mode=TransitMode.BUS,
+    )
+    assert is_valid is True
+    assert naptan == "490000001C"
+    assert name == "Marble Arch"
+
+    # Validate non-existent stop
+    is_valid, naptan, name = await provider.async_validate_stop(
+        line_id="73",
+        stop_id_or_name="Nowhere Station",
+        mode=TransitMode.BUS,
+    )
+    assert is_valid is False
+    assert naptan is None
+    assert name is None
+
+    # Get corridor stops
+    corridor = await provider.async_get_corridor_stops(
+        line_id="73",
+        boarding_stop="490000001C",
+        mode=TransitMode.BUS,
+        target_time_window_seconds=300,
+    )
+    assert len(corridor) > 0
+    assert corridor[-1]["id"] == "490000001C"
+    assert corridor[-1]["is_target"] is True
+
+
+@pytest.mark.asyncio
+async def test_tfl_provider_validate_line_failure() -> None:
+    """Verify validate line returns False when line not found by provider."""
+    mock_session = MockSession(routes_map={})
+    provider = TfLTransitProvider(session=mock_session)
+
+    assert (
+        await provider.async_validate_line(line_id="invalid_999", mode=TransitMode.BUS)
+        is False
+    )
+
+
+def test_tfl_provider_parse_route_sequences() -> None:
+    """Verify TfL route sequences are mapped into normalised branches."""
+    provider = TfLTransitProvider(session=MockSession({}))
+    payload = {
+        "stopPointSequences": [
+            {
+                "stopPoint": [
+                    {
+                        "naptanId": "490000001A",
+                        "name": "Victoria Station",
+                    },
+                    {
+                        "id": "490000001B",
+                        "commonName": "Hyde Park Corner Station",
+                    },
+                ]
+            }
+        ]
+    }
+    branches = provider.parse_route_sequences(sequence_payload=payload)
+    assert len(branches) == 1
+    branch = branches[0]
+    assert len(branch) == 2
+    assert branch[0].id == "490000001A"
+    assert branch[0].name == "Victoria"
+    assert branch[1].id == "490000001B"
+    assert branch[1].name == "Hyde Park Corner"
+
+
+def test_tfl_provider_stop_code_guidance(tfl_provider: TfLTransitProvider) -> None:
+    """Verify TfL provider returns specific stop code and station name guidance."""
+    guidance = tfl_provider.stop_code_guidance
+    assert "station name" in guidance.lower()
+    assert "5-digit" in guidance
+    assert "tfl.gov.uk" in guidance
+
+
+def test_tfl_parse_timetable_lead_times(tfl_provider: TfLTransitProvider) -> None:
+    """Verify parsing timetable intervals extracts relative lead times in seconds."""
+    payload = {
+        "timetable": {
+            "routes": [
+                {
+                    "stationIntervals": [
+                        {
+                            "intervals": [
+                                {"stopId": "STOP_A", "timeToArrival": 0.0},
+                                {"stopId": "STOP_B", "timeToArrival": 3.0},
+                                {"stopId": "STOP_C", "timeToArrival": 7.5},
+                                {"stopId": "STOP_D", "timeToArrival": 12.0},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    lead_times = tfl_provider.parse_timetable_lead_times(
+        timetable_payload=payload,
+        boarding_stop_id="STOP_C",
+    )
+
+    assert lead_times == {
+        "STOP_A": 450,
+        "STOP_B": 270,
+        "STOP_C": 0,
+    }
+
+    assert tfl_provider.parse_timetable_lead_times(None, "STOP_C") == {}
+    assert tfl_provider.parse_timetable_lead_times({}, "STOP_C") == {}
+    assert tfl_provider.parse_timetable_lead_times(payload, "NONEXISTENT") == {}
+
+
+@pytest.mark.asyncio
+async def test_tfl_async_fetch_timetable() -> None:
+    """Verify async_fetch_timetable retrieves and caches timetable JSON."""
+    timetable_json: dict[str, Any] = {"timetable": {"routes": []}}
+    mock_session = MockSession(
+        routes_map={"/Line/73/Timetable/490000001A": timetable_json}
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    res = await provider.async_fetch_timetable(line_id="73", from_stop_id="490000001A")
+    assert res == timetable_json
+
+    res_cached = await provider.async_fetch_timetable(
+        line_id="73", from_stop_id="490000001A"
+    )
+    assert res_cached == timetable_json
+
+    res_missing = await provider.async_fetch_timetable(
+        line_id="73", from_stop_id="UNKNOWN"
+    )
+    assert res_missing is None
+
+
+@pytest.mark.asyncio
+async def test_tfl_corridor_with_timetable() -> None:
+    """Verify async_get_corridor_stops queries timetable and annotates lead times."""
+    route_seq = {
+        "stopPointSequences": [
+            {
+                "stopPoint": [
+                    {"id": "STOP_A", "name": "Alpha Station"},
+                    {"id": "STOP_B", "name": "Beta Station"},
+                    {"id": "STOP_C", "name": "Target Station"},
+                ]
+            }
+        ]
+    }
+    timetable = {
+        "timetable": {
+            "routes": [
+                {
+                    "stationIntervals": [
+                        {
+                            "intervals": [
+                                {"stopId": "STOP_A", "timeToArrival": 0.0},
+                                {"stopId": "STOP_B", "timeToArrival": 2.0},
+                                {"stopId": "STOP_C", "timeToArrival": 5.0},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    mock_session = MockSession(
+        routes_map={
+            "/Line/73/Route/Sequence/all": route_seq,
+            "/Line/73/Timetable/STOP_A": timetable,
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    stops = await provider.async_get_corridor_stops(
+        line_id="73",
+        boarding_stop="STOP_C",
+        mode=TransitMode.BUS,
+        target_time_window_seconds=180,
+    )
+
+    assert len(stops) == 2
+    assert stops[0].id == "STOP_B"
+    assert stops[0].scheduled_lead_seconds == 180
+    assert stops[1].id == "STOP_C"
+    assert stops[1].scheduled_lead_seconds == 0
+    assert stops[1].is_target is True

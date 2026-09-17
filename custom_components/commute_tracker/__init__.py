@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -31,10 +32,13 @@ from custom_components.commute_tracker.providers.base import (
 
 _LOGGER = logging.getLogger(__name__)
 
+PLATFORMS = [Platform.SENSOR]
+
 __all__ = [
     "CONFIG_SCHEMA",
     "async_register_frontend",
     "async_setup",
+    "async_setup_entry",
     "async_unload_entry",
     "async_unregister_frontend",
 ]
@@ -89,10 +93,73 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: Any = None) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Commute Tracker from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
+    await async_register_frontend(hass=hass)
+
+    registry = hass.data[DOMAIN].get("registry")
+    session = async_get_clientsession(hass)
+    if registry is None:
+        registry = TransitProviderRegistry(session=session)
+        registry.discover_providers()
+        hass.data[DOMAIN]["registry"] = registry
+
+    merged_data: dict[str, Any] = {**entry.data, **entry.options}
+    providers_conf: dict[str, Any] = merged_data.get(CONF_PROVIDERS, {})
+    for provider_id, p_conf in providers_conf.items():
+        if provider_id in registry.registered_provider_ids and isinstance(p_conf, dict):
+            registry.get_provider(provider_id=provider_id, **p_conf)
+
+    commute_cfg = CommuteConfig.from_dict(data=merged_data)
+    engine = CommuteEngine(
+        config=commute_cfg,
+        registry=registry,
+        session=session,
+    )
+    coordinator = CommuteCoordinator(
+        hass=hass,
+        config=commute_cfg,
+        engine=engine,
+    )
+    await coordinator.async_setup()
+
+    coordinators: dict[str, CommuteCoordinator] = hass.data[DOMAIN].setdefault(
+        "coordinators", {}
+    )
+    coordinators[entry.entry_id] = coordinator
+    coordinators[commute_cfg.commute_id] = coordinator
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
+    return True
+
+
+async def async_unload_entry(
+    hass: HomeAssistant, entry: ConfigEntry | None = None
+) -> bool:
     """Unload Commute Tracker coordinators and listeners."""
     domain_data = hass.data.get(DOMAIN, {})
     coordinators: dict[str, CommuteCoordinator] = domain_data.get("coordinators", {})
-    for coordinator in coordinators.values():
+
+    if entry is not None:
+        unload_ok = await hass.config_entries.async_forward_entry_unload(
+            entry, Platform.SENSOR
+        )
+        if unload_ok:
+            coordinator = coordinators.pop(entry.entry_id, None)
+            if coordinator is not None:
+                coordinator.async_unload()
+                coordinators.pop(coordinator.commute_config.commute_id, None)
+            return True
+        return False
+
+    for coordinator in list(coordinators.values()):
         coordinator.async_unload()
+    coordinators.clear()
     return True
+
+
+async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload commute tracker entry on options update."""
+    await hass.config_entries.async_reload(entry.entry_id)

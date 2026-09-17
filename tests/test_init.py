@@ -156,3 +156,42 @@ async def test_async_setup_with_root_level_cascading(
     route_cfg = commute_cfg.routes[0]
     assert route_cfg.prep_seconds == 210
     assert route_cfg.boarding_walk_seconds == 330
+
+
+async def test_async_setup_entry_and_unload_entry(hass: HomeAssistant) -> None:
+    """Verify async_setup_entry sets up coordinator and sensors, and unloads cleanly."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Work Commute",
+        data={
+            "id": "work_commute",
+            "name": "Work Commute",
+            "active_sensor": "binary_sensor.work_active",
+            "routes": [
+                {
+                    "id": "bus_73",
+                    "mode": "bus",
+                    "line": "73",
+                    "boarding_stop": "490013766F",
+                }
+            ],
+        },
+        unique_id="work_commute",
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(CommuteCoordinator, "async_setup", new_callable=AsyncMock):
+        setup_result = await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        assert setup_result is True
+        assert entry.entry_id in hass.data[DOMAIN]["coordinators"]
+
+        coordinator = hass.data[DOMAIN]["coordinators"][entry.entry_id]
+        with patch.object(coordinator, "async_unload") as mock_coord_unload:
+            unload_result = await hass.config_entries.async_unload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert unload_result is True
+            mock_coord_unload.assert_called_once()
+            assert entry.entry_id not in hass.data[DOMAIN]["coordinators"]
