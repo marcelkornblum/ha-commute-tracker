@@ -1,0 +1,39 @@
+name: Release Package
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  package_release:
+    name: Package Commute Tracker HACS release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend card bundle
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Package custom_components directory into zip
+        run: |
+          cd custom_components/commute_tracker
+          zip -r commute_tracker.zip ./*
+
+      - name: Upload zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: custom_components/commute_tracker/commute_tracker.zip

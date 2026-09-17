@@ -1,14 +1,8 @@
 """Commute Tracker custom component."""
 
 import logging
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from homeassistant.components.frontend import (
-    DATA_EXTRA_MODULE_URL,
-    add_extra_js_url,
-)
-from homeassistant.components.http.server import StaticPathConfig
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -20,14 +14,16 @@ from custom_components.commute_tracker.config_validation import (
     CONFIG_SCHEMA,
 )
 from custom_components.commute_tracker.const import (
-    CARD_FILENAME,
     CONF_COMMUTES,
     CONF_PROVIDERS,
     DOMAIN,
-    URL_BASE,
 )
 from custom_components.commute_tracker.coordinator import CommuteCoordinator
 from custom_components.commute_tracker.engine import CommuteEngine
+from custom_components.commute_tracker.frontend import (
+    async_register_frontend,
+    async_unregister_frontend,
+)
 from custom_components.commute_tracker.models import CommuteConfig
 from custom_components.commute_tracker.providers.base import (
     TransitProviderRegistry,
@@ -40,37 +36,8 @@ __all__ = [
     "async_register_frontend",
     "async_setup",
     "async_unload_entry",
+    "async_unregister_frontend",
 ]
-
-
-async def async_register_frontend(hass: HomeAssistant) -> None:
-    """Register custom Lovelace card static path and frontend script resource."""
-    frontend_dir = Path(__file__).parent / "frontend"
-    if not frontend_dir.exists():
-        frontend_dir.mkdir(parents=True, exist_ok=True)
-
-    if hasattr(hass, "http") and hass.http is not None:
-        try:
-            await hass.http.async_register_static_paths(
-                [
-                    StaticPathConfig(
-                        url_path=URL_BASE,
-                        path=str(frontend_dir),
-                        cache_headers=True,
-                    )
-                ]
-            )
-        except Exception as err:
-            _LOGGER.debug(
-                "Static path registration skipped or already registered: %s",
-                err,
-            )
-
-    try:
-        cast(dict[Any, Any], hass.data).setdefault(DATA_EXTRA_MODULE_URL, set())
-        add_extra_js_url(hass, f"{URL_BASE}/{CARD_FILENAME}")
-    except Exception as err:
-        _LOGGER.debug("Frontend JS URL registration failed: %s", err)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
