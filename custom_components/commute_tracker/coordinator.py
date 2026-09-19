@@ -11,6 +11,7 @@ from homeassistant.core import (
 )
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from custom_components.commute_tracker.engine import (
     ChildRouteState,
@@ -134,7 +135,9 @@ class CommuteCoordinator(DataUpdateCoordinator[CommuteState]):
             return create_idle_commute_state(config=self.commute_config)
 
         try:
-            return await self.engine.async_evaluate_commute()
+            return await self.engine.async_evaluate_commute(
+                reference_time=dt_util.now()
+            )
         except Exception as err:
             raise UpdateFailed(f"Transit update failed: {err}") from err
 

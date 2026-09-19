@@ -9,7 +9,9 @@ export interface CommuteCardConfig {
 }
 
 export interface CorridorStop {
-  short_name: string;
+  short_name?: string;
+  name?: string;
+  stop_id?: string;
   is_target: boolean;
 }
 
@@ -947,7 +949,7 @@ export class CommuteTrackerCard extends LitElement {
 
     if (isTerminus) {
       const targetStop = stops[0];
-      const showMarker = progress >= 0;
+      const showMarker = progress >= -0.5;
       const normProgress = Math.min(Math.max(progress, 0), 1);
       const bx = minX + normProgress * (maxX - minX);
 
@@ -990,7 +992,7 @@ export class CommuteTrackerCard extends LitElement {
             font-family="system-ui"
             font-weight="700"
           >
-            ${targetStop.short_name}
+            ${targetStop.short_name || targetStop.name || targetStop.stop_id || ""}
           </text>
 
           <!-- Vehicle Marker (Clean White Circle, No Outer Halo) -->
@@ -1022,13 +1024,14 @@ export class CommuteTrackerCard extends LitElement {
 
     // Standard Multi-Stop Corridor (e.g. Bus)
     const maxP = stops.length - 1;
-    const showMarker = progress >= 0 && stops.length > 1;
+    const showMarker = progress >= -0.5 && stops.length > 1;
     let bx = minX;
     if (showMarker) {
+      const clampedP = Math.max(0, progress);
       bx =
-        progress > maxP
+        clampedP > maxP
           ? maxX + 20
-          : minX + progress * ((maxX - minX) / maxP);
+          : minX + clampedP * ((maxX - minX) / maxP);
     }
 
     return svg`
@@ -1057,19 +1060,20 @@ export class CommuteTrackerCard extends LitElement {
         <!-- Stops Nodes -->
         ${stops.map((stop, idx) => {
           const sx = minX + idx * ((maxX - minX) / maxP);
+          const label = stop.short_name || stop.name || stop.stop_id || "";
           if (stop.is_target) {
             return svg`
               <circle cx="${sx}" cy="22" r="9" fill="#2B2D3A" stroke="${trackCol}" stroke-width="3.5" />
               <circle cx="${sx}" cy="22" r="4" fill="#FFFFFF" />
               <text x="${sx}" y="46" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-family="system-ui" font-weight="700">
-                ${stop.short_name}
+                ${label}
               </text>
             `;
           }
           return svg`
             <circle cx="${sx}" cy="22" r="6" fill="#2B2D3A" stroke="#FFFFFF" stroke-width="3" />
             <text x="${sx}" y="46" text-anchor="middle" fill="#A0A5B5" font-size="9.5" font-family="system-ui" font-weight="500">
-              ${stop.short_name}
+              ${label}
             </text>
           `;
         })}

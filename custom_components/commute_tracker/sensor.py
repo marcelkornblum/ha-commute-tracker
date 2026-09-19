@@ -290,10 +290,20 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
             "child_entities": self._get_child_entity_ids(),
         }
 
-        if cfg.person_name:
-            attrs["person_name"] = cfg.person_name
-        if cfg.person_picture:
-            attrs["person_picture"] = cfg.person_picture
+        person_name = cfg.person_name
+        person_picture = cfg.person_picture
+        if cfg.person and self.hass:
+            person_state = self.hass.states.get(cfg.person)
+            if person_state is not None:
+                person_name = (
+                    person_state.attributes.get("friendly_name") or person_state.name
+                )
+                person_picture = person_state.attributes.get("entity_picture")
+
+        if person_name:
+            attrs["person_name"] = person_name
+        if person_picture:
+            attrs["person_picture"] = person_picture
 
         return attrs
 

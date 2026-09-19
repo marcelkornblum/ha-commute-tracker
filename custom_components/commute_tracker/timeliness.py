@@ -223,6 +223,20 @@ def calculate_urgency_stage(
     return UrgencyStage.RELAXED
 
 
+def to_local_datetime(
+    dt: datetime, reference_time: datetime | None = None
+) -> datetime:
+    """Ensure datetime is converted to local timezone matching reference_time or local system."""
+    clean_dt = dt
+    if clean_dt.tzinfo is not None:
+        if reference_time is not None and reference_time.tzinfo is not None:
+            return clean_dt.astimezone(reference_time.tzinfo)
+        return clean_dt.astimezone()
+    if reference_time is not None and reference_time.tzinfo is not None:
+        return clean_dt.replace(tzinfo=reference_time.tzinfo)
+    return clean_dt
+
+
 def calculate_leave_by_time(
     seconds_to_leave: int,
     reference_time: datetime | None = None,
@@ -234,7 +248,7 @@ def calculate_leave_by_time(
     :return: Formatted clock time string (HH:MM).
     """
     ref_dt = reference_time or datetime.now()
-    leave_dt = ref_dt + timedelta(seconds=seconds_to_leave)
+    leave_dt = to_local_datetime(ref_dt + timedelta(seconds=seconds_to_leave), ref_dt)
     return leave_dt.strftime("%H:%M")
 
 
@@ -258,16 +272,19 @@ def calculate_milestone_times(
     board_dt: datetime
     if expected_boarding_time_str and "T" in expected_boarding_time_str:
         try:
-            board_dt = datetime.fromisoformat(expected_boarding_time_str)
+            iso_str = expected_boarding_time_str.replace("Z", "+00:00")
+            parsed_dt = datetime.fromisoformat(iso_str)
+            board_dt = to_local_datetime(parsed_dt, ref_dt)
         except ValueError:
             board_dt = ref_dt + timedelta(seconds=seconds_to_board)
     else:
         board_dt = ref_dt + timedelta(seconds=seconds_to_board)
 
-    alight_dt = board_dt + timedelta(seconds=transit_duration_seconds)
+    board_local = to_local_datetime(board_dt, ref_dt)
+    alight_dt = board_local + timedelta(seconds=transit_duration_seconds)
     dest_dt = alight_dt + timedelta(seconds=alighting_walk_seconds)
     return (
-        board_dt.strftime("%H:%M"),
+        board_local.strftime("%H:%M"),
         alight_dt.strftime("%H:%M"),
         dest_dt.strftime("%H:%M"),
     )
@@ -294,18 +311,19 @@ def format_next_summary(
 
     if next_expected_time and "T" in next_expected_time:
         try:
-            dep_dt = datetime.fromisoformat(next_expected_time)
+            iso_str = next_expected_time.replace("Z", "+00:00")
+            dep_dt = to_local_datetime(datetime.fromisoformat(iso_str), ref_dt)
             clock_str = dep_dt.strftime("%H:%M")
         except ValueError:
-            clock_str = (ref_dt + timedelta(seconds=seconds_to_next_board)).strftime(
-                "%H:%M"
-            )
+            clock_str = to_local_datetime(
+                ref_dt + timedelta(seconds=seconds_to_next_board), ref_dt
+            ).strftime("%H:%M")
     elif next_expected_time and ":" in next_expected_time:
         clock_str = next_expected_time
     else:
-        clock_str = (ref_dt + timedelta(seconds=seconds_to_next_board)).strftime(
-            "%H:%M"
-        )
+        clock_str = to_local_datetime(
+            ref_dt + timedelta(seconds=seconds_to_next_board), ref_dt
+        ).strftime("%H:%M")
 
     return f"Next at {clock_str} (in {mins}m)"
 
@@ -400,7 +418,9 @@ def calculate_destination_margin(
             return None, True, "delayed"
         return None, True, "on_time"
 
-    target_time = _parse_time_string(time_str=target_destination_time_str)
+    target_time = _parse_time_string(
+        time_str=target_destination_time_str, reference_time=ref_dt
+    )
     if ref_dt.tzinfo is not None:
         target_dt = datetime.combine(ref_dt.date(), target_time, tzinfo=ref_dt.tzinfo)
     else:
@@ -429,7 +449,19 @@ def calculate_destination_margin(
     return margin_seconds, will_arrive_on_time, timeliness_label
 
 
-def _parse_time_string(time_str: str) -> time:
-    """Parse HH:MM formatted string into datetime.time."""
-    parts = time_str.strip().split(":")
+def _parse_time_string(
+    time_str: str, reference_time: datetime | None = None
+) -> time:
+    """Parse HH:MM, HH:MM:SS, or ISO timestamp into local datetime.time."""
+    clean = time_str.strip()
+    if "T" in clean:
+        try:
+            iso_str = clean.replace("Z", "+00:00")
+            parsed_dt = datetime.fromisoformat(iso_str)
+            return to_local_datetime(parsed_dt, reference_time).time()
+        except ValueError:
+            pass
+    if " " in clean:
+        clean = clean.split(" ")[-1]
+    parts = clean.split(":")
     return time(hour=int(parts[0]), minute=int(parts[1]))

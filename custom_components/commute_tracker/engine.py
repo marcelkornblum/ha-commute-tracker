@@ -244,20 +244,35 @@ class CommuteEngine:
             else:
                 route_label = route_cfg.line.title()
 
+            telemetry_stop_names = telemetry.stop_names if telemetry is not None else {}
+            merged_stop_names = {
+                sid: (
+                    route_cfg.corridor_stop_names.get(sid)
+                    or telemetry_stop_names.get(sid)
+                    or sid
+                )
+                for sid in route_cfg.corridor_stops
+            }
+            if (
+                route_cfg.boarding_stop
+                and route_cfg.boarding_stop not in merged_stop_names
+            ):
+                merged_stop_names[route_cfg.boarding_stop] = (
+                    route_cfg.corridor_stop_names.get(route_cfg.boarding_stop)
+                    or telemetry_stop_names.get(route_cfg.boarding_stop)
+                    or route_cfg.boarding_stop
+                )
+
             corridor_stops_data = [
                 {
                     "stop_id": sid,
-                    "short_name": (
-                        telemetry.stop_names.get(sid, sid)
-                        if telemetry is not None
-                        else sid
-                    ),
+                    "short_name": merged_stop_names.get(sid, sid),
                     "is_target": sid == route_cfg.boarding_stop,
                 }
                 for sid in route_cfg.corridor_stops
             ]
 
-            route_destination = route_cfg.destination or ""
+            route_destination = route_cfg.destination or self._config.destination or ""
 
             if telemetry is None:
                 child_states[route_id] = ChildRouteState(
@@ -310,7 +325,7 @@ class CommuteEngine:
                 departure=active_dep,
                 corridor_stops=route_cfg.corridor_stops,
                 corridor_departures=telemetry.corridor_departures,
-                stop_names=telemetry.stop_names,
+                stop_names=merged_stop_names,
                 boarding_stop=route_cfg.boarding_stop,
             )
 

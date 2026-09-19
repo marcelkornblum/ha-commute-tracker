@@ -5,71 +5,125 @@
       "user": {
         "title": "Commute Tracker Setup",
         "description": "Configure your commute tracking options and household timing defaults.",
+        "sections": {
+          "overview": {
+            "name": "Commute Overview",
+            "description": "Set the commuter person, friendly commute name, and tracking activation sensor."
+          },
+          "destination_timings": {
+            "name": "Destination & Timings",
+            "description": "Configure your destination label, target arrival time, and preparation buffer."
+          },
+          "rollup_strategy_sec": {
+            "name": "Rollup & Strategy",
+            "description": "Choose how the best route option is selected and configure buffer thresholds."
+          },
+          "advanced_settings": {
+            "name": "Advanced Settings",
+            "description": "Technical polling and staging controls."
+          }
+        },
         "data": {
+          "person": "Commuter Person",
           "name": "Commute Name",
-          "person_name": "Commuter Name",
-          "person_picture": "Commuter Picture URL",
           "active_sensor": "Active Commute Sensor",
-          "poll_interval": "Poll Interval (seconds)",
+          "destination": "Commute Destination",
           "target_destination_time": "Target Destination Time",
           "prep_seconds": "Preparation Buffer (seconds)",
           "rollup_strategy": "Rollup Strategy",
-          "route_late_buffer_seconds": "Late Route Buffer (seconds)"
+          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
+          "poll_interval": "Poll Interval (seconds)",
+          "staging_mode": "Staging Mode"
         },
         "data_description": {
+          "person": "Home Assistant Person entity. Commuter name and picture are resolved dynamically from this person.",
           "name": "Friendly name for this commute (e.g. Work Morning).",
-          "person_name": "Name of the commuter displayed on dashboard cards.",
-          "person_picture": "Image URL or entity picture for the commuter avatar.",
-          "active_sensor": "Entity that activates tracking; avoids API polling when idle.",
-          "poll_interval": "Seconds between live transit feed refreshes while active.",
+          "active_sensor": "Binary sensor or switch that activates tracking; avoids API polling when idle.",
+          "destination": "Name or label of the final destination (e.g. Office).",
           "target_destination_time": "Desired arrival time at your final destination.",
-          "prep_seconds": "Preparation time before leaving the house. Offsets your notifications.",
-          "rollup_strategy": "Strategy used to choose the best route.",
-          "route_late_buffer_seconds": "Time to allow for a fallback route to be viable. Used in the Late with Buffer strategy."
+          "prep_seconds": "Preparation time before leaving the house. Offsets notifications and urgency stages.",
+          "rollup_strategy": "Strategy used to choose the optimal route.",
+          "route_late_buffer_seconds": "Time margin to allow for a fallback route to be viable when using the Late with Buffer strategy.",
+          "poll_interval": "Seconds between live transit feed refreshes while active.",
+          "staging_mode": "Enable staging mode to run with simulated or testing data."
+        }
+      },
+      "routes": {
+        "title": "Commute Routes",
+        "description": "Manage transit options for this commute. You can add new routes, modify existing routes, or remove them.\n\n### Current Routes\n{routes_summary}",
+        "data": {
+          "route_action": "Route Action"
+        },
+        "data_description": {
+          "route_action": "Choose whether to add a new route, edit an existing route, or finish configuration."
         }
       },
       "route": {
-        "title": "Add Commute Route",
-        "description": "Configure a transit route option for this commute.\n\n{stop_guidance}",
+        "title": "Route Configuration",
+        "description": "Configure transit details, walking durations, and buffers for this route option.\n\n{stop_guidance}",
+        "sections": {
+          "service_details": {
+            "name": "Service Details",
+            "description": "Transit provider, mode, line, and optional API credentials."
+          },
+          "boarding_walk": {
+            "name": "Boarding & Walk",
+            "description": "Boarding stop and walk time from home."
+          },
+          "alighting_walk": {
+            "name": "Alighting & Destination Walk",
+            "description": "Alighting station and walk duration to your destination."
+          }
+        },
         "data": {
           "provider": "Transit Provider",
-          "app_id": "Application ID",
-          "app_key": "Application Key",
           "mode": "Transit Mode",
           "line": "Line / Route Identifier",
-          "route_color": "Route Colour",
           "name": "Route Display Name",
+          "route_color": "Route Colour",
+          "app_id": "Application ID",
+          "app_key": "Application Key",
           "boarding_stop": "Boarding Stop",
-          "boarding_walk_seconds": "Walk Duration (seconds)",
+          "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
           "grace_seconds": "Grace Period (seconds)",
           "alighting_stop": "Alighting Stop",
-          "destination": "Destination Label",
-          "add_another_route": "Add Another Route"
+          "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
         },
         "data_description": {
           "provider": "Transit authority or data feed for this route.",
-          "app_id": "Application ID for transit API credentials (optional).",
-          "app_key": "Application Key or API token for transit provider credentials (optional).",
           "mode": "Transit mode (e.g. Bus, Underground, Train).",
           "line": "Line name or route number (e.g. 73, victoria).",
-          "route_color": "Hex colour code for badges and timelines (e.g. #DC241F).",
           "name": "Display label for this option (e.g. Bus 73 or Victoria Line).",
+          "route_color": "Hex colour code for badges and timelines (e.g. #DC241F).",
+          "app_id": "Optional API Application ID credentials.",
+          "app_key": "Optional API Key credentials.",
           "boarding_stop": "Station name or stop identifier code where you board.",
-          "boarding_walk_seconds": "The time you take to comfortably get from home to the boarding stop.",
-          "grace_seconds": "The amount of time you can save if rushing to the boarding stop.",
+          "boarding_walk_seconds": "Comfortable walk time in seconds from home to the boarding stop.",
+          "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing.",
           "alighting_stop": "Station name or stop identifier code where you disembark.",
-          "destination": "Optional destination label displayed on the dashboard.",
-          "add_another_route": "Configure an additional route option after saving this one to compare options on your commute."
+          "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
         }
       },
       "corridor": {
-        "title": "Corridor Stop Configurator",
-        "description": "Select the upstream corridor stops to monitor approaching vehicles. Stops are listed in vehicle travel order toward your boarding stop.",
+        "title": "Corridor Tracking Stops",
+        "description": "Select which upstream stops along the line branch to track approaching vehicles towards your boarding stop.",
         "data": {
-          "corridor_stops": "Monitored Upstream Stops"
+          "corridor_stops": "Monitored Upstream Stops",
+          "extra_stops": "Additional Stop IDs"
         },
         "data_description": {
-          "corridor_stops": "Ordered upstream stops used to track approaching vehicles."
+          "corridor_stops": "Ordered upstream stops used to track approaching vehicles.",
+          "extra_stops": "Optional comma-separated list of additional stop identifiers to monitor."
+        }
+      },
+      "corridor_names": {
+        "title": "Corridor Stop Display Names",
+        "description": "Customise display labels for each selected corridor stop. Short names will be shown on dashboard cards and status timelines.",
+        "sections": {
+          "stop_display_names": {
+            "name": "Stop Short Names",
+            "description": "Set user-friendly short names for corridor stations."
+          }
         }
       }
     },
@@ -95,27 +149,127 @@
   "options": {
     "step": {
       "init": {
-        "title": "Commute Options",
+        "title": "Commute Settings",
         "description": "Adjust timing thresholds and settings for this commute.",
+        "sections": {
+          "overview": {
+            "name": "Commute Overview",
+            "description": "Set the commuter person, friendly commute name, and tracking activation sensor."
+          },
+          "destination_timings": {
+            "name": "Destination & Timings",
+            "description": "Configure your destination label, target arrival time, and preparation buffer."
+          },
+          "rollup_strategy_sec": {
+            "name": "Rollup & Strategy",
+            "description": "Choose how the best route option is selected and configure buffer thresholds."
+          },
+          "advanced_settings": {
+            "name": "Advanced Settings",
+            "description": "Technical polling and staging controls."
+          }
+        },
         "data": {
-          "boarding_walk_seconds": "Walk Duration (seconds)",
-          "prep_seconds": "Preparation Buffer (seconds)",
-          "grace_seconds": "Grace Period (seconds)",
-          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
-          "target_destination_time": "Target Destination Time",
-          "poll_interval": "Poll Interval (seconds)",
+          "person": "Commuter Person",
+          "name": "Commute Name",
           "active_sensor": "Active Commute Sensor",
-          "rollup_strategy": "Rollup Strategy"
+          "destination": "Commute Destination",
+          "target_destination_time": "Target Destination Time",
+          "prep_seconds": "Preparation Buffer (seconds)",
+          "rollup_strategy": "Rollup Strategy",
+          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
+          "poll_interval": "Poll Interval (seconds)",
+          "staging_mode": "Staging Mode"
         },
         "data_description": {
-          "boarding_walk_seconds": "The time you take to comfortably get from home to the boarding stop.",
-          "prep_seconds": "Preparation time before leaving the house. Offsets your notifications.",
-          "grace_seconds": "The amount of time you can save if rushing to the boarding stop.",
-          "route_late_buffer_seconds": "Time to allow for a fallback route to be viable. Used in the Late with Buffer strategy.",
+          "person": "Home Assistant Person entity. Commuter name and picture are resolved dynamically from this person.",
+          "name": "Friendly name for this commute (e.g. Work Morning).",
+          "active_sensor": "Binary sensor or switch that activates tracking; avoids API polling when idle.",
+          "destination": "Name or label of the final destination (e.g. Office).",
           "target_destination_time": "Desired arrival time at your final destination.",
+          "prep_seconds": "Preparation time before leaving the house. Offsets notifications and urgency stages.",
+          "rollup_strategy": "Strategy used to choose the optimal route.",
+          "route_late_buffer_seconds": "Time margin to allow for a fallback route to be viable when using the Late with Buffer strategy.",
           "poll_interval": "Seconds between live transit feed refreshes while active.",
-          "active_sensor": "Entity that activates tracking; avoids API polling when idle.",
-          "rollup_strategy": "Strategy used to choose the best route."
+          "staging_mode": "Enable staging mode to run with simulated or testing data."
+        }
+      },
+      "routes": {
+        "title": "Commute Routes",
+        "description": "Manage transit options for this commute. You can add new routes, modify existing routes, or remove them.\n\n### Current Routes\n{routes_summary}",
+        "data": {
+          "route_action": "Route Action"
+        },
+        "data_description": {
+          "route_action": "Choose whether to add a new route, edit an existing route, or finish configuration."
+        }
+      },
+      "route": {
+        "title": "Route Configuration",
+        "description": "Configure transit details, walking durations, and buffers for this route option.\n\n{stop_guidance}",
+        "sections": {
+          "service_details": {
+            "name": "Service Details",
+            "description": "Transit provider, mode, line, and optional API credentials."
+          },
+          "boarding_walk": {
+            "name": "Boarding & Walk",
+            "description": "Boarding stop and walk time from home."
+          },
+          "alighting_walk": {
+            "name": "Alighting & Destination Walk",
+            "description": "Alighting station and walk duration to your destination."
+          }
+        },
+        "data": {
+          "provider": "Transit Provider",
+          "mode": "Transit Mode",
+          "line": "Line / Route Identifier",
+          "name": "Route Display Name",
+          "route_color": "Route Colour",
+          "app_id": "Application ID",
+          "app_key": "Application Key",
+          "boarding_stop": "Boarding Stop",
+          "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
+          "grace_seconds": "Grace Period (seconds)",
+          "alighting_stop": "Alighting Stop",
+          "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
+        },
+        "data_description": {
+          "provider": "Transit authority or data feed for this route.",
+          "mode": "Transit mode (e.g. Bus, Underground, Train).",
+          "line": "Line name or route number (e.g. 73, victoria).",
+          "name": "Display label for this option (e.g. Bus 73 or Victoria Line).",
+          "route_color": "Hex colour code for badges and timelines (e.g. #DC241F).",
+          "app_id": "Optional API Application ID credentials.",
+          "app_key": "Optional API Key credentials.",
+          "boarding_stop": "Station name or stop identifier code where you board.",
+          "boarding_walk_seconds": "Comfortable walk time in seconds from home to the boarding stop.",
+          "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing.",
+          "alighting_stop": "Station name or stop identifier code where you disembark.",
+          "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
+        }
+      },
+      "corridor": {
+        "title": "Corridor Tracking Stops",
+        "description": "Select which upstream stops along the line branch to track approaching vehicles towards your boarding stop.",
+        "data": {
+          "corridor_stops": "Monitored Upstream Stops",
+          "extra_stops": "Additional Stop IDs"
+        },
+        "data_description": {
+          "corridor_stops": "Ordered upstream stops used to track approaching vehicles.",
+          "extra_stops": "Optional comma-separated list of additional stop identifiers to monitor."
+        }
+      },
+      "corridor_names": {
+        "title": "Corridor Stop Display Names",
+        "description": "Customise display labels for each selected corridor stop. Short names will be shown on dashboard cards and status timelines.",
+        "sections": {
+          "stop_display_names": {
+            "name": "Stop Short Names",
+            "description": "Set user-friendly short names for corridor stations."
+          }
         }
       }
     }
