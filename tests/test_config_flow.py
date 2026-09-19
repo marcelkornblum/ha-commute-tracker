@@ -89,8 +89,10 @@ async def test_user_step_validation_missing_fields(hass: HomeAssistant) -> None:
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
-            "name": "",
-            "active_sensor": "binary_sensor.workday",
+            "overview": {
+                "name": "",
+                "active_sensor": "binary_sensor.workday",
+            },
         },
     )
     assert result2["type"] == FlowResultType.FORM
@@ -101,7 +103,7 @@ async def test_user_step_validation_missing_fields(hass: HomeAssistant) -> None:
 
 @pytest.mark.asyncio
 async def test_full_config_flow_single_route_with_corridor(hass: HomeAssistant) -> None:
-    """Test complete flow: user -> route -> corridor -> entry created."""
+    """Test full flow: user -> route -> corridor -> names -> finish."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -110,13 +112,21 @@ async def test_full_config_flow_single_route_with_corridor(hass: HomeAssistant) 
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
-            "name": "Work Commute",
-            "active_sensor": "binary_sensor.workday",
-            "poll_interval": 30,
-            "target_destination_time": "09:00:00",
-            "prep_seconds": 120,
-            "rollup_strategy": "late_with_buffer",
-            "route_late_buffer_seconds": 300,
+            "overview": {
+                "name": "Work Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
+            "destination_timings": {
+                "target_destination_time": "09:00:00",
+                "prep_seconds": 120,
+            },
+            "rollup_strategy_sec": {
+                "rollup_strategy": "late_with_buffer",
+                "route_late_buffer_seconds": 300,
+            },
+            "advanced_settings": {
+                "poll_interval": 30,
+            },
         },
     )
     assert result2["type"] == FlowResultType.FORM
@@ -128,14 +138,17 @@ async def test_full_config_flow_single_route_with_corridor(hass: HomeAssistant) 
     result3 = await hass.config_entries.flow.async_configure(
         result2["flow_id"],
         user_input={
-            "provider": "mock_tfl",
-            "mode": "bus",
-            "line": "73",
-            "name": "Bus 73",
-            "boarding_stop": "Marble Arch",
-            "boarding_walk_seconds": 300,
-            "grace_seconds": 60,
-            "add_another_route": False,
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+                "name": "Bus 73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": 300,
+                "grace_seconds": 60,
+            },
         },
     )
     assert result3["type"] == FlowResultType.FORM
@@ -148,13 +161,29 @@ async def test_full_config_flow_single_route_with_corridor(hass: HomeAssistant) 
             "corridor_stops": ["490000001A", "490000001B", "490000001C"],
         },
     )
-    assert result4["type"] == FlowResultType.CREATE_ENTRY
-    assert result4["title"] == "Work Commute"
-    assert result4["data"]["name"] == "Work Commute"
-    assert result4["data"]["active_sensor"] == "binary_sensor.workday"
-    assert len(result4["data"]["routes"]) == 1
+    assert result4["type"] == FlowResultType.FORM
+    assert result4["step_id"] == "corridor_names"
 
-    route = result4["data"]["routes"][0]
+    # Step 4: Corridor Stop Names
+    result5 = await hass.config_entries.flow.async_configure(
+        result4["flow_id"],
+        user_input={"stop_display_names": {}},
+    )
+    assert result5["type"] == FlowResultType.FORM
+    assert result5["step_id"] == "routes"
+
+    # Step 5: Routes overview - finish
+    result6 = await hass.config_entries.flow.async_configure(
+        result5["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert result6["type"] == FlowResultType.CREATE_ENTRY
+    assert result6["title"] == "Work Commute"
+    assert result6["data"]["name"] == "Work Commute"
+    assert result6["data"]["active_sensor"] == "binary_sensor.workday"
+    assert len(result6["data"]["routes"]) == 1
+
+    route = result6["data"]["routes"][0]
     assert route["line"] == "73"
     assert route["boarding_stop"] == "490000001C"
     assert route["corridor_stops"] == [
@@ -173,18 +202,24 @@ async def test_route_step_validation_invalid_line(hass: HomeAssistant) -> None:
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
-            "name": "Morning Commute",
-            "active_sensor": "binary_sensor.workday",
+            "overview": {
+                "name": "Morning Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
         },
     )
 
     result3 = await hass.config_entries.flow.async_configure(
         result2["flow_id"],
         user_input={
-            "provider": "mock_tfl",
-            "mode": "bus",
-            "line": "invalid_line",
-            "boarding_stop": "Marble Arch",
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "invalid_line",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+            },
         },
     )
     assert result3["type"] == FlowResultType.FORM
@@ -204,18 +239,24 @@ async def test_route_step_validation_invalid_boarding_stop(
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
-            "name": "Morning Commute",
-            "active_sensor": "binary_sensor.workday",
+            "overview": {
+                "name": "Morning Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
         },
     )
 
     result3 = await hass.config_entries.flow.async_configure(
         result2["flow_id"],
         user_input={
-            "provider": "mock_tfl",
-            "mode": "bus",
-            "line": "73",
-            "boarding_stop": "invalid_stop",
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "invalid_stop",
+            },
         },
     )
     assert result3["type"] == FlowResultType.FORM
@@ -226,62 +267,98 @@ async def test_route_step_validation_invalid_boarding_stop(
 
 @pytest.mark.asyncio
 async def test_multi_route_flow(hass: HomeAssistant) -> None:
-    """Test configuring multiple routes with add_another_route=True."""
+    """Test configuring multiple routes with add_route action."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
-            "name": "Multi Route Commute",
-            "active_sensor": "binary_sensor.workday",
+            "overview": {
+                "name": "Multi Route Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
         },
     )
 
-    # Route 1 with add_another_route=True
+    # Route 1
     result3 = await hass.config_entries.flow.async_configure(
         result2["flow_id"],
         user_input={
-            "provider": "mock_tfl",
-            "mode": "bus",
-            "line": "73",
-            "boarding_stop": "Marble Arch",
-            "add_another_route": True,
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+            },
         },
     )
     assert result3["step_id"] == "corridor"
 
-    # Confirm corridor for Route 1 -> loops back to route step
+    # Confirm corridor for Route 1
     result4 = await hass.config_entries.flow.async_configure(
         result3["flow_id"],
         user_input={
             "corridor_stops": ["490000001A", "490000001C"],
         },
     )
-    assert result4["type"] == FlowResultType.FORM
-    assert result4["step_id"] == "route"
+    assert result4["step_id"] == "corridor_names"
 
-    # Route 2 with add_another_route=False
     result5 = await hass.config_entries.flow.async_configure(
         result4["flow_id"],
-        user_input={
-            "provider": "mock_tfl",
-            "mode": "tube",
-            "line": "victoria",
-            "boarding_stop": "Victoria",
-            "add_another_route": False,
-        },
+        user_input={"stop_display_names": {}},
     )
-    assert result5["step_id"] == "corridor"
+    assert result5["type"] == FlowResultType.FORM
+    assert result5["step_id"] == "routes"
 
+    # From routes step, select add_route
     result6 = await hass.config_entries.flow.async_configure(
         result5["flow_id"],
+        user_input={"route_action": "add_route"},
+    )
+    assert result6["type"] == FlowResultType.FORM
+    assert result6["step_id"] == "route"
+
+    # Route 2
+    result7 = await hass.config_entries.flow.async_configure(
+        result6["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "tube",
+                "line": "victoria",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Victoria",
+            },
+        },
+    )
+    assert result7["step_id"] == "corridor"
+
+    # Confirm corridor for Route 2
+    result8 = await hass.config_entries.flow.async_configure(
+        result7["flow_id"],
         user_input={
             "corridor_stops": ["490000001A"],
         },
     )
-    assert result6["type"] == FlowResultType.CREATE_ENTRY
-    assert len(result6["data"]["routes"]) == 2
+    assert result8["step_id"] == "corridor_names"
+
+    result9 = await hass.config_entries.flow.async_configure(
+        result8["flow_id"],
+        user_input={"stop_display_names": {}},
+    )
+    assert result9["step_id"] == "routes"
+
+    # Finish from routes
+    result10 = await hass.config_entries.flow.async_configure(
+        result9["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert result10["type"] == FlowResultType.CREATE_ENTRY
+    assert len(result10["data"]["routes"]) == 2
 
 
 @pytest.mark.asyncio
@@ -294,23 +371,36 @@ async def test_duplicate_unique_id_abort(hass: HomeAssistant) -> None:
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         user_input={
-            "name": "Work Commute",
-            "active_sensor": "binary_sensor.workday",
+            "overview": {
+                "name": "Work Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
         },
     )
     result3 = await hass.config_entries.flow.async_configure(
         result2["flow_id"],
         user_input={
-            "provider": "mock_tfl",
-            "mode": "bus",
-            "line": "73",
-            "boarding_stop": "Marble Arch",
-            "add_another_route": False,
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+            },
         },
     )
-    await hass.config_entries.flow.async_configure(
+    result4 = await hass.config_entries.flow.async_configure(
         result3["flow_id"],
         user_input={"corridor_stops": ["490000001C"]},
+    )
+    result5 = await hass.config_entries.flow.async_configure(
+        result4["flow_id"],
+        user_input={"stop_display_names": {}},
+    )
+    await hass.config_entries.flow.async_configure(
+        result5["flow_id"],
+        user_input={"route_action": "finish"},
     )
 
     # Attempt second entry with same name
@@ -320,8 +410,10 @@ async def test_duplicate_unique_id_abort(hass: HomeAssistant) -> None:
     result_dup2 = await hass.config_entries.flow.async_configure(
         result_dup["flow_id"],
         user_input={
-            "name": "Work Commute",
-            "active_sensor": "binary_sensor.workday",
+            "overview": {
+                "name": "Work Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
         },
     )
     assert result_dup2["type"] == FlowResultType.ABORT
@@ -371,18 +463,32 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         result2 = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={
-                "boarding_walk_seconds": 360,
-                "prep_seconds": 180,
-                "grace_seconds": 90,
-                "route_late_buffer_seconds": 400,
-                "target_destination_time": "08:45:00",
-                "poll_interval": 45,
-                "active_sensor": "binary_sensor.workday",
-                "rollup_strategy": "soonest",
+                "overview": {
+                    "name": "Work Commute",
+                    "active_sensor": "binary_sensor.workday",
+                },
+                "destination_timings": {
+                    "prep_seconds": 180,
+                    "target_destination_time": "08:45:00",
+                },
+                "rollup_strategy_sec": {
+                    "rollup_strategy": "soonest",
+                    "route_late_buffer_seconds": 400,
+                },
+                "advanced_settings": {
+                    "poll_interval": 45,
+                },
             },
         )
-        assert result2["type"] == FlowResultType.CREATE_ENTRY
-        assert entry.options["boarding_walk_seconds"] == 360
-        assert entry.options["prep_seconds"] == 180
-        assert entry.options["rollup_strategy"] == "soonest"
+        assert result2["type"] == FlowResultType.FORM
+        assert result2["step_id"] == "routes"
+
+        result3 = await hass.config_entries.options.async_configure(
+            result2["flow_id"],
+            user_input={"route_action": "finish"},
+        )
+        assert result3["type"] == FlowResultType.CREATE_ENTRY
+        assert entry.data["prep_seconds"] == 180
+        assert entry.data["rollup_strategy"] == "soonest"
+        assert entry.data["poll_interval"] == 45
         mock_reload.assert_called_once_with(entry.entry_id)

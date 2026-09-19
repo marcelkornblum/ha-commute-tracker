@@ -194,8 +194,8 @@ let R = class extends HTMLElement {
     if (s !== void 0 && this._$Em !== s) {
       const l = e.getPropertyOptions(s), a = typeof l.converter == "function" ? { fromAttribute: l.converter } : ((o = l.converter) == null ? void 0 : o.fromAttribute) !== void 0 ? l.converter : q;
       this._$Em = s;
-      const c = a.fromAttribute(i, l.type);
-      this[s] = c ?? ((n = this._$Ej) == null ? void 0 : n.get(s)) ?? c, this._$Em = null;
+      const h = a.fromAttribute(i, l.type);
+      this[s] = h ?? ((n = this._$Ej) == null ? void 0 : n.get(s)) ?? h, this._$Em = null;
     }
   }
   requestUpdate(t, i, e, s = !1, o) {
@@ -284,9 +284,9 @@ R.elementStyles = [], R.shadowRootOptions = { mode: "open" }, R[D("elementProper
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const I = globalThis, pt = (r) => r, G = I.trustedTypes, ut = G ? G.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, vt = "$lit$", w = `lit$${Math.random().toFixed(9).slice(2)}$`, yt = "?" + w, Xt = `<${yt}>`, T = document, j = () => T.createComment(""), L = (r) => r === null || typeof r != "object" && typeof r != "function", rt = Array.isArray, Wt = (r) => rt(r) || typeof (r == null ? void 0 : r[Symbol.iterator]) == "function", K = `[ 	
+const I = globalThis, pt = (r) => r, G = I.trustedTypes, ut = G ? G.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, vt = "$lit$", w = `lit$${Math.random().toFixed(9).slice(2)}$`, yt = "?" + w, Xt = `<${yt}>`, P = document, j = () => P.createComment(""), L = (r) => r === null || typeof r != "object" && typeof r != "function", rt = Array.isArray, Wt = (r) => rt(r) || typeof (r == null ? void 0 : r[Symbol.iterator]) == "function", K = `[ 	
 \f\r]`, O = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, ft = /-->/g, gt = />/g, S = RegExp(`>|${K}(?:([^\\s"'>=/]+)(${K}*=${K}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), mt = /'/g, _t = /"/g, wt = /^(?:script|style|textarea|title)$/i, At = (r) => (t, ...i) => ({ _$litType$: r, strings: t, values: i }), _ = At(1), F = At(2), z = Symbol.for("lit-noChange"), g = Symbol.for("lit-nothing"), $t = /* @__PURE__ */ new WeakMap(), C = T.createTreeWalker(T, 129);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), mt = /'/g, _t = /"/g, wt = /^(?:script|style|textarea|title)$/i, At = (r) => (t, ...i) => ({ _$litType$: r, strings: t, values: i }), $ = At(1), F = At(2), z = Symbol.for("lit-noChange"), g = Symbol.for("lit-nothing"), $t = /* @__PURE__ */ new WeakMap(), C = P.createTreeWalker(P, 129);
 function Et(r, t) {
   if (!rt(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return ut !== void 0 ? ut.createHTML(t) : t;
@@ -296,10 +296,10 @@ const qt = (r, t) => {
   let s, o = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", n = O;
   for (let l = 0; l < i; l++) {
     const a = r[l];
-    let c, h, d = -1, u = 0;
-    for (; u < a.length && (n.lastIndex = u, h = n.exec(a), h !== null); ) u = n.lastIndex, n === O ? h[1] === "!--" ? n = ft : h[1] !== void 0 ? n = gt : h[2] !== void 0 ? (wt.test(h[2]) && (s = RegExp("</" + h[2], "g")), n = S) : h[3] !== void 0 && (n = S) : n === S ? h[0] === ">" ? (n = s ?? O, d = -1) : h[1] === void 0 ? d = -2 : (d = n.lastIndex - h[2].length, c = h[1], n = h[3] === void 0 ? S : h[3] === '"' ? _t : mt) : n === _t || n === mt ? n = S : n === ft || n === gt ? n = O : (n = S, s = void 0);
-    const p = n === S && r[l + 1].startsWith("/>") ? " " : "";
-    o += n === O ? a + Xt : d >= 0 ? (e.push(c), a.slice(0, d) + vt + a.slice(d) + w + p) : a + w + (d === -2 ? l : p);
+    let h, p, d = -1, u = 0;
+    for (; u < a.length && (n.lastIndex = u, p = n.exec(a), p !== null); ) u = n.lastIndex, n === O ? p[1] === "!--" ? n = ft : p[1] !== void 0 ? n = gt : p[2] !== void 0 ? (wt.test(p[2]) && (s = RegExp("</" + p[2], "g")), n = S) : p[3] !== void 0 && (n = S) : n === S ? p[0] === ">" ? (n = s ?? O, d = -1) : p[1] === void 0 ? d = -2 : (d = n.lastIndex - p[2].length, h = p[1], n = p[3] === void 0 ? S : p[3] === '"' ? _t : mt) : n === _t || n === mt ? n = S : n === ft || n === gt ? n = O : (n = S, s = void 0);
+    const c = n === S && r[l + 1].startsWith("/>") ? " " : "";
+    o += n === O ? a + Xt : d >= 0 ? (e.push(h), a.slice(0, d) + vt + a.slice(d) + w + c) : a + w + (d === -2 ? l : c);
   }
   return [Et(r, o + (r[i] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), e];
 };
@@ -308,22 +308,22 @@ class B {
     let s;
     this.parts = [];
     let o = 0, n = 0;
-    const l = t.length - 1, a = this.parts, [c, h] = qt(t, i);
-    if (this.el = B.createElement(c, e), C.currentNode = this.el.content, i === 2 || i === 3) {
+    const l = t.length - 1, a = this.parts, [h, p] = qt(t, i);
+    if (this.el = B.createElement(h, e), C.currentNode = this.el.content, i === 2 || i === 3) {
       const d = this.el.content.firstChild;
       d.replaceWith(...d.childNodes);
     }
     for (; (s = C.nextNode()) !== null && a.length < l; ) {
       if (s.nodeType === 1) {
         if (s.hasAttributes()) for (const d of s.getAttributeNames()) if (d.endsWith(vt)) {
-          const u = h[n++], p = s.getAttribute(d).split(w), f = /([.?@])?(.*)/.exec(u);
-          a.push({ type: 1, index: o, name: f[2], strings: p, ctor: f[1] === "." ? Yt : f[1] === "?" ? Zt : f[1] === "@" ? Jt : Y }), s.removeAttribute(d);
+          const u = p[n++], c = s.getAttribute(d).split(w), f = /([.?@])?(.*)/.exec(u);
+          a.push({ type: 1, index: o, name: f[2], strings: c, ctor: f[1] === "." ? Yt : f[1] === "?" ? Zt : f[1] === "@" ? Jt : Y }), s.removeAttribute(d);
         } else d.startsWith(w) && (a.push({ type: 6, index: o }), s.removeAttribute(d));
         if (wt.test(s.tagName)) {
           const d = s.textContent.split(w), u = d.length - 1;
           if (u > 0) {
             s.textContent = G ? G.emptyScript : "";
-            for (let p = 0; p < u; p++) s.append(d[p], j()), C.nextNode(), a.push({ type: 2, index: ++o });
+            for (let c = 0; c < u; c++) s.append(d[c], j()), C.nextNode(), a.push({ type: 2, index: ++o });
             s.append(d[u], j());
           }
         }
@@ -336,7 +336,7 @@ class B {
     }
   }
   static createElement(t, i) {
-    const e = T.createElement("template");
+    const e = P.createElement("template");
     return e.innerHTML = t, e;
   }
 }
@@ -358,17 +358,17 @@ class Gt {
     return this._$AM._$AU;
   }
   u(t) {
-    const { el: { content: i }, parts: e } = this._$AD, s = ((t == null ? void 0 : t.creationScope) ?? T).importNode(i, !0);
+    const { el: { content: i }, parts: e } = this._$AD, s = ((t == null ? void 0 : t.creationScope) ?? P).importNode(i, !0);
     C.currentNode = s;
     let o = C.nextNode(), n = 0, l = 0, a = e[0];
     for (; a !== void 0; ) {
       if (n === a.index) {
-        let c;
-        a.type === 2 ? c = new V(o, o.nextSibling, this, t) : a.type === 1 ? c = new a.ctor(o, a.name, a.strings, this, t) : a.type === 6 && (c = new Kt(o, this, t)), this._$AV.push(c), a = e[++l];
+        let h;
+        a.type === 2 ? h = new V(o, o.nextSibling, this, t) : a.type === 1 ? h = new a.ctor(o, a.name, a.strings, this, t) : a.type === 6 && (h = new Kt(o, this, t)), this._$AV.push(h), a = e[++l];
       }
       n !== (a == null ? void 0 : a.index) && (o = C.nextNode(), n++);
     }
-    return C.currentNode = T, s;
+    return C.currentNode = P, s;
   }
   p(t) {
     let i = 0;
@@ -404,7 +404,7 @@ class V {
     this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
   }
   _(t) {
-    this._$AH !== g && L(this._$AH) ? this._$AA.nextSibling.data = t : this.T(T.createTextNode(t)), this._$AH = t;
+    this._$AH !== g && L(this._$AH) ? this._$AA.nextSibling.data = t : this.T(P.createTextNode(t)), this._$AH = t;
   }
   $(t) {
     var o;
@@ -454,8 +454,8 @@ class Y {
     if (o === void 0) t = H(this, t, i, 0), n = !L(t) || t !== this._$AH && t !== z, n && (this._$AH = t);
     else {
       const l = t;
-      let a, c;
-      for (t = o[0], a = 0; a < o.length - 1; a++) c = H(this, l[e + a], i, a), c === z && (c = this._$AH[a]), n || (n = !L(c) || c !== this._$AH[a]), c === g ? t = g : t !== g && (t += (c ?? "") + o[a + 1]), this._$AH[a] = c;
+      let a, h;
+      for (t = o[0], a = 0; a < o.length - 1; a++) h = H(this, l[e + a], i, a), h === z && (h = this._$AH[a]), n || (n = !L(h) || h !== this._$AH[a]), h === g ? t = g : t !== g && (t += (h ?? "") + o[a + 1]), this._$AH[a] = h;
     }
     n && !s && this.j(t);
   }
@@ -607,7 +607,7 @@ var se = Object.defineProperty, re = Object.getOwnPropertyDescriptor, X = (r, t,
   return e && s && se(t, i, s), s;
 };
 const oe = "M12 2c-4 0-8 .5-8 4v9.5C4 17.43 5.57 19 7.5 19L6 20.5v.5h12v-.5L16.5 19c1.93 0 3.5-1.57 3.5-3.5V6c0-3.5-4-4-8-4zm0 2c3.5 0 6 .5 6 2.5V8H6V6.5C6 4.5 8.5 4 12 4zm-5 12c-.83 0-1.5-.67-1.5-1.5S6.17 13 7 13s1.5.67 1.5 1.5S7.83 16 7 16zm10 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1-5H6v-2h12v2z", ne = "M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z";
-let P = class extends N {
+let T = class extends N {
   constructor() {
     super(...arguments), this._mainHeight = 360;
   }
@@ -622,32 +622,32 @@ let P = class extends N {
   render() {
     var u;
     if (!this._config || !this.hass)
-      return _`
+      return $`
         <div class="card-container warning-card">
           Entity configuration missing or Home Assistant not connected.
         </div>
       `;
     const r = this.hass.states[this._config.entity];
     if (!r)
-      return _`
+      return $`
         <div class="card-container warning-card">
           Entity not found: <code>${this._config.entity}</code>
         </div>
       `;
     if (this._selectedRouteId)
       return this._renderDetailsView(r, this._selectedRouteId);
-    const t = r.attributes || {}, i = t.person_picture || "", e = this._config.title || t.commute_title || t.friendly_name || "Commute", s = t.pill_label || (r.state === "standby" ? "Standby" : "Active"), o = t.pill_color || "#8E8E93", n = t.pill_bg || "rgba(142, 142, 147, 0.2)", l = t.pill_border || "#8E8E93", a = t.active_option || "", c = ((u = this._config) == null ? void 0 : u.routes) || t.child_entities || [], h = t.is_relevant === !0 || t.is_relevant === "true" || t.is_relevant === void 0 && r.state !== "standby" && r.state !== "idle" && r.state !== "unavailable" && r.state !== "unknown", d = [...c].sort((p, f) => {
+    const t = r.attributes || {}, i = t.person_picture || "", e = this._config.title || t.commute_title || t.friendly_name || "Commute", s = t.pill_label || (r.state === "standby" ? "Standby" : "Active"), o = t.pill_color || "#8E8E93", n = t.pill_bg || "rgba(142, 142, 147, 0.2)", l = t.pill_border || "#8E8E93", a = t.active_option || "", h = ((u = this._config) == null ? void 0 : u.routes) || t.child_entities || [], p = t.is_relevant === !0 || t.is_relevant === "true" || t.is_relevant === void 0 && r.state !== "standby" && r.state !== "idle" && r.state !== "unavailable" && r.state !== "unknown", d = [...h].sort((c, f) => {
       var v, y, E, x;
-      const m = (v = this.hass) == null ? void 0 : v.states[p], $ = (y = this.hass) == null ? void 0 : y.states[f], b = ((E = m == null ? void 0 : m.attributes) == null ? void 0 : E.route_id) || p, M = ((x = $ == null ? void 0 : $.attributes) == null ? void 0 : x.route_id) || f;
-      return b === a || p === a ? -1 : M === a || f === a ? 1 : 0;
+      const m = (v = this.hass) == null ? void 0 : v.states[c], _ = (y = this.hass) == null ? void 0 : y.states[f], b = ((E = m == null ? void 0 : m.attributes) == null ? void 0 : E.route_id) || c, M = ((x = _ == null ? void 0 : _.attributes) == null ? void 0 : x.route_id) || f;
+      return b === a || c === a ? -1 : M === a || f === a ? 1 : 0;
     });
-    return _`
+    return $`
       <div class="card-container" role="region" aria-label="${e}">
         <div class="card-layout">
           <!-- Row 1: Unified Header -->
           <div class="header-row">
             <div class="header-left">
-              ${i ? _`<img
+              ${i ? $`<img
                     src="${i}"
                     alt="${e}"
                     class="person-avatar"
@@ -665,8 +665,8 @@ let P = class extends N {
           </div>
 
           <!-- Transit Modules (Only displayed when commute is relevant) -->
-          ${h ? d.map(
-      (p, f) => this._renderTransitModule(p, f === 0)
+          ${p ? d.map(
+      (c, f) => this._renderTransitModule(c, f === 0)
     ) : ""}
         </div>
       </div>
@@ -686,10 +686,10 @@ let P = class extends N {
     i && i.offsetHeight > 0 && (this._mainHeight = i.offsetHeight), this._selectedRouteId = t;
   }
   _renderStatusIcon(r) {
-    if (!r) return _``;
+    if (!r) return $``;
     if (r.startsWith("mdi:")) {
       if (typeof customElements < "u" && customElements.get("ha-icon"))
-        return _`<ha-icon .icon=${r} style="--mdc-icon-size: 14px; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; vertical-align: -1px;"></ha-icon>`;
+        return $`<ha-icon .icon=${r} style="--mdc-icon-size: 14px; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; vertical-align: -1px;"></ha-icon>`;
       if (r.includes("check") || r === "✓") return "✓";
       if (r.includes("alert") || r.includes("warning") || r === "⚠️") return "⚠️";
       if (r.includes("close") || r.includes("cancel") || r === "✕") return "✕";
@@ -704,9 +704,9 @@ let P = class extends N {
     var y, E;
     const i = (y = this.hass) == null ? void 0 : y.states[t];
     if (!i)
-      return this._selectedRouteId = void 0, _``;
-    const e = i.attributes || {}, s = e.route_label || e.line || "Transit", o = e.route_destination || e.destination || "", n = e.corridor_color || e.route_color || "#8E8E93", l = e.line_status || e.line_status_label || "Good Service", a = e.line_status_color || "#4CAF50", c = e.line_status_icon || "✓", h = e.line_status_detail || "No operational disruptions or delays reported. Regular service operating across the corridor.", d = e.provider ? e.provider.toUpperCase() : "TfL", u = e.corridor_location || "Awaiting Service", p = e.leave_by_time || "--:--", f = e.expected_time || e.expected_boarding_time || "--:--", m = e.expected_alighting_time || e.estimated_transit_arrival || "--:--", $ = e.expected_destination_time || e.estimated_destination_arrival || "--:--", b = e.target_slack_minutes, M = b !== void 0 ? b >= 0 ? `+${b}m buffer (On Time)` : `${b}m late` : "N/A", v = e.seconds_to_leave !== null && e.seconds_to_leave !== void 0 ? `in ${Math.round(e.seconds_to_leave / 60)}m` : "--";
-    return _`
+      return this._selectedRouteId = void 0, $``;
+    const e = i.attributes || {}, s = e.route_label || e.line || "Transit", o = e.route_destination || e.destination || "", n = e.corridor_color || e.route_color || "#8E8E93", l = e.line_status || e.line_status_label || "Good Service", a = e.line_status_color || "#4CAF50", h = e.line_status_icon || "✓", p = e.line_status_detail || "No operational disruptions or delays reported. Regular service operating across the corridor.", d = e.provider ? e.provider.toUpperCase() : "TfL", u = e.corridor_location || "Awaiting Service", c = e.leave_by_time || "--:--", f = e.expected_time || e.expected_boarding_time || "--:--", m = e.expected_alighting_time || e.estimated_transit_arrival || "--:--", _ = e.expected_destination_time || e.estimated_destination_arrival || "--:--", b = e.target_slack_minutes, M = b !== void 0 ? b >= 0 ? `+${b}m buffer (On Time)` : `${b}m late` : "N/A", v = e.seconds_to_leave !== null && e.seconds_to_leave !== void 0 ? `in ${Math.round(e.seconds_to_leave / 60)}m` : "--";
+    return $`
       <div class="card-container" role="region" aria-label="${s} Details">
         <div class="details-view" style="min-height: ${this._mainHeight}px;">
           <!-- Header with Route Title and Close Button -->
@@ -728,10 +728,10 @@ let P = class extends N {
           <div class="line-status-box" style="border-left-color: ${a};">
             <div class="line-status-feed-badge">Transit Provider Feed · ${d}</div>
             <div class="line-status-headline" style="color: ${a};">
-              <span>${this._renderStatusIcon(c)}</span>
+              <span>${this._renderStatusIcon(h)}</span>
               <span>${l}</span>
             </div>
-            <p class="line-status-desc">${h}</p>
+            <p class="line-status-desc">${p}</p>
           </div>
 
           <!-- ADVANCED DETAILS ACCORDION -->
@@ -759,7 +759,7 @@ let P = class extends N {
                     </tr>
                     <tr>
                       <td>Doorstep Departure</td>
-                      <td><strong>${p}</strong> (${v})</td>
+                      <td><strong>${c}</strong> (${v})</td>
                     </tr>
                     <tr>
                       <td>Boarding Departure</td>
@@ -771,7 +771,7 @@ let P = class extends N {
                     </tr>
                     <tr>
                       <td>Destination Arrival</td>
-                      <td>${$}</td>
+                      <td>${_}</td>
                     </tr>
                     <tr>
                       <td>Target Margin / Slack</td>
@@ -837,11 +837,11 @@ let P = class extends N {
   _renderTransitModule(r, t) {
     var at;
     const i = (at = this.hass) == null ? void 0 : at.states[r];
-    if (!i) return _``;
-    const e = i.attributes || {}, s = e.route_label || e.line || "", o = e.route_destination || e.destination || "", n = e.corridor_color || e.route_color || "#8E8E93", l = e.line_status || e.line_status_label || "Good Service", a = e.line_status_color || "#4CAF50", c = e.line_status_icon || "✓", h = e.corridor_location || "Awaiting Service", d = e.corridor_stops || [], u = parseFloat(
+    if (!i) return $``;
+    const e = i.attributes || {}, s = e.route_label || e.line || "", o = e.route_destination || e.destination || "", n = e.corridor_color || e.route_color || "#8E8E93", l = e.line_status || e.line_status_label || "Good Service", a = e.line_status_color || "#4CAF50", h = e.line_status_icon || "✓", p = e.corridor_location || "Awaiting Service", d = e.corridor_stops || [], u = parseFloat(
       e.corridor_progress !== void 0 ? String(e.corridor_progress) : "-1"
-    ), p = e.leave_by_time, f = p && p !== "none" ? p : "--:--", m = e.expected_time || e.expected_boarding_time, $ = m && m !== "none" ? m : "--:--", b = e.estimated_transit_arrival || e.estimated_balham_arrival || e.expected_alighting_time, M = b && b !== "none" ? b : "--:--", v = e.estimated_destination_arrival || e.expected_destination_time, y = v && v !== "none" ? v : "--:--", E = e.destination_icon || "🏫", x = e.target_slack_minutes !== void 0 ? e.target_slack_minutes : e.expected_destination_margin_seconds !== void 0 ? Math.round(e.expected_destination_margin_seconds / 60) : void 0, Ct = e.will_arrive_in_time === !0 || e.will_arrive_in_time === "true" || e.will_arrive_on_time === !0 || e.will_arrive_on_time === "true" || x != null && x !== "none" && parseFloat(String(x)) >= 0, Z = x != null && x !== "none" && !Ct, kt = Z ? "#FF5252" : "rgba(255, 255, 255, 0.08)", Tt = Z ? "rgba(255, 82, 82, 0.15)" : "rgba(255, 255, 255, 0.05)", Pt = Z ? "#FF8A80" : "#FFFFFF", Ft = e.pill_color || "#8E8E93", Rt = e.pill_bg || "rgba(142, 142, 147, 0.2)", zt = e.pill_border || "#8E8E93", nt = e.vehicle_type === "train" || e.mode === "train" || e.mode === "tube";
-    return _`
+    ), c = e.leave_by_time, f = c && c !== "none" ? c : "--:--", m = e.expected_time || e.expected_boarding_time, _ = m && m !== "none" ? m : "--:--", b = e.estimated_transit_arrival || e.estimated_balham_arrival || e.expected_alighting_time, M = b && b !== "none" ? b : "--:--", v = e.estimated_destination_arrival || e.expected_destination_time, y = v && v !== "none" ? v : "--:--", E = e.destination_icon || "🏫", x = e.target_slack_minutes !== void 0 ? e.target_slack_minutes : e.expected_destination_margin_seconds !== void 0 ? Math.round(e.expected_destination_margin_seconds / 60) : void 0, Ct = e.will_arrive_in_time === !0 || e.will_arrive_in_time === "true" || e.will_arrive_on_time === !0 || e.will_arrive_on_time === "true" || x != null && x !== "none" && parseFloat(String(x)) >= 0, Z = x != null && x !== "none" && !Ct, kt = Z ? "#FF5252" : "rgba(255, 255, 255, 0.08)", Pt = Z ? "rgba(255, 82, 82, 0.15)" : "rgba(255, 255, 255, 0.05)", Tt = Z ? "#FF8A80" : "#FFFFFF", Ft = e.pill_color || "#8E8E93", Rt = e.pill_bg || "rgba(142, 142, 147, 0.2)", zt = e.pill_border || "#8E8E93", nt = e.vehicle_type === "train" || e.mode === "train" || e.mode === "tube";
+    return $`
       <div
         class="transit-module"
         @click=${(Ht) => this._openDetails(Ht, r)}
@@ -858,13 +858,13 @@ let P = class extends N {
             <span class="destination-label">${o}</span>
           </div>
           <div class="line-health" style="color: ${a};">
-            <span>${this._renderStatusIcon(c)}</span>
+            <span>${this._renderStatusIcon(h)}</span>
             <span>${l}</span>
           </div>
         </div>
 
         <!-- Row 3: Corridor Schematic -->
-        ${d.length >= 1 ? _`
+        ${d.length >= 1 ? $`
               <div class="schematic-wrapper">
                 ${this._renderSchematicSvg(r, d, u, n, nt)}
               </div>
@@ -874,10 +874,10 @@ let P = class extends N {
         <div class="timings-wrapper">
           <div class="location-row">
             <span class="emoji-icon" style="color: #64B5F6;">📍</span>
-            <span class="location-text">${h}</span>
+            <span class="location-text">${p}</span>
           </div>
 
-          ${$ !== "--:--" || f !== "--:--" ? _`
+          ${_ !== "--:--" || f !== "--:--" ? $`
                 <div class="metrics-grid">
                   <!-- Left: Doorstep Leave-by Pill -->
                   <div class="metric-left">
@@ -893,7 +893,7 @@ let P = class extends N {
                   <!-- Centre: Transit Times (Departure + Icon + Transit Arrival) -->
                   <div class="metric-centre">
                     <span class="transit-pill">
-                      <span class="transit-time">${$}</span>
+                      <span class="transit-time">${_}</span>
                       <span class="emoji-icon">${nt ? "🚆" : "🚌"}</span>
                       <span class="transit-time">${M}</span>
                     </span>
@@ -901,10 +901,10 @@ let P = class extends N {
 
                   <!-- Right: Final Destination Arrival -->
                   <div class="metric-right">
-                    ${y !== "--:--" ? _`
+                    ${y !== "--:--" ? $`
                           <span
                             class="destination-pill"
-                            style="background: ${Tt}; border-color: ${kt}; color: ${Pt};"
+                            style="background: ${Pt}; border-color: ${kt}; color: ${Tt};"
                           >
                             <span class="emoji-icon">${E}</span>
                             <span class="destination-time">${y}</span>
@@ -918,14 +918,14 @@ let P = class extends N {
     `;
   }
   _renderSchematicSvg(r, t, i, e, s) {
-    const l = t.length === 1, a = s ? oe : ne, c = `terminus-grad-${r.replace(/[^a-zA-Z0-9]/g, "-")}`;
+    const l = t.length === 1, a = s ? oe : ne, h = `terminus-grad-${r.replace(/[^a-zA-Z0-9]/g, "-")}`;
     if (l) {
-      const p = t[0], f = i >= 0, $ = 40 + Math.min(Math.max(i, 0), 1) * 380;
+      const c = t[0], f = i >= -0.5, _ = 40 + Math.min(Math.max(i, 0), 1) * 380;
       return F`
         <svg viewBox="0 0 460 60" class="schematic-svg">
           <defs>
             <linearGradient
-              id="${c}"
+              id="${h}"
               gradientUnits="userSpaceOnUse"
               x1="${40}"
               y1="22"
@@ -943,7 +943,7 @@ let P = class extends N {
             y1="22"
             x2="${420}"
             y2="22"
-            stroke="url(#${c})"
+            stroke="url(#${h})"
             stroke-width="6"
             stroke-linecap="round"
           />
@@ -960,13 +960,13 @@ let P = class extends N {
             font-family="system-ui"
             font-weight="700"
           >
-            ${p.short_name}
+            ${c.short_name || c.name || c.stop_id || ""}
           </text>
 
           <!-- Vehicle Marker (Clean White Circle, No Outer Halo) -->
           ${f ? F`
                   <g
-                    transform="translate(${$}, 22)"
+                    transform="translate(${_}, 22)"
                     style="filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.7)); transition: transform 0.6s ease;"
                   >
                     <circle
@@ -985,9 +985,13 @@ let P = class extends N {
         </svg>
       `;
     }
-    const h = t.length - 1, d = i >= 0 && t.length > 1;
+    const p = t.length - 1, d = i >= -0.5 && t.length > 1;
     let u = 40;
-    return d && (u = i > h ? 440 : 40 + i * (380 / h)), F`
+    if (d) {
+      const c = Math.max(0, i);
+      u = c > p ? 440 : 40 + c * (380 / p);
+    }
+    return F`
       <svg viewBox="0 0 460 60" class="schematic-svg">
         <!-- Background Track -->
         <line
@@ -1011,18 +1015,18 @@ let P = class extends N {
         />
 
         <!-- Stops Nodes -->
-        ${t.map((p, f) => {
-      const m = 40 + f * (380 / h);
-      return p.is_target ? F`
+        ${t.map((c, f) => {
+      const m = 40 + f * (380 / p), _ = c.short_name || c.name || c.stop_id || "";
+      return c.is_target ? F`
               <circle cx="${m}" cy="22" r="9" fill="#2B2D3A" stroke="${e}" stroke-width="3.5" />
               <circle cx="${m}" cy="22" r="4" fill="#FFFFFF" />
               <text x="${m}" y="46" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-family="system-ui" font-weight="700">
-                ${p.short_name}
+                ${_}
               </text>
             ` : F`
             <circle cx="${m}" cy="22" r="6" fill="#2B2D3A" stroke="#FFFFFF" stroke-width="3" />
             <text x="${m}" y="46" text-anchor="middle" fill="#A0A5B5" font-size="9.5" font-family="system-ui" font-weight="500">
-              ${p.short_name}
+              ${_}
             </text>
           `;
     })}
@@ -1050,7 +1054,7 @@ let P = class extends N {
     `;
   }
 };
-P.styles = Ot`
+T.styles = Ot`
     :host {
       display: block;
       width: 100%;
@@ -1492,19 +1496,19 @@ P.styles = Ot`
   `;
 X([
   St({ attribute: !1 })
-], P.prototype, "hass", 2);
+], T.prototype, "hass", 2);
 X([
   ot()
-], P.prototype, "_config", 2);
+], T.prototype, "_config", 2);
 X([
   ot()
-], P.prototype, "_selectedRouteId", 2);
+], T.prototype, "_selectedRouteId", 2);
 X([
   ot()
-], P.prototype, "_mainHeight", 2);
-P = X([
+], T.prototype, "_mainHeight", 2);
+T = X([
   te("commute-tracker-card")
-], P);
+], T);
 const U = typeof window < "u" ? window : globalThis;
 U && (U.customCards = U.customCards || [], U.customCards.some(
   (r) => r.type === "commute-tracker-card"
@@ -1516,5 +1520,5 @@ U && (U.customCards = U.customCards || [], U.customCards.some(
   documentationURL: "https://github.com/marcelkornblum/ha-commute-tracker"
 }));
 export {
-  P as CommuteTrackerCard
+  T as CommuteTrackerCard
 };

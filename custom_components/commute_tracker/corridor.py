@@ -103,8 +103,8 @@ def calculate_corridor_progression(
             ]
             if matching_indices:
                 max_idx = max(matching_indices)
-                if "between" in loc_lower and max_idx > 0:
-                    return loc, float(max_idx) - 0.5
+                if "between" in loc_lower:
+                    return loc, max(0.0, float(max_idx) - 0.5)
                 return loc, float(matching_indices[0])
         return loc, 0.0
 
@@ -127,7 +127,9 @@ def calculate_corridor_progression(
         if match_dep is not None:
             if match_dep.seconds_to_arrival <= at_stop_threshold_seconds:
                 return f"At {stop_name}", float(idx)
-            prev_sid = corridor_stops[idx - 1] if idx > 0 else sid
+            if idx == 0:
+                return f"Approaching {stop_name}", 0.0
+            prev_sid = corridor_stops[idx - 1]
             prev_name = stop_names.get(prev_sid, prev_sid)
             return f"Between {prev_name} and {stop_name}", float(idx) - 0.5
 
@@ -137,7 +139,10 @@ def calculate_corridor_progression(
     if departure.seconds_to_arrival <= at_stop_threshold_seconds:
         return f"At {target_name}", float(target_idx)
 
-    prev_sid = corridor_stops[-2] if len(corridor_stops) > 1 else target_sid
+    if len(corridor_stops) == 1:
+        return f"Approaching {target_name}", 0.0
+
+    prev_sid = corridor_stops[-2]
     prev_name = stop_names.get(prev_sid, prev_sid)
     return f"Between {prev_name} and {target_name}", float(target_idx) - 0.5
 

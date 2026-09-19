@@ -554,13 +554,18 @@ class TfLTransitProvider(TransitProvider):
                 target_stop_id=target_stop.id,
             )
 
+            window = (
+                None
+                if mode in {TransitMode.TRAIN, TransitMode.TUBE}
+                else target_time_window_seconds
+            )
             fallback_seconds_per_stop = (
                 150 if mode in {TransitMode.TUBE, TransitMode.TRAIN} else 120
             )
             return slice_upstream_corridor(
                 sequences=[annotated_branch],
                 boarding_stop=target_stop.id,
-                target_time_window_seconds=target_time_window_seconds,
+                target_time_window_seconds=window,
                 seconds_per_stop=fallback_seconds_per_stop,
             )
 
