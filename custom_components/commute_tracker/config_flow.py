@@ -20,16 +20,14 @@ from custom_components.commute_tracker.const import (
     CONF_BOARDING_WALK_SECONDS,
     CONF_COMMUTE_ID,
     CONF_COMMUTE_TITLE,
-    CONF_CORRIDOR_STOPS,
     CONF_CORRIDOR_STOP_NAMES,
+    CONF_CORRIDOR_STOPS,
     CONF_DESTINATION,
     CONF_DIRECTION,
     CONF_GRACE_SECONDS,
     CONF_LINE,
     CONF_MODE,
     CONF_PERSON,
-    CONF_PERSON_NAME,
-    CONF_PERSON_PICTURE,
     CONF_POLL_INTERVAL,
     CONF_PREP_SECONDS,
     CONF_PROVIDER,
@@ -42,7 +40,6 @@ from custom_components.commute_tracker.const import (
     CONF_ROUTES,
     CONF_STAGING_MODE,
     CONF_TARGET_DESTINATION_TIME,
-    CONF_TRANSIT_DURATION_SECONDS,
     DEFAULT_POLL_INTERVAL_SECONDS,
     DEFAULT_PREP_SECONDS,
     DEFAULT_PROVIDER,
@@ -84,7 +81,7 @@ def _flatten_input(data: dict[str, Any]) -> dict[str, Any]:
     return flattened
 
 
-class CommuteFlowHandlerMixin:
+class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
     """Shared flow handler logic for ConfigFlow and OptionsFlow."""
 
     _commute_data: dict[str, Any]
@@ -216,10 +213,10 @@ class CommuteFlowHandlerMixin:
                 vol.Required("overview"): section(
                     vol.Schema(overview_dict),
                 ),
-                vol.Required("destination_timings"): section(
+                vol.Optional("destination_timings"): section(
                     vol.Schema(dest_timings_dict),
                 ),
-                vol.Required("rollup_strategy_sec"): section(
+                vol.Optional("rollup_strategy_sec"): section(
                     vol.Schema(strategy_dict),
                 ),
                 vol.Optional("advanced_settings"): section(
@@ -273,8 +270,7 @@ class CommuteFlowHandlerMixin:
         ]
         for idx, r in enumerate(self._routes):
             r_name = (
-                r.get("name")
-                or f"{str(r.get('mode', '')).title()} {r.get('line', '')}"
+                r.get("name") or f"{str(r.get('mode', '')).title()} {r.get('line', '')}"
             )
             b_stop = r.get("boarding_stop", "")
             options_map.append(
@@ -313,7 +309,8 @@ class CommuteFlowHandlerMixin:
 
         routes_summary = (
             "\n".join(
-                f"- **{r.get('name') or r.get('line')}** ({r.get('mode')}) at `{r.get('boarding_stop')}`"
+                f"- **{r.get('name') or r.get('line')}** "
+                f"({r.get('mode')}) at `{r.get('boarding_stop')}`"
                 for r in self._routes
             )
             if self._routes
@@ -405,17 +402,13 @@ class CommuteFlowHandlerMixin:
                     suffix += 1
 
                 route_dict: dict[str, Any] = {
-                    CONF_ROUTE_ID: (
-                        self._pending_route.get(CONF_ROUTE_ID) or route_id
-                    ),
+                    CONF_ROUTE_ID: (self._pending_route.get(CONF_ROUTE_ID) or route_id),
                     CONF_PROVIDER: provider_id,
                     CONF_MODE: mode.value,
                     CONF_LINE: line,
                     CONF_DIRECTION: RouteDirection.FROM_HOME.value,
                     CONF_BOARDING_STOP: resolved_naptan or boarding_stop,
-                    CONF_BOARDING_WALK_SECONDS: flat.get(
-                        "boarding_walk_seconds", 300
-                    ),
+                    CONF_BOARDING_WALK_SECONDS: flat.get("boarding_walk_seconds", 300),
                     CONF_GRACE_SECONDS: flat.get("grace_seconds", 60),
                 }
 
@@ -566,7 +559,7 @@ class CommuteFlowHandlerMixin:
                 vol.Required("boarding_walk"): section(
                     vol.Schema(boarding_dict),
                 ),
-                vol.Required("alighting_walk"): section(
+                vol.Optional("alighting_walk"): section(
                     vol.Schema(alighting_dict),
                 ),
             }
@@ -640,9 +633,7 @@ class CommuteFlowHandlerMixin:
     ) -> ConfigFlowResult:
         """Screen 4b: Configure short display names for each selected corridor stop."""
         chosen_ids = getattr(self, "_chosen_corridor_stops", [])
-        discovered_lookup = {
-            s.id: s.name for s in self._discovered_corridor_stops
-        }
+        discovered_lookup = {s.id: s.name for s in self._discovered_corridor_stops}
         existing_names = self._pending_route.get(CONF_CORRIDOR_STOP_NAMES, {})
 
         if user_input is not None:
@@ -675,20 +666,11 @@ class CommuteFlowHandlerMixin:
         names_fields: dict[Any, Any] = {}
         for sid in chosen_ids:
             field_key = f"name_{slugify(sid)}"
-            default_label = (
-                existing_names.get(sid)
-                or discovered_lookup.get(sid, sid)
-            )
-            names_fields[
-                vol.Optional(field_key, default=default_label)
-            ] = cv.string
+            default_label = existing_names.get(sid) or discovered_lookup.get(sid, sid)
+            names_fields[vol.Optional(field_key, default=default_label)] = cv.string
 
         names_schema = vol.Schema(
-            {
-                vol.Required("stop_display_names"): section(
-                    vol.Schema(names_fields)
-                )
-            }
+            {vol.Required("stop_display_names"): section(vol.Schema(names_fields))}
         )
 
         return self.async_show_form(
@@ -886,6 +868,7 @@ class CommuteTrackerOptionsFlow(CommuteFlowHandlerMixin, config_entries.OptionsF
             self.config_entry,
             title=entry_data[CONF_COMMUTE_TITLE],
             data=entry_data,
+            options={},
         )
 
-        return self.async_create_entry(title="", data=entry_data)
+        return self.async_create_entry(title="", data={})

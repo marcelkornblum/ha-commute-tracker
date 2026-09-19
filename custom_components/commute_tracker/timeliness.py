@@ -5,7 +5,7 @@ destination slack, and urgency state machines.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from typing import Any
 
 from custom_components.commute_tracker.const import (
@@ -223,14 +223,14 @@ def calculate_urgency_stage(
     return UrgencyStage.RELAXED
 
 
-def to_local_datetime(
-    dt: datetime, reference_time: datetime | None = None
-) -> datetime:
-    """Ensure datetime is converted to local timezone matching reference_time or local system."""
+def to_local_datetime(dt: datetime, reference_time: datetime | None = None) -> datetime:
+    """Ensure datetime is converted to local timezone."""
     clean_dt = dt
     if clean_dt.tzinfo is not None:
-        if reference_time is not None and reference_time.tzinfo is not None:
-            return clean_dt.astimezone(reference_time.tzinfo)
+        if reference_time is not None:
+            if reference_time.tzinfo is not None:
+                return clean_dt.astimezone(reference_time.tzinfo)
+            return clean_dt.astimezone(timezone.utc).replace(tzinfo=None)
         return clean_dt.astimezone()
     if reference_time is not None and reference_time.tzinfo is not None:
         return clean_dt.replace(tzinfo=reference_time.tzinfo)
@@ -449,9 +449,7 @@ def calculate_destination_margin(
     return margin_seconds, will_arrive_on_time, timeliness_label
 
 
-def _parse_time_string(
-    time_str: str, reference_time: datetime | None = None
-) -> time:
+def _parse_time_string(time_str: str, reference_time: datetime | None = None) -> time:
     """Parse HH:MM, HH:MM:SS, or ISO timestamp into local datetime.time."""
     clean = time_str.strip()
     if "T" in clean:
