@@ -126,6 +126,7 @@ class RouteConfig:
     transit_duration_seconds: int | None = None
     alighting_walk_seconds: int | None = None
     corridor_stops: list[str] = field(default_factory=list)
+    corridor_stop_names: dict[str, str] = field(default_factory=dict)
     name: str | None = None
 
     @property
@@ -166,8 +167,10 @@ class CommuteConfig:
     active_sensor: str | None = None
     target_destination_time: str | None = None
     commute_title: str | None = None
+    person: str | None = None
     person_name: str | None = None
     person_picture: str | None = None
+    destination: str | None = None
     grace_seconds: int | None = None
     grace_fraction: float | None = None
     rollup_strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER
@@ -239,6 +242,7 @@ class CommuteConfig:
                     transit_duration_seconds=transit_dur,
                     alighting_walk_seconds=alight_walk,
                     corridor_stops=list(r.get("corridor_stops", [])),
+                    corridor_stop_names=dict(r.get("corridor_stop_names", {})),
                     name=r.get("name"),
                 )
             )
@@ -287,8 +291,10 @@ class CommuteConfig:
             active_sensor=active_sensor,
             target_destination_time=data.get("target_destination_time"),
             commute_title=title,
+            person=data.get("person"),
             person_name=data.get("person_name"),
             person_picture=person_picture,
+            destination=data.get("destination"),
             grace_seconds=grace_sec,
             grace_fraction=grace_frac,
             rollup_strategy=strategy,
