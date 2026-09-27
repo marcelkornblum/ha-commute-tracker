@@ -3,7 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 export default defineConfig({
+  esbuild: {
+    target: "es2020",
+  },
   build: {
+    target: ["es2020", "chrome90", "safari14"],
     lib: {
       entry: "src/commute-tracker-card.ts",
       formats: ["es"],
