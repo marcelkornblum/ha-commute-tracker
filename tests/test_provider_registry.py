@@ -119,6 +119,31 @@ def test_registry_dynamic_discovery() -> None:
     assert "template" in registry.registered_provider_ids
 
 
+@pytest.mark.asyncio
+async def test_registry_async_dynamic_discovery() -> None:
+    """Verify asynchronous dynamic discovery registers providers using executor."""
+    registry = TransitProviderRegistry()
+    await registry.async_discover_providers()
+
+    assert "tfl" in registry.registered_provider_ids
+    assert "template" in registry.registered_provider_ids
+
+
+def test_registry_dynamic_discovery_idempotent() -> None:
+    """Verify discover_providers is idempotent and force allows rediscovery."""
+    registry = TransitProviderRegistry()
+    registry.discover_providers()
+    assert registry._discovered is True
+
+    # Subsequent call without force does not fail and retains providers
+    registry.discover_providers()
+    assert "tfl" in registry.registered_provider_ids
+
+    # Calling with force=True re-runs discovery
+    registry.discover_providers(force=True)
+    assert "tfl" in registry.registered_provider_ids
+
+
 def test_registry_validate_provider_valid() -> None:
     """Verify validate_provider succeeds on fully compliant provider classes."""
     TransitProviderRegistry.validate_provider(provider_cls=DummyProvider)

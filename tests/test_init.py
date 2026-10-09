@@ -195,3 +195,57 @@ async def test_async_setup_entry_and_unload_entry(hass: HomeAssistant) -> None:
             assert unload_result is True
             mock_coord_unload.assert_called_once()
             assert entry.entry_id not in hass.data[DOMAIN]["coordinators"]
+
+
+async def test_async_setup_entry_uses_executor_for_provider_discovery(
+    hass: HomeAssistant,
+) -> None:
+    """Verify async_setup_entry dispatches discovery to executor."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Test Commute",
+        data={
+            "id": "test_commute",
+            "name": "Test Commute",
+            "active_sensor": "binary_sensor.test_active",
+            "routes": [
+                {
+                    "id": "bus_73",
+                    "mode": "bus",
+                    "line": "73",
+                    "boarding_stop": "490013766F",
+                }
+            ],
+        },
+        unique_id="test_commute",
+    )
+    entry.add_to_hass(hass)
+
+    executor_jobs: list[Any] = []
+    real_async_add_executor_job = hass.async_add_executor_job
+
+    async def _capture_executor_job(target: Any, *args: Any) -> Any:
+        executor_jobs.append(target)
+        return await real_async_add_executor_job(target, *args)
+
+    with (
+        patch.object(hass, "async_add_executor_job", side_effect=_capture_executor_job),
+        patch.object(CommuteCoordinator, "async_setup", new_callable=AsyncMock),
+    ):
+        setup_result = await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        assert setup_result is True
+
+        from custom_components.commute_tracker.providers.base import (
+            TransitProviderRegistry,
+        )
+
+        assert any(
+            getattr(job, "__name__", "") == "discover_providers"
+            or job == TransitProviderRegistry.discover_providers
+            or getattr(job, "__func__", None)
+            == TransitProviderRegistry.discover_providers
+            for job in executor_jobs
+        )

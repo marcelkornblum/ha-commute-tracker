@@ -56,7 +56,8 @@ classDiagram
         +is_valid_provider(provider_cls) bool
         +register(provider_cls)
         +get_provider(provider_id) TransitProvider
-        +discover_providers()
+        +discover_providers(force=False)
+        +async_discover_providers(force=False)
     }
 
     class TfLTransitProvider {
@@ -147,7 +148,7 @@ The validator verifies:
    - `async_get_telemetry(route: RouteConfig) -> RouteTelemetry`
 
 ### Dynamic Discovery
-When `TransitProviderRegistry.discover_providers()` is called, it scans the `custom_components/commute_tracker/providers/` directory, imports every module, validates all discovered `TransitProvider` subclasses, and registers those that pass validation.
+When `TransitProviderRegistry.discover_providers()` (or its asynchronous variant `TransitProviderRegistry.async_discover_providers()`) is called, it scans the `custom_components/commute_tracker/providers/` directory, imports every module, validates all discovered `TransitProvider` subclasses, and registers those that pass validation. In Home Assistant async contexts, discovery is dispatched via the executor (`hass.async_add_executor_job`) to prevent blocking calls on the event loop. Discovery is idempotent, avoiding redundant filesystem scanning unless `force=True` is provided.
 
 ---
 

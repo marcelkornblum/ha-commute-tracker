@@ -92,14 +92,26 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
     _chosen_corridor_stops: list[str]
     _providers_config: dict[str, Any]
 
+    async def _async_get_registry(self) -> TransitProviderRegistry:
+        """Retrieve shared registry or instantiate scoped registry asynchronously."""
+        domain_data = self.hass.data.setdefault(DOMAIN, {})
+        registry = domain_data.get("registry")
+        if not isinstance(registry, TransitProviderRegistry):
+            session = async_get_clientsession(self.hass)
+            registry = TransitProviderRegistry(session=session)
+            await self.hass.async_add_executor_job(registry.discover_providers)
+            domain_data["registry"] = registry
+        return registry
+
     def _get_registry(self) -> TransitProviderRegistry:
-        """Retrieve shared registry or instantiate scoped registry."""
-        domain_data = self.hass.data.get(DOMAIN, {})
+        """Retrieve shared registry or instantiate scoped registry synchronously."""
+        domain_data = self.hass.data.setdefault(DOMAIN, {})
         registry = domain_data.get("registry")
         if not isinstance(registry, TransitProviderRegistry):
             session = async_get_clientsession(self.hass)
             registry = TransitProviderRegistry(session=session)
             registry.discover_providers()
+            domain_data["registry"] = registry
         return registry
 
     def _build_commute_schema(
@@ -329,7 +341,7 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
     ) -> ConfigFlowResult:
         """Screen 3: Configure route details and walk timings."""
         errors: dict[str, str] = {}
-        registry = self._get_registry()
+        registry = await self._async_get_registry()
         consumer_ids = sorted(list(registry.consumer_provider_ids))
         if not consumer_ids:
             consumer_ids = [DEFAULT_PROVIDER]

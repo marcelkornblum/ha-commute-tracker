@@ -58,7 +58,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     session = async_get_clientsession(hass)
     registry = TransitProviderRegistry(session=session)
-    registry.discover_providers()
+    await hass.async_add_executor_job(registry.discover_providers)
 
     for provider_id, p_conf in providers_conf.items():
         if provider_id in registry.registered_provider_ids and isinstance(p_conf, dict):
@@ -102,7 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     if registry is None:
         registry = TransitProviderRegistry(session=session)
-        registry.discover_providers()
+        await hass.async_add_executor_job(registry.discover_providers)
         hass.data[DOMAIN]["registry"] = registry
 
     merged_data: dict[str, Any] = {**entry.data, **entry.options}
