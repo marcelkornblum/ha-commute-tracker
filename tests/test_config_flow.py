@@ -492,3 +492,32 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         assert entry.data["rollup_strategy"] == "soonest"
         assert entry.data["poll_interval"] == 45
         mock_reload.assert_called_once_with(entry.entry_id)
+
+
+async def test_async_get_registry_uses_executor_job(hass: HomeAssistant) -> None:
+    """Verify _async_get_registry executes discover_providers via executor."""
+    from custom_components.commute_tracker.config_flow import CommuteTrackerConfigFlow
+
+    flow = CommuteTrackerConfigFlow()
+    flow.hass = hass
+
+    # Ensure DOMAIN registry is not present
+    hass.data.pop(DOMAIN, None)
+
+    executor_jobs: list[Any] = []
+    real_async_add_executor_job = hass.async_add_executor_job
+
+    async def _capture_executor_job(target: Any, *args: Any) -> Any:
+        executor_jobs.append(target)
+        return await real_async_add_executor_job(target, *args)
+
+    with patch.object(
+        hass, "async_add_executor_job", side_effect=_capture_executor_job
+    ):
+        registry = await flow._async_get_registry()
+        assert registry is not None
+
+        assert any(
+            getattr(job, "__name__", "") in {"discover_providers", "_mock_discover"}
+            for job in executor_jobs
+        )

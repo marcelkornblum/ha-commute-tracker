@@ -532,6 +532,7 @@ class TransitProviderRegistry:
         self._instances: dict[str, TransitProvider] = {}
         self._cache = cache or DebouncedCache()
         self._session = session
+        self._discovered: bool = False
 
     @property
     def registered_provider_ids(self) -> set[str]:
@@ -665,8 +666,15 @@ class TransitProviderRegistry:
 
         return self._instances[provider_id]
 
-    def discover_providers(self) -> None:
-        """Dynamically discover and register providers located in this package."""
+    def discover_providers(self, force: bool = False) -> None:
+        """Dynamically discover and register providers located in this package.
+
+        :param force: If True, re-scan and register providers even if already
+            discovered.
+        """
+        if self._discovered and not force:
+            return
+
         package_dir = Path(__file__).parent
         package_name = "custom_components.commute_tracker.providers"
 
@@ -683,3 +691,14 @@ class TransitProviderRegistry:
                     and self.is_valid_provider(provider_cls=attr)
                 ):
                     self.register(provider_cls=attr)
+
+        self._discovered = True
+
+    async def async_discover_providers(self, force: bool = False) -> None:
+        """Asynchronously discover providers using the default executor thread.
+
+        :param force: If True, re-scan and register providers even if already
+            discovered.
+        """
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self.discover_providers, force)
