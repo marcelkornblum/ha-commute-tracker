@@ -199,3 +199,31 @@ def test_create_idle_commute_state(sample_commute_config: CommuteConfig) -> None
     assert not idle.master_rollup.is_active
     assert "bus_73" in idle.child_routes
     assert not idle.child_routes["bus_73"].is_active
+    assert idle.child_routes["bus_73"].route_label == "73"
+    assert idle.child_routes["bus_73"].destination == ""
+    assert idle.child_routes["bus_73"].corridor_stops == []
+
+
+def test_create_idle_commute_state_populates_route_metadata() -> None:
+    """Verify idle state preserves route_label, destination, and corridor_stops."""
+    route = RouteConfig(
+        route_id="bus_73",
+        mode=TransitMode.BUS,
+        line="73",
+        boarding_stop="490013766F",
+        boarding_walk_seconds=240,
+        prep_seconds=120,
+        destination="Victoria Bus Station",
+        corridor_stops=["Stop_A", "Stop_B", "Stop_C"],
+    )
+    idle = create_idle_commute_state([route])
+    assert idle.commute_id == "default"
+    child = idle.child_routes["bus_73"]
+    assert child.route_label == "73"
+    assert child.destination == "Victoria Bus Station"
+    assert len(child.corridor_stops) == 3
+    assert child.corridor_stops == [
+        {"stop_id": "Stop_A", "stop_name": "Stop_A", "sequence": 0, "is_target": False},
+        {"stop_id": "Stop_B", "stop_name": "Stop_B", "sequence": 1, "is_target": False},
+        {"stop_id": "Stop_C", "stop_name": "Stop_C", "sequence": 2, "is_target": True},
+    ]

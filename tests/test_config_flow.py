@@ -10,6 +10,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.commute_tracker.const import (
+    CONF_TRANSIT_DURATION_SECONDS,
     DOMAIN,
 )
 from custom_components.commute_tracker.models import (
@@ -521,3 +522,245 @@ async def test_async_get_registry_uses_executor_job(hass: HomeAssistant) -> None
             getattr(job, "__name__", "") in {"discover_providers", "_mock_discover"}
             for job in executor_jobs
         )
+
+
+@pytest.mark.asyncio
+async def test_route_transit_duration_seconds_saved(hass: HomeAssistant) -> None:
+    """Test transit_duration_seconds in alighting_walk section is saved onto route."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Work Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
+        },
+    )
+    assert result2["step_id"] == "route"
+
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+                "name": "Bus 73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": 300,
+            },
+            "alighting_walk": {
+                "alighting_stop": "Oxford Circus",
+                "transit_duration_seconds": 720,
+                "alighting_walk_seconds": 180,
+            },
+        },
+    )
+    assert result3["step_id"] == "corridor"
+
+    result4 = await hass.config_entries.flow.async_configure(
+        result3["flow_id"],
+        user_input={
+            "corridor_stops": ["490000001C"],
+        },
+    )
+    assert result4["step_id"] == "corridor_names"
+
+    result5 = await hass.config_entries.flow.async_configure(
+        result4["flow_id"],
+        user_input={"stop_display_names": {}},
+    )
+    assert result5["step_id"] == "routes"
+
+    result6 = await hass.config_entries.flow.async_configure(
+        result5["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert result6["type"] == FlowResultType.CREATE_ENTRY
+    routes = result6["data"]["routes"]
+    assert len(routes) == 1
+    assert routes[0][CONF_TRANSIT_DURATION_SECONDS] == 720
+    assert routes[0]["alighting_stop"] == "Oxford Circus"
+    assert routes[0]["alighting_walk_seconds"] == 180
+
+
+@pytest.mark.asyncio
+async def test_corridor_stops_ordering_with_extra_stops(hass: HomeAssistant) -> None:
+    """Test corridor stops place extra upstream stops before target boarding stop."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Single Stop Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
+        },
+    )
+
+    with (
+        patch.object(
+            MockTransitProvider,
+            "async_validate_stop",
+            return_value=(True, "STOP_TARGET", "Target Station"),
+        ),
+        patch.object(
+            MockTransitProvider,
+            "async_get_corridor_stops",
+            return_value=[
+                CorridorStop(
+                    id="STOP_TARGET",
+                    name="Target Station",
+                    is_target=True,
+                )
+            ],
+        ),
+    ):
+        result3 = await hass.config_entries.flow.async_configure(
+            result2["flow_id"],
+            user_input={
+                "service_details": {
+                    "provider": "mock_tfl",
+                    "mode": "bus",
+                    "line": "73",
+                },
+                "boarding_walk": {
+                    "boarding_stop": "STOP_TARGET",
+                },
+            },
+        )
+        assert result3["step_id"] == "corridor"
+
+        # Submit corridor with target stop selected and extra upstream calling points
+        result4 = await hass.config_entries.flow.async_configure(
+            result3["flow_id"],
+            user_input={
+                "corridor_stops": ["STOP_TARGET"],
+                "extra_stops": "STOP_UPSTREAM_1, STOP_UPSTREAM_2",
+            },
+        )
+        assert result4["step_id"] == "corridor_names"
+
+        result5 = await hass.config_entries.flow.async_configure(
+            result4["flow_id"],
+            user_input={"stop_display_names": {}},
+        )
+        assert result5["step_id"] == "routes"
+
+        result6 = await hass.config_entries.flow.async_configure(
+            result5["flow_id"],
+            user_input={"route_action": "finish"},
+        )
+        assert result6["type"] == FlowResultType.CREATE_ENTRY
+        saved_route = result6["data"]["routes"][0]
+        # Target boarding stop must be at the very end of corridor_stops
+        assert saved_route["corridor_stops"] == [
+            "STOP_UPSTREAM_1",
+            "STOP_UPSTREAM_2",
+            "STOP_TARGET",
+        ]
+        assert saved_route["corridor_stops"] != [
+            "STOP_TARGET",
+            "STOP_UPSTREAM_1",
+            "STOP_UPSTREAM_2",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_options_flow_edit_route_transit_duration(hass: HomeAssistant) -> None:
+    """Test options flow route edit retains and updates transit duration."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Office Commute",
+        data={
+            "id": "office_commute",
+            "name": "Office Commute",
+            "active_sensor": "binary_sensor.workday",
+            "routes": [
+                {
+                    "id": "bus_73",
+                    "provider": "mock_tfl",
+                    "mode": "bus",
+                    "line": "73",
+                    "boarding_stop": "490000001C",
+                    "alighting_stop": "490000001D",
+                    "transit_duration_seconds": 600,
+                    "boarding_walk_seconds": 240,
+                    "alighting_walk_seconds": 120,
+                    "corridor_stops": ["490000001A", "490000001C"],
+                }
+            ],
+        },
+        unique_id="office_commute",
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["step_id"] == "init"
+
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Office Commute",
+                "active_sensor": "binary_sensor.workday",
+            },
+        },
+    )
+    assert result2["step_id"] == "routes"
+
+    # Select edit route 0
+    result3 = await hass.config_entries.options.async_configure(
+        result2["flow_id"],
+        user_input={"route_action": "edit_route_0"},
+    )
+    assert result3["step_id"] == "route"
+
+    # Update transit_duration_seconds to 900
+    result4 = await hass.config_entries.options.async_configure(
+        result3["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+            },
+            "alighting_walk": {
+                "alighting_stop": "490000001D",
+                "transit_duration_seconds": 900,
+                "alighting_walk_seconds": 120,
+            },
+        },
+    )
+    assert result4["step_id"] == "corridor"
+
+    result5 = await hass.config_entries.options.async_configure(
+        result4["flow_id"],
+        user_input={"corridor_stops": ["490000001A", "490000001C"]},
+    )
+    assert result5["step_id"] == "corridor_names"
+
+    result6 = await hass.config_entries.options.async_configure(
+        result5["flow_id"],
+        user_input={"stop_display_names": {}},
+    )
+    assert result6["step_id"] == "routes"
+
+    result7 = await hass.config_entries.options.async_configure(
+        result6["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert result7["type"] == FlowResultType.CREATE_ENTRY
+    updated_route = entry.data["routes"][0]
+    assert updated_route[CONF_TRANSIT_DURATION_SECONDS] == 900

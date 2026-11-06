@@ -643,3 +643,110 @@ async def test_tfl_corridor_with_timetable() -> None:
     assert stops[1].id == "STOP_C"
     assert stops[1].scheduled_lead_seconds == 0
     assert stops[1].is_target is True
+
+
+def test_adapt_journey_duration_seconds(
+    tfl_provider: TfLTransitProvider, nelson_commute_dir: Path
+) -> None:
+    """Verify adapt_journey extracts duration_seconds from journey results."""
+    rail_path = nelson_commute_dir / "set4_consolidated_train" / "journey_results.json"
+    rail_json = json.loads(rail_path.read_text(encoding="utf-8"))
+
+    predictions = tfl_provider.adapt_journey(
+        raw_payload=rail_json,
+        origin="910GCHRX",
+        destination="910GLNDNBDC",
+        reference_time_iso="2026-09-14T12:54:57Z",
+    )
+
+    assert len(predictions) > 0
+    # Journey duration in fixture is 7 minutes (420 seconds)
+    assert predictions[0].duration_seconds == 420
+
+
+def test_adapt_journey_duration_fallback(tfl_provider: TfLTransitProvider) -> None:
+    """Verify adapt_journey duration fallback to arrivalDateTime minus startDateTime."""
+    payload = {
+        "journeys": [
+            {
+                "startDateTime": "2026-09-14T14:00:00Z",
+                "arrivalDateTime": "2026-09-14T14:15:00Z",
+                "legs": [
+                    {
+                        "instruction": {"summary": "Train to London Bridge"},
+                        "departurePoint": {"commonName": "Charing Cross"},
+                    }
+                ],
+            }
+        ]
+    }
+    predictions = tfl_provider.adapt_journey(
+        raw_payload=payload,
+        origin="910GCHRX",
+        destination="910GLNDNBDC",
+        reference_time_iso="2026-09-14T13:50:00Z",
+    )
+    assert len(predictions) == 1
+    assert predictions[0].duration_seconds == 900
+
+
+def test_adapt_departures_dynamic_journey_duration(
+    tfl_provider: TfLTransitProvider,
+) -> None:
+    """Verify adapt_departures computes dynamic transit duration from alighting stop."""
+    raw_arrivals = [
+        {
+            "vehicleId": "BUS101",
+            "naptanId": "STOP_BOARD",
+            "stationName": "Boarding Stop Station",
+            "timeToStation": 300,
+            "expectedArrival": "2026-09-14T14:05:00Z",
+            "destinationName": "Hackney Wick",
+        },
+        {
+            "vehicleId": "BUS101",
+            "naptanId": "STOP_ALIGHT",
+            "stationName": "Alighting Stop Station",
+            "timeToStation": 900,
+            "expectedArrival": "2026-09-14T14:15:00Z",
+            "destinationName": "Hackney Wick",
+        },
+        {
+            "vehicleId": "BUS102",
+            "naptanId": "STOP_BOARD",
+            "stationName": "Boarding Stop Station",
+            "timeToStation": 600,
+            "expectedArrival": "2026-09-14T14:10:00Z",
+            "destinationName": "Hackney Wick",
+        },
+    ]
+
+    # When alighting_stop is provided and matches NaPTAN
+    predictions = tfl_provider.adapt_departures(
+        raw_payload=raw_arrivals,
+        target_stop="STOP_BOARD",
+        alighting_stop="STOP_ALIGHT",
+    )
+    assert len(predictions) == 2
+    # BUS101 has alighting prediction at 900s, boarding at 300s -> duration 600s
+    assert predictions[0].vehicle_id == "BUS101"
+    assert predictions[0].duration_seconds == 600
+    # BUS102 has no alighting prediction -> duration is None
+    assert predictions[1].vehicle_id == "BUS102"
+    assert predictions[1].duration_seconds is None
+
+    # When alighting_stop is provided by station name
+    predictions_by_name = tfl_provider.adapt_departures(
+        raw_payload=raw_arrivals,
+        target_stop="STOP_BOARD",
+        alighting_stop="Alighting Stop",
+    )
+    assert len(predictions_by_name) == 2
+    assert predictions_by_name[0].duration_seconds == 600
+
+    # When alighting_stop is not provided, duration_seconds should be None
+    predictions_no_alight = tfl_provider.adapt_departures(
+        raw_payload=raw_arrivals,
+        target_stop="STOP_BOARD",
+    )
+    assert predictions_no_alight[0].duration_seconds is None

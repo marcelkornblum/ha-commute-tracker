@@ -1,5 +1,4 @@
 import { LitElement, html, css, svg, PropertyValues } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
 
 export interface CommuteCardConfig {
   type: string;
@@ -8,9 +7,12 @@ export interface CommuteCardConfig {
   routes?: string[];
 }
 
+export type CardConfig = CommuteCardConfig;
+
 export interface CorridorStop {
   short_name?: string;
   name?: string;
+  stop_name?: string;
   stop_id?: string;
   is_target: boolean;
 }
@@ -20,6 +22,8 @@ export interface HassEntityState {
   state: string;
   attributes: Record<string, any>;
 }
+
+export type HassEntity = HassEntityState;
 
 export interface HomeAssistantLike {
   states: Record<string, HassEntityState>;
@@ -31,15 +35,54 @@ const TRAIN_SVG_PATH =
 const BUS_SVG_PATH =
   "M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z";
 
-@customElement("commute-tracker-card")
 export class CommuteTrackerCard extends LitElement {
-  @property({ attribute: false }) public hass?: HomeAssistantLike;
-  @state() private _config?: CommuteCardConfig;
-  @state() private _selectedRouteId?: string;
-  @state() private _mainHeight = 360;
+  public static properties = {
+    hass: { attribute: false },
+    _config: { state: true },
+    _selectedRouteId: { state: true },
+    _mainHeight: { state: true },
+  };
 
-  public setConfig(config: CommuteCardConfig): void {
-    if (!config || !config.entity) {
+  public hass?: HomeAssistantLike;
+  private _config?: CardConfig;
+  private _selectedRouteId: string | null = null;
+  private _mainHeight: number = 0;
+
+  public static getStubConfig(hass?: HomeAssistantLike): Record<string, string> {
+    let entity = "sensor.commute_tracker";
+    if (hass && hass.states) {
+      const found =
+        Object.keys(hass.states).find((entId) => {
+          if (!entId.startsWith("sensor.")) return false;
+          const st = hass.states[entId];
+          return (
+            st &&
+            st.attributes &&
+            Array.isArray(st.attributes.child_entities) &&
+            st.attributes.child_entities.length > 0
+          );
+        }) ||
+        Object.keys(hass.states).find((entId) => {
+          if (!entId.startsWith("sensor.")) return false;
+          const st = hass.states[entId];
+          return (
+            st &&
+            st.attributes &&
+            Array.isArray(st.attributes.child_entities)
+          );
+        });
+      if (found) {
+        entity = found;
+      }
+    }
+    return { entity };
+  }
+
+  public setConfig(config: CardConfig): void {
+    if (!config || typeof config !== "object") {
+      throw new Error("Invalid configuration");
+    }
+    if (!config.entity) {
       throw new Error("Please define an entity in your card configuration.");
     }
     this._config = config;
@@ -491,59 +534,92 @@ export class CommuteTrackerCard extends LitElement {
   `;
 
   protected render() {
-    if (!this._config || !this.hass) {
+    try {
+      if (!this.hass || !this.hass.states || !this._config) {
+        return html``;
+      }
+
+      const masterEntity = this.hass.states[this._config.entity];
+      if (!masterEntity) {
+        return html`
+          <div class="card-container warning-card">
+            Entity not found: <code>${this._config.entity}</code>
+          </div>
+        `;
+      }
+
+      // IF A ROUTE IS SELECTED: RENDER DETAILS VIEW OVER/ON TOP OF MAIN CARD
+      if (this._selectedRouteId) {
+        return this._renderDetailsView(masterEntity, this._selectedRouteId);
+      }
+
+      const masterAttrs = masterEntity.attributes || {};
+      const pic = masterAttrs.person_picture || "";
+      const title =
+        this._config.title ||
+        masterAttrs.commute_title ||
+        masterAttrs.friendly_name ||
+        "Commute";
+      const pillText =
+        masterAttrs.pill_label ||
+        (masterEntity.state === "standby" ? "Standby" : "Active");
+      const pillCol = masterAttrs.pill_color || "#8E8E93";
+      const pillBg = masterAttrs.pill_bg || "rgba(142, 142, 147, 0.2)";
+      const pillBorder = masterAttrs.pill_border || "#8E8E93";
+      const activeOpt = masterAttrs.active_option || "";
+
+      const rawChildEntities: string[] = Array.isArray(this._config.routes)
+        ? this._config.routes.filter(
+            (id: unknown): id is string => typeof id === "string" && id.length > 0
+          )
+        : Array.isArray(masterAttrs.child_entities)
+        ? masterAttrs.child_entities.filter(
+            (id: unknown): id is string => typeof id === "string" && id.length > 0
+          )
+        : [];
+
+      const isRelevant =
+        masterAttrs.is_relevant === true ||
+        masterAttrs.is_relevant === "true" ||
+        (masterAttrs.is_relevant === undefined &&
+          masterEntity.state !== "standby" &&
+          masterEntity.state !== "idle" &&
+          masterEntity.state !== "unavailable" &&
+          masterEntity.state !== "unknown");
+
+      let orderedChildEntities: HassEntityState[] = [];
+      for (const entId of rawChildEntities) {
+        const childState = this.hass.states[entId];
+        if (childState) {
+          orderedChildEntities.push(childState);
+        }
+      }
+
+      if (orderedChildEntities.length === 0) {
+        if (typeof masterAttrs.route_id === "string") {
+          orderedChildEntities = [masterEntity];
+        } else if (rawChildEntities.length > 0) {
+          return html`
+            <div class="card-container warning-card">
+              ⚠️ Child route entities not found for: ${this._config.entity}
+            </div>
+          `;
+        }
+      }
+
+      if (activeOpt && activeOpt !== "none") {
+        orderedChildEntities.sort((a, b) => {
+          const aRouteId = a.attributes?.route_id || a.entity_id;
+          const bRouteId = b.attributes?.route_id || b.entity_id;
+          const aMatches = aRouteId === activeOpt || a.entity_id === activeOpt;
+          const bMatches = bRouteId === activeOpt || b.entity_id === activeOpt;
+          if (aMatches && !bMatches) return -1;
+          if (!aMatches && bMatches) return 1;
+          return 0;
+        });
+      }
+
       return html`
-        <div class="card-container warning-card">
-          Entity configuration missing or Home Assistant not connected.
-        </div>
-      `;
-    }
-
-    const masterEntity = this.hass.states[this._config.entity];
-    if (!masterEntity) {
-      return html`
-        <div class="card-container warning-card">
-          Entity not found: <code>${this._config.entity}</code>
-        </div>
-      `;
-    }
-
-    // IF A ROUTE IS SELECTED: RENDER DETAILS VIEW OVER/ON TOP OF MAIN CARD
-    if (this._selectedRouteId) {
-      return this._renderDetailsView(masterEntity, this._selectedRouteId);
-    }
-
-    const attr = masterEntity.attributes || {};
-    const pic = attr.person_picture || "";
-    const title = this._config.title || attr.commute_title || attr.friendly_name || "Commute";
-    const pillText = attr.pill_label || (masterEntity.state === "standby" ? "Standby" : "Active");
-    const pillCol = attr.pill_color || "#8E8E93";
-    const pillBg = attr.pill_bg || "rgba(142, 142, 147, 0.2)";
-    const pillBorder = attr.pill_border || "#8E8E93";
-    const activeOpt = attr.active_option || "";
-
-    const childEntities: string[] = this._config?.routes || attr.child_entities || [];
-    const isRelevant =
-      attr.is_relevant === true ||
-      attr.is_relevant === "true" ||
-      (attr.is_relevant === undefined &&
-        masterEntity.state !== "standby" &&
-        masterEntity.state !== "idle" &&
-        masterEntity.state !== "unavailable" &&
-        masterEntity.state !== "unknown");
-
-    // Order child modules: Recommended route on top, others underneath
-    const orderedChildEntities = [...childEntities].sort((a, b) => {
-      const aState = this.hass?.states[a];
-      const bState = this.hass?.states[b];
-      const aRouteId = aState?.attributes?.route_id || a;
-      const bRouteId = bState?.attributes?.route_id || b;
-      if (aRouteId === activeOpt || a === activeOpt) return -1;
-      if (bRouteId === activeOpt || b === activeOpt) return 1;
-      return 0;
-    });
-
-    return html`
       <div class="card-container" role="region" aria-label="${title}">
         <div class="card-layout">
           <!-- Row 1: Unified Header -->
@@ -570,17 +646,26 @@ export class CommuteTrackerCard extends LitElement {
 
           <!-- Transit Modules (Only displayed when commute is relevant) -->
           ${isRelevant
-            ? orderedChildEntities.map((entId, idx) =>
-                this._renderTransitModule(entId, idx === 0)
+            ? orderedChildEntities.map((child, idx) =>
+                this._renderTransitModule(child, idx === 0)
               )
             : ""}
         </div>
       </div>
     `;
+    } catch (err) {
+      return html`
+        <div class="card-container warning-card">
+          ⚠️ Entity unavailable or rendering error
+        </div>
+      `;
+    }
   }
 
-  protected updated(changedProperties: PropertyValues): void {
-    super.updated(changedProperties);
+  private _syncHeight(): void {
+    if (typeof ResizeObserver !== "undefined") {
+      // Safe guard for ResizeObserver in headless render contexts
+    }
     if (!this._selectedRouteId) {
       const layout = this.shadowRoot?.querySelector(".card-layout") as HTMLElement;
       if (layout && layout.offsetHeight > 0 && layout.offsetHeight !== this._mainHeight) {
@@ -589,13 +674,15 @@ export class CommuteTrackerCard extends LitElement {
     }
   }
 
+  protected updated(changedProperties: PropertyValues): void {
+    super.updated(changedProperties);
+    this._syncHeight();
+  }
+
   private _openDetails(e: Event, entId: string): void {
     e.preventDefault();
     e.stopPropagation();
-    const layout = this.shadowRoot?.querySelector(".card-layout") as HTMLElement;
-    if (layout && layout.offsetHeight > 0) {
-      this._mainHeight = layout.offsetHeight;
-    }
+    this._syncHeight();
     this._selectedRouteId = entId;
   }
 
@@ -614,13 +701,13 @@ export class CommuteTrackerCard extends LitElement {
   }
 
   private _closeDetails(): void {
-    this._selectedRouteId = undefined;
+    this._selectedRouteId = null;
   }
 
   private _renderDetailsView(masterEntity: HassEntityState, entId: string) {
-    const childState = this.hass?.states[entId];
+    const childState = this.hass?.states ? this.hass.states[entId] : undefined;
     if (!childState) {
-      this._selectedRouteId = undefined;
+      this._selectedRouteId = null;
       return html``;
     }
 
@@ -783,10 +870,19 @@ export class CommuteTrackerCard extends LitElement {
     `;
   }
 
-  private _renderTransitModule(entId: string, isTop: boolean) {
-    const optState = this.hass?.states[entId];
+  private _renderTransitModule(
+    entityOrId: HassEntityState | string,
+    isExpanded: boolean = false
+  ) {
+    const optState: HassEntityState | undefined =
+      typeof entityOrId === "string"
+        ? this.hass?.states
+          ? this.hass.states[entityOrId]
+          : undefined
+        : entityOrId;
     if (!optState) return html``;
 
+    const entId = typeof entityOrId === "string" ? entityOrId : optState.entity_id;
     const a = optState.attributes || {};
     const route = a.route_label || a.line || "";
     const dest = a.route_destination || a.destination || "";
@@ -795,10 +891,14 @@ export class CommuteTrackerCard extends LitElement {
     const lineCol = a.line_status_color || "#4CAF50";
     const lineIcon = a.line_status_icon || "✓";
     const loc = a.corridor_location || "Awaiting Service";
-    const stops: CorridorStop[] = a.corridor_stops || [];
-    const progress = parseFloat(
-      a.corridor_progress !== undefined ? String(a.corridor_progress) : "-1"
-    );
+    const corridorStops: CorridorStop[] = Array.isArray(a.corridor_stops)
+      ? a.corridor_stops
+      : [];
+    const parsedProgress =
+      a.corridor_progress !== undefined && a.corridor_progress !== null
+        ? parseFloat(String(a.corridor_progress))
+        : -1;
+    const rawProgress = Number.isFinite(parsedProgress) ? parsedProgress : -1;
 
     const rawLeave = a.leave_by_time;
     const leaveBy = rawLeave && rawLeave !== "none" ? rawLeave : "--:--";
@@ -874,10 +974,16 @@ export class CommuteTrackerCard extends LitElement {
         </div>
 
         <!-- Row 3: Corridor Schematic -->
-        ${stops.length >= 1
+        ${corridorStops.length >= 1
           ? html`
               <div class="schematic-wrapper">
-                ${this._renderSchematicSvg(entId, stops, progress, trackCol, isTrain)}
+                ${this._renderSchematicSvg(
+                  entId,
+                  corridorStops,
+                  rawProgress,
+                  trackCol,
+                  isTrain
+                )}
               </div>
             `
           : ""}
@@ -941,11 +1047,12 @@ export class CommuteTrackerCard extends LitElement {
     trackCol: string,
     isTrain: boolean
   ) {
+    if (!stops || stops.length === 0) return svg``;
     const minX = 40;
     const maxX = 420;
     const isTerminus = stops.length === 1;
     const vehicleSvgPath = isTrain ? TRAIN_SVG_PATH : BUS_SVG_PATH;
-    const gradId = `terminus-grad-${entId.replace(/[^a-zA-Z0-9]/g, "-")}`;
+    const gradId = `terminus-grad-${(entId || "default").replace(/[^a-zA-Z0-9]/g, "-")}`;
 
     if (isTerminus) {
       const targetStop = stops[0];
@@ -992,7 +1099,7 @@ export class CommuteTrackerCard extends LitElement {
             font-family="system-ui"
             font-weight="700"
           >
-            ${targetStop.short_name || targetStop.name || targetStop.stop_id || ""}
+            ${targetStop.short_name || targetStop.name || targetStop.stop_name || targetStop.stop_id || ""}
           </text>
 
           <!-- Vehicle Marker (Clean White Circle, No Outer Halo) -->
@@ -1023,7 +1130,7 @@ export class CommuteTrackerCard extends LitElement {
     }
 
     // Standard Multi-Stop Corridor (e.g. Bus)
-    const maxP = stops.length - 1;
+    const maxP = Math.max(1, stops.length - 1);
     const showMarker = progress >= -0.5 && stops.length > 1;
     let bx = minX;
     if (showMarker) {
@@ -1060,7 +1167,7 @@ export class CommuteTrackerCard extends LitElement {
         <!-- Stops Nodes -->
         ${stops.map((stop, idx) => {
           const sx = minX + idx * ((maxX - minX) / maxP);
-          const label = stop.short_name || stop.name || stop.stop_id || "";
+          const label = stop.short_name || stop.name || stop.stop_name || stop.stop_id || "";
           if (stop.is_target) {
             return svg`
               <circle cx="${sx}" cy="22" r="9" fill="#2B2D3A" stroke="${trackCol}" stroke-width="3.5" />
@@ -1104,6 +1211,13 @@ export class CommuteTrackerCard extends LitElement {
       </svg>
     `;
   }
+}
+
+if (
+  typeof customElements !== "undefined" &&
+  !customElements.get("commute-tracker-card")
+) {
+  customElements.define("commute-tracker-card", CommuteTrackerCard);
 }
 
 declare global {

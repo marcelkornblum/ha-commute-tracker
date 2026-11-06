@@ -203,3 +203,112 @@ def test_engine_populates_presentation_attributes() -> None:
     assert master.next_summary == "Next at 14:20 (in 20m)"
     assert master.pill_badge is not None
     assert master.pill_badge.label == "Prepare (4m)"
+
+
+def test_engine_dynamic_transit_duration_from_prediction() -> None:
+    """Verify evaluate_commute uses dynamic duration_seconds from active departure."""
+    route_cfg = RouteConfig(
+        route_id="train_commute",
+        mode=TransitMode.TRAIN,
+        line="southeastern",
+        provider="tfl",
+        boarding_walk_seconds=120,
+        prep_seconds=60,
+        boarding_stop="CHRX",
+        alighting_stop="LNDNBDC",
+        destination="London Bridge",
+        transit_duration_seconds=None,  # Not configured statically
+        alighting_walk_seconds=300,  # 5 mins
+    )
+    commute_cfg = CommuteConfig(
+        commute_id="train_commute",
+        routes=[route_cfg],
+        target_destination_time="14:30",
+    )
+    engine = CommuteEngine(config=commute_cfg)
+
+    # Departure with dynamic 10-minute transit duration (600s)
+    active_dep = DeparturePrediction(
+        vehicle_id="TR01",
+        destination="London Bridge",
+        expected_time="2026-09-14T14:10:00Z",
+        seconds_to_arrival=600,  # 10m to board
+        duration_seconds=600,  # 10m in transit
+        is_realtime=True,
+    )
+    telemetry = RouteTelemetry(
+        route_id="train_commute",
+        line_id="southeastern",
+        mode=TransitMode.TRAIN,
+        departures=[active_dep],
+    )
+
+    ref_dt = datetime(2026, 9, 14, 14, 0, 0)
+    state = engine.evaluate_commute(
+        telemetries={"train_commute": telemetry},
+        reference_time=ref_dt,
+    )
+
+    child = state.child_routes["train_commute"]
+    # Boarding: 14:00 + 10m = 14:10
+    assert child.expected_boarding_time == "14:10"
+    # Alighting: 14:10 + 10m dynamic transit = 14:20
+    assert child.expected_alighting_time == "14:20"
+    # Destination: 14:20 + 5m alighting walk = 14:25
+    assert child.expected_destination_time == "14:25"
+    # Target 14:30 vs Dest 14:25 -> 5 mins margin (300s)
+    assert child.expected_destination_margin_seconds == 300
+    assert child.will_arrive_on_time is True
+
+
+def test_engine_configured_transit_duration_overrides_prediction() -> None:
+    """Verify statically configured transit duration overrides prediction duration."""
+    route_cfg = RouteConfig(
+        route_id="train_commute",
+        mode=TransitMode.TRAIN,
+        line="southeastern",
+        provider="tfl",
+        boarding_walk_seconds=120,
+        prep_seconds=60,
+        boarding_stop="CHRX",
+        alighting_stop="LNDNBDC",
+        destination="London Bridge",
+        transit_duration_seconds=900,  # Explicitly configured: 15 mins (900s)
+        alighting_walk_seconds=300,  # 5 mins
+    )
+    commute_cfg = CommuteConfig(
+        commute_id="train_commute",
+        routes=[route_cfg],
+        target_destination_time="14:35",
+    )
+    engine = CommuteEngine(config=commute_cfg)
+
+    # Departure with dynamic 10-minute transit duration (600s)
+    active_dep = DeparturePrediction(
+        vehicle_id="TR01",
+        destination="London Bridge",
+        expected_time="2026-09-14T14:10:00Z",
+        seconds_to_arrival=600,  # 10m to board
+        duration_seconds=600,  # 10m in transit (should be overridden by 900s)
+        is_realtime=True,
+    )
+    telemetry = RouteTelemetry(
+        route_id="train_commute",
+        line_id="southeastern",
+        mode=TransitMode.TRAIN,
+        departures=[active_dep],
+    )
+
+    ref_dt = datetime(2026, 9, 14, 14, 0, 0)
+    state = engine.evaluate_commute(
+        telemetries={"train_commute": telemetry},
+        reference_time=ref_dt,
+    )
+
+    child = state.child_routes["train_commute"]
+    # Boarding: 14:10
+    assert child.expected_boarding_time == "14:10"
+    # Alighting: 14:10 + 15m static transit = 14:25 (not 14:20!)
+    assert child.expected_alighting_time == "14:25"
+    # Destination: 14:25 + 5m alighting walk = 14:30
+    assert child.expected_destination_time == "14:30"

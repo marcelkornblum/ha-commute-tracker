@@ -23,6 +23,7 @@ MODE_STORAGE = "storage"
 _LOGGER = logging.getLogger(__name__)
 
 __all__ = [
+    "_register_extra_module_url",
     "async_register_frontend",
     "async_register_lovelace_resource",
     "async_unregister_frontend",
@@ -176,6 +177,30 @@ async def async_unregister_frontend(hass: HomeAssistant) -> None:
         _LOGGER.debug("Failed to unregister Lovelace resource: %s", err)
 
 
+def _register_extra_module_url(hass: HomeAssistant, url: str) -> None:
+    """Register extra module URL while pruning stale versions."""
+    try:
+        extra_urls = cast(dict[Any, Any], hass.data).setdefault(
+            DATA_EXTRA_MODULE_URL, set()
+        )
+        card_prefix = f"{URL_BASE}/{CARD_FILENAME}"
+        if isinstance(extra_urls, set):
+            stale_urls = [
+                u
+                for u in extra_urls
+                if str(u).startswith(card_prefix) and str(u) != url
+            ]
+            for u in stale_urls:
+                extra_urls.discard(u)
+        elif hasattr(extra_urls, "urls") and hasattr(extra_urls, "remove"):
+            for u in list(extra_urls.urls):
+                if str(u).startswith(card_prefix) and str(u) != url:
+                    extra_urls.remove(u)
+        add_extra_js_url(hass, url)
+    except Exception as err:
+        _LOGGER.debug("Frontend JS URL registration failed: %s", err)
+
+
 async def async_register_frontend(hass: HomeAssistant) -> None:
     """Register custom Lovelace card static path, script URL, and storage resource."""
     frontend_dir = Path(__file__).parent / "frontend"
@@ -203,18 +228,7 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     card_url = f"{URL_BASE}/{CARD_FILENAME}"
     versioned_url = f"{card_url}?v={version}"
 
-    try:
-        extra_urls = cast(dict[Any, Any], hass.data).setdefault(
-            DATA_EXTRA_MODULE_URL, set()
-        )
-        if isinstance(extra_urls, set):
-            card_prefix = f"{URL_BASE}/{CARD_FILENAME}"
-            stale_urls = [u for u in extra_urls if str(u).startswith(card_prefix)]
-            for u in stale_urls:
-                extra_urls.discard(u)
-        add_extra_js_url(hass, versioned_url)
-    except Exception as err:
-        _LOGGER.debug("Frontend JS URL registration failed: %s", err)
+    _register_extra_module_url(hass, versioned_url)
 
     await async_register_lovelace_resource(hass=hass, versioned_url=versioned_url)
 

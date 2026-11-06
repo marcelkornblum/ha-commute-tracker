@@ -102,6 +102,10 @@ class TfLTransitProvider(TransitProvider):
         """Normalise verbose TfL station names into clean concise display labels."""
         return clean_stop_name(raw_name=raw_name)
 
+    def _clean_station_name(self, raw_name: str) -> str:
+        """Normalise verbose TfL station names into clean concise display labels."""
+        return self.clean_stop_name(raw_name=raw_name)
+
     @property
     def stop_code_guidance(self) -> str:
         """Guidance for TfL users on finding station names and stop codes."""
@@ -163,26 +167,64 @@ class TfLTransitProvider(TransitProvider):
     def adapt_departures(
         self,
         raw_payload: Any,
-        target_stop: str,
+        target_stop: str | None = None,
         line_id: str | None = None,
+        boarding_stop: str | None = None,
+        alighting_stop: str | None = None,
     ) -> list[DeparturePrediction]:
         """Adapt TfL bus, tube, or tram arrival predictions targeting a specific stop.
 
         :param raw_payload: List of Prediction entities.
         :param target_stop: Target boarding stop identifier (NaPTAN).
         :param line_id: Optional line identifier filter (e.g. '26', 'central').
+        :param boarding_stop: Optional boarding stop identifier (alias for target_stop).
+        :param alighting_stop: Optional alighting stop identifier for calculating
+            journey duration.
         :return: Ordered list of DeparturePrediction objects.
         """
         if not isinstance(raw_payload, list):
             return []
 
+        effective_target = (
+            boarding_stop if boarding_stop is not None else (target_stop or "")
+        )
+        if not effective_target:
+            return []
+
+        alighting_lookup: dict[str, int] = {}
+        if alighting_stop:
+            clean_alight = self._clean_station_name(raw_name=alighting_stop).lower()
+            for item in raw_payload:
+                if not isinstance(item, dict):
+                    continue
+                v_id = item.get("vehicleId")
+                tts_raw = item.get("timeToStation")
+                if not v_id or tts_raw is None:
+                    continue
+                try:
+                    tts_val = int(tts_raw)
+                except ValueError, TypeError:
+                    continue
+
+                item_naptan = item.get("naptanId")
+                item_station = self._clean_station_name(
+                    raw_name=str(item.get("stationName", ""))
+                ).lower()
+                if item_naptan == alighting_stop or item_station == clean_alight:
+                    if v_id not in alighting_lookup or tts_val < alighting_lookup[v_id]:
+                        alighting_lookup[v_id] = tts_val
+
+        clean_target = self._clean_station_name(raw_name=effective_target).lower()
         predictions: list[DeparturePrediction] = []
 
         for item in raw_payload:
             if not isinstance(item, dict):
                 continue
             naptan = item.get("naptanId")
-            if naptan != target_stop:
+            item_station = self._clean_station_name(
+                raw_name=str(item.get("stationName", ""))
+            ).lower()
+            if naptan != effective_target and item_station != clean_target:
                 continue
 
             if (
@@ -193,14 +235,23 @@ class TfLTransitProvider(TransitProvider):
                 continue
 
             tts = int(item.get("timeToStation", 0))
+            vehicle_id = item.get("vehicleId")
+
+            duration_seconds: int | None = None
+            if vehicle_id and vehicle_id in alighting_lookup:
+                alighting_tts = alighting_lookup[vehicle_id]
+                if alighting_tts > tts:
+                    duration_seconds = alighting_tts - tts
+
             prediction = DeparturePrediction(
-                vehicle_id=item.get("vehicleId"),
+                vehicle_id=vehicle_id,
                 destination=item.get("destinationName", ""),
                 expected_time=item.get("expectedArrival"),
                 seconds_to_arrival=tts,
                 platform_or_bay=item.get("platformName"),
                 is_realtime=True,
                 location=item.get("currentLocation", ""),
+                duration_seconds=duration_seconds,
             )
             predictions.append(prediction)
 
@@ -246,21 +297,52 @@ class TfLTransitProvider(TransitProvider):
                 continue
 
             legs = journey.get("legs", [])
-            destination = ""
+            destination_name = ""
             departure_name = ""
-            if legs:
-                destination = legs[0].get("instruction", {}).get("summary", "")
-                dep_point = legs[0].get("departurePoint", {})
+            first_leg = legs[0] if legs else None
+            if first_leg:
+                destination_name = first_leg.get("instruction", {}).get("summary", "")
+                dep_point = first_leg.get("departurePoint", {})
                 departure_name = dep_point.get("commonName", "")
+
+            duration_seconds: int | None = None
+            if (
+                first_leg
+                and isinstance(first_leg.get("duration"), (int, float))
+                and first_leg["duration"] > 0
+            ):
+                duration_seconds = int(first_leg["duration"] * 60)
+            elif (
+                isinstance(journey.get("duration"), (int, float))
+                and journey["duration"] > 0
+            ):
+                duration_seconds = int(journey["duration"] * 60)
+            else:
+                arr_iso = (
+                    (first_leg.get("arrivalTime") or first_leg.get("arrivalDateTime"))
+                    if first_leg
+                    else None
+                )
+                if not arr_iso:
+                    arr_iso = journey.get("arrivalDateTime")
+                if arr_iso:
+                    try:
+                        arr_dt = _parse_datetime(arr_iso)
+                        calc_dur = int((arr_dt - start_dt).total_seconds())
+                        if calc_dur > 0:
+                            duration_seconds = calc_dur
+                    except Exception:
+                        pass
 
             prediction = DeparturePrediction(
                 vehicle_id=None,
-                destination=destination,
+                destination=destination_name,
                 expected_time=start_iso,
                 seconds_to_arrival=max(0, seconds_to_departure),
                 platform_or_bay=None,
                 is_realtime=False,
                 location=departure_name or "Terminus Buffer",
+                duration_seconds=duration_seconds,
             )
             predictions.append(prediction)
 
@@ -620,6 +702,8 @@ class TfLTransitProvider(TransitProvider):
                 raw_payload=raw_arrivals,
                 target_stop=target_stop,
                 line_id=route.line,
+                boarding_stop=route.boarding_stop,
+                alighting_stop=route.alighting_stop,
             )
 
             corridor_departures: dict[str, list[DeparturePrediction]] = {}
@@ -628,6 +712,8 @@ class TfLTransitProvider(TransitProvider):
                     raw_payload=raw_arrivals,
                     target_stop=sid,
                     line_id=route.line,
+                    boarding_stop=sid,
+                    alighting_stop=route.alighting_stop,
                 )
 
             stop_names = self.adapt_stop_names(raw_payload=raw_arrivals)
