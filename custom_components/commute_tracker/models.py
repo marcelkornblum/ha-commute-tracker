@@ -81,6 +81,7 @@ class DeparturePrediction:
     platform_or_bay: str | None = None
     is_realtime: bool = True
     location: str = ""
+    duration_seconds: int | None = None
 
 
 @dataclass(slots=True, frozen=True)

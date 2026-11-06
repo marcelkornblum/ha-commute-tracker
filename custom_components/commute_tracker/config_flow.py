@@ -40,6 +40,7 @@ from custom_components.commute_tracker.const import (
     CONF_ROUTES,
     CONF_STAGING_MODE,
     CONF_TARGET_DESTINATION_TIME,
+    CONF_TRANSIT_DURATION_SECONDS,
     DEFAULT_POLL_INTERVAL_SECONDS,
     DEFAULT_PREP_SECONDS,
     DEFAULT_PROVIDER,
@@ -430,10 +431,33 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     route_dict[CONF_ROUTE_COLOR] = flat["route_color"]
                 if alighting_stop:
                     route_dict[CONF_ALIGHTING_STOP] = alighting_stop
+                transit_dur = int(
+                    flat.get("transit_duration_seconds")
+                    or (
+                        user_input.get("alighting_walk", {}).get(
+                            "transit_duration_seconds"
+                        )
+                        if isinstance(user_input.get("alighting_walk"), dict)
+                        else 0
+                    )
+                    or 0
+                )
+                if transit_dur > 0:
+                    route_dict[CONF_TRANSIT_DURATION_SECONDS] = transit_dur
                 if flat.get("alighting_walk_seconds") is not None:
                     route_dict[CONF_ALIGHTING_WALK_SECONDS] = flat[
                         "alighting_walk_seconds"
                     ]
+
+                if self._editing_route_index is not None and self._pending_route:
+                    if CONF_CORRIDOR_STOPS in self._pending_route:
+                        route_dict[CONF_CORRIDOR_STOPS] = self._pending_route[
+                            CONF_CORRIDOR_STOPS
+                        ]
+                    if CONF_CORRIDOR_STOP_NAMES in self._pending_route:
+                        route_dict[CONF_CORRIDOR_STOP_NAMES] = self._pending_route[
+                            CONF_CORRIDOR_STOP_NAMES
+                        ]
 
                 # Query provider for full corridor branch without early truncation
                 discovered = await provider_instance.async_get_corridor_stops(
@@ -461,6 +485,8 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 return await self.async_step_routes()
 
         d = self._pending_route or {}
+        if user_input is not None:
+            d = {**d, **flat}
         if provider_instance is None:
             try:
                 provider_instance = registry.get_provider(
@@ -558,8 +584,31 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
 
         alighting_dict[
             vol.Optional(
+                "transit_duration_seconds",
+                default=int(
+                    d.get("transit_duration_seconds")
+                    or (
+                        d.get("alighting_walk", {}).get("transit_duration_seconds")
+                        if isinstance(d.get("alighting_walk"), dict)
+                        else 0
+                    )
+                    or 0
+                ),
+            )
+        ] = cv.positive_int
+
+        alighting_dict[
+            vol.Optional(
                 "alighting_walk_seconds",
-                default=d.get("alighting_walk_seconds", 0),
+                default=int(
+                    d.get("alighting_walk_seconds")
+                    or (
+                        d.get("alighting_walk", {}).get("alighting_walk_seconds")
+                        if isinstance(d.get("alighting_walk"), dict)
+                        else 0
+                    )
+                    or 0
+                ),
             )
         ] = cv.positive_int
 
@@ -590,13 +639,83 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
         """Screen 4: Select stops along the corridor and add extra stops."""
         if user_input is not None:
             fallback_ids = [s.id for s in self._discovered_corridor_stops]
-            chosen = list(user_input.get("corridor_stops", fallback_ids))
+            raw_stops = user_input.get("corridor_stops", fallback_ids)
+            selected_ids = [str(s).strip() for s in raw_stops if str(s).strip()]
+
             extra = str(user_input.get("extra_stops", "")).strip()
+            extra_ids: list[str] = []
             if extra:
                 for sid in extra.split(","):
                     clean_sid = sid.strip()
-                    if clean_sid and clean_sid not in chosen:
-                        chosen.append(clean_sid)
+                    if clean_sid and clean_sid not in extra_ids:
+                        extra_ids.append(clean_sid)
+
+            # Resolve target stop identifiers (boarding stop)
+            target_ids: set[str] = set()
+            for s in self._discovered_corridor_stops:
+                is_tgt: bool = getattr(s, "is_target", False)
+                sid_val: Any = getattr(s, "id", None)
+                if sid_val is None and isinstance(s, dict):
+                    is_tgt = bool(s.get("is_target", False))
+                    sid_val = s.get("id") or s.get("stop_id")
+                if is_tgt and sid_val:
+                    target_ids.add(str(sid_val).strip().upper())
+
+            if self._pending_route:
+                pending_boarding = self._pending_route.get(CONF_BOARDING_STOP)
+                if pending_boarding:
+                    target_ids.add(str(pending_boarding).strip().upper())
+
+            # Map discovered stops to their discovery index
+            discovered_index: dict[str, int] = {}
+            for idx, s in enumerate(self._discovered_corridor_stops):
+                sid_val = getattr(s, "id", None)
+                if sid_val is None and isinstance(s, dict):
+                    sid_val = s.get("id") or s.get("stop_id")
+                if sid_val:
+                    discovered_index[str(sid_val).strip().upper()] = idx
+
+            # Categorise stops into:
+            # 1. Manual / upstream extra stops (not in discovered order)
+            # 2. Discovered non-target stops (ordered by discovery sequence)
+            # 3. Target stops (placed at the very end of corridor)
+            manual_upstream: list[str] = []
+            discovered_upstream: list[str] = []
+            target_stops: list[str] = []
+            seen: set[str] = set()
+
+            # Process extra stops first (typically furthest upstream calling points)
+            for sid in extra_ids:
+                norm_sid = sid.upper()
+                if norm_sid in seen:
+                    continue
+                seen.add(norm_sid)
+                if norm_sid in target_ids:
+                    target_stops.append(sid)
+                elif norm_sid in discovered_index:
+                    discovered_upstream.append(sid)
+                else:
+                    manual_upstream.append(sid)
+
+            # Process selected corridor stops
+            for sid in selected_ids:
+                norm_sid = sid.upper()
+                if norm_sid in seen:
+                    continue
+                seen.add(norm_sid)
+                if norm_sid in target_ids:
+                    target_stops.append(sid)
+                elif norm_sid in discovered_index:
+                    discovered_upstream.append(sid)
+                else:
+                    manual_upstream.append(sid)
+
+            # Sort discovered upstream stops by their discovered sequence index
+            discovered_upstream.sort(key=lambda s: discovered_index[s.upper()])
+
+            # Assemble final corridor sequence:
+            # manual upstream -> discovered upstream -> target boarding stop
+            chosen = manual_upstream + discovered_upstream + target_stops
 
             self._chosen_corridor_stops = chosen
             return await self.async_step_corridor_names()

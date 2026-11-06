@@ -21,13 +21,16 @@ from custom_components.commute_tracker.engine import (
 )
 from custom_components.commute_tracker.models import (
     CommuteConfig,
+    RouteConfig,
     UrgencyStage,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_idle_commute_state(config: CommuteConfig) -> CommuteState:
+def create_idle_commute_state(
+    config: CommuteConfig | list[RouteConfig],
+) -> CommuteState:
     """Construct default idle CommuteState when commute monitoring is inactive."""
     master = MasterRollupState(
         active_option="none",
@@ -38,16 +41,42 @@ def create_idle_commute_state(config: CommuteConfig) -> CommuteState:
         route_label="",
         is_active=False,
     )
+    if isinstance(config, list):
+        routes = config
+        commute_id = "default"
+    else:
+        routes = config.routes
+        commute_id = config.commute_id
+
     child_routes: dict[str, ChildRouteState] = {}
-    for route in config.routes:
+    for route in routes:
+        corridor_stops_raw: list[str] = getattr(route, "corridor_stops", []) or []
+        stop_names: dict[str, str] = getattr(route, "corridor_stop_names", {}) or {}
+        corridor_stops = [
+            {
+                "stop_id": sid,
+                "stop_name": stop_names.get(sid, sid),
+                "sequence": idx,
+                "is_target": idx == len(corridor_stops_raw) - 1,
+            }
+            for idx, sid in enumerate(corridor_stops_raw)
+        ]
+        route_label = (
+            getattr(route, "route_label", None) or getattr(route, "line", "") or ""
+        )
+        destination = getattr(route, "destination", "") or ""
+        mode_val = route.mode.value if hasattr(route.mode, "value") else str(route.mode)
         child_routes[route.route_id] = ChildRouteState(
             route_id=route.route_id,
-            mode=route.mode.value,
+            mode=mode_val,
             urgency_stage=UrgencyStage.STANDBY,
+            route_label=route_label,
+            destination=destination,
+            corridor_stops=corridor_stops,
             is_active=False,
         )
     return CommuteState(
-        commute_id=config.commute_id,
+        commute_id=commute_id,
         master_rollup=master,
         child_routes=child_routes,
     )

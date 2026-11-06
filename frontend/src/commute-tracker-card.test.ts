@@ -209,6 +209,103 @@ describe("CommuteTrackerCard", () => {
     expect(root.querySelectorAll(".transit-module").length).toBe(2);
   });
 
+  it("renders corridor schematics safely without NaN when corridor_progress is null", async () => {
+    const root = await setupCard("relaxed", {
+      bus: { corridor_progress: null },
+      train: { corridor_progress: null },
+    });
+
+    const svgs = root.querySelectorAll("svg.schematic-svg");
+    expect(svgs.length).toBe(2);
+
+    const htmlContent = root.innerHTML;
+    expect(htmlContent).not.toContain("NaN");
+    expect(htmlContent).not.toContain("translate(NaN");
+  });
+
+  it("handles unmapped or orphaned child entities gracefully", async () => {
+    // Case 1: One existing child entity and one orphaned entity
+    const hassWithOrphan = createFixtureSet("relaxed", {
+      master: { child_entities: [BUS_ENTITY_ID, "sensor.commute_orphan_ghost"] },
+    });
+    card.setConfig({
+      type: "custom:commute-tracker-card",
+      entity: MASTER_ENTITY_ID,
+    });
+    card.hass = hassWithOrphan;
+    await card.updateComplete;
+    let root = card.shadowRoot!;
+
+    const modules = root.querySelectorAll(".transit-module");
+    expect(modules.length).toBe(1);
+    expect(root.textContent).toContain("26");
+
+    // Case 2: All mapped child entities are missing from hass.states
+    card.setConfig({
+      type: "custom:commute-tracker-card",
+      entity: MASTER_ENTITY_ID,
+    });
+    card.hass = {
+      states: {
+        [MASTER_ENTITY_ID]: {
+          entity_id: MASTER_ENTITY_ID,
+          state: "active",
+          attributes: {
+            child_entities: ["sensor.orphan_1", "sensor.orphan_2"],
+            friendly_name: "Morning Commute",
+          },
+        },
+      },
+    };
+    await card.updateComplete;
+    root = card.shadowRoot!;
+    expect(root.textContent).toContain(`⚠️ Child route entities not found for: ${MASTER_ENTITY_ID}`);
+  });
+
+  it("renders successfully when configured directly with a child route sensor", async () => {
+    card.setConfig({
+      type: "custom:commute-tracker-card",
+      entity: BUS_ENTITY_ID,
+    });
+    card.hass = createFixtureSet("relaxed");
+    await card.updateComplete;
+
+    const root = card.shadowRoot!;
+    expect(root.querySelector(".warning-card")).toBeNull();
+    const modules = root.querySelectorAll(".transit-module");
+    expect(modules.length).toBe(1);
+    expect(modules[0].querySelector(".route-badge")?.textContent?.trim()).toBe("26");
+  });
+
+  it("provides valid stub configuration via getStubConfig", () => {
+    // Fallback when hass is undefined or has no states
+    expect(CommuteTrackerCard.getStubConfig()).toEqual({
+      entity: "sensor.commute_tracker",
+    });
+    expect(CommuteTrackerCard.getStubConfig({ states: {} })).toEqual({
+      entity: "sensor.commute_tracker",
+    });
+
+    // Detects sensor with child_entities
+    const mockHass = {
+      states: {
+        "switch.commute_switch": {
+          entity_id: "switch.commute_switch",
+          state: "on",
+          attributes: { child_entities: ["sensor.route_a"] },
+        },
+        "sensor.work_commute": {
+          entity_id: "sensor.work_commute",
+          state: "active",
+          attributes: { child_entities: ["sensor.route_bus"] },
+        },
+      },
+    };
+    expect(CommuteTrackerCard.getStubConfig(mockHass)).toEqual({
+      entity: "sensor.work_commute",
+    });
+  });
+
   describe("DOM Snapshots", () => {
     const cleanHtml = (html: string) =>
       html.replace(/<!--\?lit\$[0-9]+\$-->/g, "<!--?lit-->");

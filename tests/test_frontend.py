@@ -14,6 +14,7 @@ from custom_components.commute_tracker.const import (
     URL_BASE,
 )
 from custom_components.commute_tracker.frontend import (
+    _register_extra_module_url,
     async_register_frontend,
     async_register_lovelace_resource,
     async_unregister_frontend,
@@ -279,3 +280,29 @@ async def test_async_register_frontend_exception_resilience(
     hass.data["lovelace"] = MagicMock(side_effect=Exception("Lovelace crash"))
 
     await async_register_frontend(hass=hass)
+
+
+def test_register_extra_module_url_with_url_manager(hass: HomeAssistant) -> None:
+    """Verify _register_extra_module_url prunes stale URLs with UrlManager."""
+    stale_url = f"{URL_BASE}/{CARD_FILENAME}?v=0.0.1"
+    other_url = "/local/custom_cards/other.js"
+    new_url = f"{URL_BASE}/{CARD_FILENAME}?v=0.1.0"
+
+    class MockUrlManager:
+        def __init__(self) -> None:
+            self.urls: set[str] = {stale_url, other_url}
+
+        def remove(self, url: str) -> None:
+            self.urls.remove(url)
+
+        def add(self, url: str) -> None:
+            self.urls.add(url)
+
+    url_manager = MockUrlManager()
+    cast(dict[Any, Any], hass.data)[DATA_EXTRA_MODULE_URL] = url_manager
+
+    _register_extra_module_url(hass, new_url)
+
+    assert stale_url not in url_manager.urls
+    assert other_url in url_manager.urls
+    assert new_url in url_manager.urls

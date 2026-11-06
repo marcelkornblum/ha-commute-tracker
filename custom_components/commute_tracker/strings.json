@@ -86,6 +86,7 @@
           "boarding_stop": "Boarding Stop",
           "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
           "grace_seconds": "Grace Period (seconds)",
+          "transit_duration_seconds": "In-Transit Duration (Seconds)",
           "alighting_stop": "Alighting Stop",
           "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
         },
@@ -100,6 +101,7 @@
           "boarding_stop": "Station name or stop identifier code where you board.",
           "boarding_walk_seconds": "Comfortable walk time in seconds from home to the boarding stop.",
           "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing.",
+          "transit_duration_seconds": "Fallback journey time on the vehicle between boarding and alighting stops (e.g., 600 for 10 mins). Used when live provider telemetry does not include leg duration.",
           "alighting_stop": "Station name or stop identifier code where you disembark.",
           "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
         }
@@ -232,6 +234,7 @@
           "boarding_stop": "Boarding Stop",
           "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
           "grace_seconds": "Grace Period (seconds)",
+          "transit_duration_seconds": "In-Transit Duration (Seconds)",
           "alighting_stop": "Alighting Stop",
           "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
         },
@@ -246,6 +249,7 @@
           "boarding_stop": "Station name or stop identifier code where you board.",
           "boarding_walk_seconds": "Comfortable walk time in seconds from home to the boarding stop.",
           "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing.",
+          "transit_duration_seconds": "Fallback journey time on the vehicle between boarding and alighting stops (e.g., 600 for 10 mins). Used when live provider telemetry does not include leg duration.",
           "alighting_stop": "Station name or stop identifier code where you disembark.",
           "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
         }

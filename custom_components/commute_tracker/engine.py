@@ -329,11 +329,17 @@ class CommuteEngine:
                 boarding_stop=route_cfg.boarding_stop,
             )
 
+            transit_dur = (
+                route_cfg.transit_duration_seconds
+                if route_cfg.transit_duration_seconds
+                else (active_dep.duration_seconds or 0)
+            )
+
             margin_sec, will_arrive, timeliness_label = calculate_destination_margin(
                 target_destination_time_str=thresholds.target_destination_time
                 or self._target_destination_time,
                 seconds_to_board=active_dep.seconds_to_arrival,
-                transit_duration_seconds=route_cfg.transit_duration_seconds or 0,
+                transit_duration_seconds=transit_dur,
                 alighting_walk_seconds=route_cfg.alighting_walk_seconds or 0,
                 reference_time=ref_dt,
                 line_status=telemetry.line_status,
@@ -346,7 +352,7 @@ class CommuteEngine:
 
             board_time, alight_time, dest_time = calculate_milestone_times(
                 seconds_to_board=active_dep.seconds_to_arrival,
-                transit_duration_seconds=route_cfg.transit_duration_seconds or 0,
+                transit_duration_seconds=transit_dur,
                 alighting_walk_seconds=route_cfg.alighting_walk_seconds or 0,
                 reference_time=ref_dt,
                 expected_boarding_time_str=active_dep.expected_time,
