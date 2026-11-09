@@ -298,12 +298,9 @@ class TfLTransitProvider(TransitProvider):
 
             legs = journey.get("legs", [])
             destination_name = ""
-            departure_name = ""
             first_leg = legs[0] if legs else None
             if first_leg:
                 destination_name = first_leg.get("instruction", {}).get("summary", "")
-                dep_point = first_leg.get("departurePoint", {})
-                departure_name = dep_point.get("commonName", "")
 
             duration_seconds: int | None = None
             if (
@@ -341,7 +338,7 @@ class TfLTransitProvider(TransitProvider):
                 seconds_to_arrival=max(0, seconds_to_departure),
                 platform_or_bay=None,
                 is_realtime=False,
-                location=departure_name or "Terminus Buffer",
+                location="",
                 duration_seconds=duration_seconds,
             )
             predictions.append(prediction)
@@ -608,11 +605,12 @@ class TfLTransitProvider(TransitProvider):
         mode: TransitMode = TransitMode.BUS,
         direction: str = "all",
         target_time_window_seconds: int | None = None,
+        alighting_stop: str | None = None,
     ) -> list[CorridorStop]:
         """Discover and order upstream corridor stops leading to the boarding stop."""
         cache_key = (
-            f"tfl_corridor_{line_id}_{boarding_stop}_{direction}_"
-            f"{target_time_window_seconds}"
+            f"tfl_corridor_{line_id}_{boarding_stop}_{alighting_stop or ''}_"
+            f"{direction}_{target_time_window_seconds}"
         )
 
         async def _fetch() -> list[CorridorStop]:
@@ -623,6 +621,7 @@ class TfLTransitProvider(TransitProvider):
             match = find_target_branch(
                 sequences=branches,
                 target_query=boarding_stop,
+                alighting_query=alighting_stop,
             )
             if match is None:
                 return []
@@ -758,13 +757,22 @@ class TfLTransitProvider(TransitProvider):
             )
 
             stop_names = {}
+            if route.corridor_stops:
+                for sid in route.corridor_stops:
+                    custom = (route.corridor_stop_names or {}).get(sid)
+                    if custom:
+                        stop_names[sid] = custom
+                    else:
+                        stop_names[sid] = self.clean_stop_name(sid)
             if route.boarding_stop:
-                stop_names[route.boarding_stop] = self.clean_stop_name(
-                    route.boarding_stop
+                stop_names.setdefault(
+                    route.boarding_stop,
+                    self.clean_stop_name(route.boarding_stop),
                 )
             if route.alighting_stop:
-                stop_names[route.alighting_stop] = self.clean_stop_name(
-                    route.alighting_stop
+                stop_names.setdefault(
+                    route.alighting_stop,
+                    self.clean_stop_name(route.alighting_stop),
                 )
 
             return self.build_route_telemetry(

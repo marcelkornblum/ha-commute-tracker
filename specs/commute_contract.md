@@ -328,11 +328,10 @@ $$\text{seconds\_to\_leave}_k = \text{seconds\_to\_board}_k - (\text{boarding\_w
 
 ### Multi-Route Arbitration
 When evaluating multiple single-leg routes for the Master Rollup:
-1. **Filter Reachable**: Eliminate routes with no reachable services.
+1. **Filter Reachable**: Eliminate routes with no reachable services ($\text{seconds\_to\_board} \ge \text{boarding\_walk\_seconds} - \text{grace\_seconds}$).
 2. **Timeliness Partitioning**: Prioritise routes that arrive before the target deadline (`will_arrive_on_time: true`, where $\text{expected\_destination\_margin\_seconds} \ge 0$). Late routes are only considered if no reachable on-time route exists.
-3. **Catchability Partitioning**: Prioritise comfortable departures ($\text{seconds\_to\_leave} \ge 0$) over sprint options ($\text{seconds\_to\_leave} < 0$).
-4. **Arbitration Strategy**: Apply the configured `rollup_strategy` (`late_with_buffer`, `soonest`, or `latest`) based on `seconds_to_leave`.
-5. **Tie-Breaking**: When multiple candidates have equal `seconds_to_leave`, the candidate with greater `expected_destination_margin_seconds` is selected.
-6. **Idle Fallback**: If no reachable service exists across all options, the commute transitions to `"standby"` (or `"idle"` if inactive).
+3. **Arbitration Strategy**: Apply the configured `rollup_strategy` (`late_with_buffer`, `soonest`, or `latest`) across all reachable candidates in the timely pool based on `seconds_to_leave` (including active `leave_now` candidates where $\text{seconds\_to\_leave} \le 0$).
+4. **Tie-Breaking**: When multiple candidates have equal `seconds_to_leave`, the candidate with greater `expected_destination_margin_seconds` is selected.
+5. **Idle Fallback**: If no reachable service exists across all options, the commute transitions to `"standby"` (or `"idle"` if inactive).
 
 

@@ -11,6 +11,7 @@ from custom_components.commute_tracker.models import (
     RouteConfig,
     RouteTelemetry,
     TransitMode,
+    UrgencyStage,
 )
 from custom_components.commute_tracker.providers.base import (
     TransitProviderRegistry,
@@ -234,26 +235,48 @@ def test_arbitration_all_routes_late_falls_back_to_strategy() -> None:
     assert commute_state.master_rollup.will_arrive_on_time is False
 
 
-def test_arbitration_positive_leave_prioritised_over_negative_leave() -> None:
-    """Verify positive seconds_to_leave is preferred over negative sprint."""
+def test_arbitration_reachable_leave_now_retained_against_future_route() -> None:
+    """Verify reachable leave_now route is not demoted when another route is future."""
     r1, t1 = _build_route_and_telemetry("route_1", "24", TransitMode.BUS, 330)
     r2, t2 = _build_route_and_telemetry("route_2", "Northern", TransitMode.TUBE, 600)
 
-    config = CommuteConfig(
+    config_soonest = CommuteConfig(
         commute_id="test_commute",
         routes=[r1, r2],
         rollup_strategy=RollupStrategy.SOONEST,
     )
-    engine = CommuteEngine(config=config, registry=TransitProviderRegistry())
+    engine_soonest = CommuteEngine(
+        config=config_soonest, registry=TransitProviderRegistry()
+    )
     telemetries = {r1.route_id: t1, r2.route_id: t2}
 
-    commute_state = engine.evaluate_commute(
+    commute_state = engine_soonest.evaluate_commute(
         telemetries=telemetries,
         reference_time=datetime(2026, 9, 15, 8, 0, 0, tzinfo=timezone.utc),
     )
 
-    assert commute_state.master_rollup.active_option == "route_2"
-    assert commute_state.master_rollup.seconds_to_leave == 240
+    assert commute_state.master_rollup.active_option == "route_1"
+    assert commute_state.master_rollup.urgency_stage == UrgencyStage.LEAVE_NOW
+    assert commute_state.master_rollup.seconds_to_leave == -30
+
+    # Under LATE_WITH_BUFFER (300s), route_1 (-30s) and route_2 (240s) have
+    # delta = 270s <= 300s, so penultimate (route_1) remains selected in leave_now
+    config_buffer = CommuteConfig(
+        commute_id="test_commute",
+        routes=[r1, r2],
+        rollup_strategy=RollupStrategy.LATE_WITH_BUFFER,
+        route_late_buffer_seconds=300,
+    )
+    engine_buffer = CommuteEngine(
+        config=config_buffer, registry=TransitProviderRegistry()
+    )
+    state_buffer = engine_buffer.evaluate_commute(
+        telemetries=telemetries,
+        reference_time=datetime(2026, 9, 15, 8, 0, 0, tzinfo=timezone.utc),
+    )
+    assert state_buffer.master_rollup.active_option == "route_1"
+    assert state_buffer.master_rollup.urgency_stage == UrgencyStage.LEAVE_NOW
+    assert state_buffer.master_rollup.seconds_to_leave == -30
 
 
 def test_arbitration_all_negative_leave_falls_back_to_strategy() -> None:

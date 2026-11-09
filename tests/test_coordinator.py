@@ -18,6 +18,7 @@ from custom_components.commute_tracker.engine import (
 )
 from custom_components.commute_tracker.models import (
     CommuteConfig,
+    RollupStrategy,
     RouteConfig,
     TransitMode,
     UrgencyStage,
@@ -215,15 +216,24 @@ def test_create_idle_commute_state_populates_route_metadata() -> None:
         prep_seconds=120,
         destination="Victoria Bus Station",
         corridor_stops=["Stop_A", "Stop_B", "Stop_C"],
+        corridor_stop_names={"Stop_A": "Victoria", "Stop_B": ""},
     )
-    idle = create_idle_commute_state([route])
-    assert idle.commute_id == "default"
+    config = CommuteConfig(
+        commute_id="work_commute",
+        destination="Canary Wharf",
+        rollup_strategy=RollupStrategy.SOONEST,
+        routes=[route],
+    )
+    idle = create_idle_commute_state(config)
+    assert idle.commute_id == "work_commute"
+    assert idle.master_rollup.strategy == RollupStrategy.SOONEST
+    assert idle.master_rollup.destination == "Canary Wharf"
     child = idle.child_routes["bus_73"]
     assert child.route_label == "73"
     assert child.destination == "Victoria Bus Station"
     assert len(child.corridor_stops) == 3
     assert child.corridor_stops == [
-        {"stop_id": "Stop_A", "stop_name": "Stop_A", "sequence": 0, "is_target": False},
-        {"stop_id": "Stop_B", "stop_name": "Stop_B", "sequence": 1, "is_target": False},
-        {"stop_id": "Stop_C", "stop_name": "Stop_C", "sequence": 2, "is_target": True},
+        {"stop_id": "Stop_A", "short_name": "Victoria", "is_target": False},
+        {"stop_id": "Stop_B", "short_name": "", "is_target": False},
+        {"stop_id": "Stop_C", "short_name": "Stop_C", "is_target": True},
     ]

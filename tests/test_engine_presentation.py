@@ -312,3 +312,57 @@ def test_engine_configured_transit_duration_overrides_prediction() -> None:
     assert child.expected_alighting_time == "14:25"
     # Destination: 14:25 + 5m alighting walk = 14:30
     assert child.expected_destination_time == "14:30"
+
+
+def test_engine_preserves_explicit_empty_corridor_stop_short_names() -> None:
+    """Verify explicit empty string in corridor_stop_names is kept in short_name."""
+    route_cfg = RouteConfig(
+        route_id="bus_73",
+        mode=TransitMode.BUS,
+        line="73",
+        provider="tfl",
+        boarding_walk_seconds=120,
+        prep_seconds=60,
+        boarding_stop="STOP_3",
+        corridor_stops=["STOP_1", "STOP_2", "STOP_3"],
+        corridor_stop_names={"STOP_1": "Victoria", "STOP_2": "", "STOP_3": "Target"},
+    )
+    commute_cfg = CommuteConfig(
+        commute_id="work",
+        routes=[route_cfg],
+    )
+    engine = CommuteEngine(config=commute_cfg)
+
+    active_dep = DeparturePrediction(
+        vehicle_id="BUS1",
+        destination="Oxford Circus",
+        expected_time="2026-09-14T14:10:00Z",
+        seconds_to_arrival=300,
+    )
+    corridor_dep = DeparturePrediction(
+        vehicle_id="BUS1",
+        destination="Oxford Circus",
+        expected_time="2026-09-14T14:06:00Z",
+        seconds_to_arrival=100,
+    )
+    telemetry = RouteTelemetry(
+        route_id="bus_73",
+        line_id="73",
+        mode=TransitMode.BUS,
+        departures=[active_dep],
+        corridor_departures={"STOP_2": [corridor_dep]},
+        stop_names={
+            "STOP_1": "Victoria",
+            "STOP_2": "Hyde Park Corner",
+            "STOP_3": "Target",
+        },
+    )
+
+    state = engine.evaluate_commute(
+        telemetries={"bus_73": telemetry},
+        reference_time=datetime(2026, 9, 14, 14, 0, 0),
+    )
+    child = state.child_routes["bus_73"]
+    assert child.corridor_stops[1]["short_name"] == ""
+    assert child.corridor_location == "Between Victoria and Hyde Park Corner"
+    assert child.corridor_progress == 0.5

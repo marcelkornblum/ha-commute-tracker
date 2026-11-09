@@ -551,3 +551,300 @@ def test_find_target_branch_matching() -> None:
 
     # Non-matching query
     assert find_target_branch(sequences=[b1, b2], target_query="Omega") is None
+
+
+def test_calculate_corridor_progression_train_upstream_interpolation() -> None:
+    """Verify train departures without vehicle_id interpolate along corridor."""
+    corridor = [
+        "STOP_0",
+        "STOP_1",
+        "STOP_2",
+        "STOP_3",
+        "STOP_4",
+        "STOP_5",
+        "STOP_6",
+    ]
+    names = {
+        "STOP_0": "Victoria",
+        "STOP_1": "Brixton",
+        "STOP_2": "Herne Hill",
+        "STOP_3": "West Dulwich",
+        "STOP_4": "Sydenham Hill",
+        "STOP_5": "Penge East",
+        "STOP_6": "Gipsy Hill",
+    }
+
+    # Far future scheduled departure (>= 1500s across 6 segments * 250s)
+    # Even if location has the static boarding station name from Journey Planner
+    dep_scheduled = DeparturePrediction(
+        vehicle_id="",
+        destination="London Bridge",
+        expected_time=None,
+        seconds_to_arrival=1620,
+        location="Gipsy Hill Rail Station",
+        is_realtime=False,
+    )
+    loc, prog = calculate_corridor_progression(
+        departure=dep_scheduled,
+        corridor_stops=corridor,
+        corridor_departures={},
+        stop_names=names,
+    )
+    assert loc == "Scheduled from Victoria"
+    assert prog == 0.0
+
+    # Halfway along the 6-segment (1500s) corridor -> 750s remaining -> index 3.0
+    dep_mid_stop = DeparturePrediction(
+        vehicle_id="",
+        destination="London Bridge",
+        expected_time=None,
+        seconds_to_arrival=750,
+        location="",
+        is_realtime=False,
+    )
+    loc, prog = calculate_corridor_progression(
+        departure=dep_mid_stop,
+        corridor_stops=corridor,
+        corridor_departures={},
+        stop_names=names,
+    )
+    assert loc == "At West Dulwich"
+    assert prog == 3.0
+
+    # Between stop 3 (750s) and stop 4 (500s) -> 625s remaining -> index 3.5
+    dep_between = DeparturePrediction(
+        vehicle_id="",
+        destination="London Bridge",
+        expected_time=None,
+        seconds_to_arrival=625,
+        location="",
+        is_realtime=False,
+    )
+    loc, prog = calculate_corridor_progression(
+        departure=dep_between,
+        corridor_stops=corridor,
+        corridor_departures={},
+        stop_names=names,
+    )
+    assert loc == "Between West Dulwich and Sydenham Hill"
+    assert prog == 3.5
+
+    # Arriving at boarding stop (<= 45s) -> index 6.0
+    dep_arriving = DeparturePrediction(
+        vehicle_id="",
+        destination="London Bridge",
+        expected_time=None,
+        seconds_to_arrival=30,
+        location="",
+        is_realtime=False,
+    )
+    loc, prog = calculate_corridor_progression(
+        departure=dep_arriving,
+        corridor_stops=corridor,
+        corridor_departures={},
+        stop_names=names,
+    )
+    assert loc == "At Gipsy Hill"
+    assert prog == 6.0
+
+
+def test_calculate_corridor_progression_bus_lingering_origin_and_turnaround() -> None:
+    """Verify bus progression ignores lingering origin and turnaround predictions."""
+    corridor = ["STOP_0", "STOP_1", "STOP_2", "STOP_3", "STOP_4"]
+    names = {
+        "STOP_0": "St Julian's",
+        "STOP_1": "WN Station",
+        "STOP_2": "Robson Rd",
+        "STOP_3": "York Hill",
+        "STOP_4": "Royal Circus",
+    }
+
+    # Case 1: Only origin stop has a prediction > 45s -> "Scheduled at <origin>", 0.0
+    dep_at_origin = DeparturePrediction(
+        vehicle_id="LK66BXD",
+        destination="Elephant & Castle",
+        expected_time=None,
+        seconds_to_arrival=700,
+    )
+    corridor_deps_origin = {
+        "STOP_0": [
+            DeparturePrediction(
+                vehicle_id="LK66BXD",
+                destination="Elephant & Castle",
+                expected_time=None,
+                seconds_to_arrival=240,
+            )
+        ]
+    }
+    loc, prog = calculate_corridor_progression(
+        departure=dep_at_origin,
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps_origin,
+        stop_names=names,
+    )
+    assert loc == "Scheduled at St Julian's"
+    assert prog == 0.0
+
+    # Case 2: Lingering origin prediction (<= 45s) when bus is downstream
+    dep_downstream = DeparturePrediction(
+        vehicle_id="LK66BXD",
+        destination="Elephant & Castle",
+        expected_time=None,
+        seconds_to_arrival=200,
+    )
+    corridor_deps_lingering = {
+        "STOP_0": [
+            DeparturePrediction(
+                vehicle_id="LK66BXD",
+                destination="Elephant & Castle",
+                expected_time=None,
+                seconds_to_arrival=15,
+            )
+        ],
+        "STOP_3": [
+            DeparturePrediction(
+                vehicle_id="LK66BXD",
+                destination="Elephant & Castle",
+                expected_time=None,
+                seconds_to_arrival=90,
+            )
+        ],
+    }
+    loc, prog = calculate_corridor_progression(
+        departure=dep_downstream,
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps_lingering,
+        stop_names=names,
+    )
+    assert loc == "Between Robson Rd and York Hill"
+    assert prog == 2.5
+
+    # Case 3: Turnaround/subsequent trip prediction at STOP_0 (> target arrival)
+    corridor_deps_turnaround = {
+        "STOP_0": [
+            DeparturePrediction(
+                vehicle_id="LK66BXD",
+                destination="Elephant & Castle",
+                expected_time=None,
+                seconds_to_arrival=1200,
+            )
+        ],
+        "STOP_2": [
+            DeparturePrediction(
+                vehicle_id="LK66BXD",
+                destination="Elephant & Castle",
+                expected_time=None,
+                seconds_to_arrival=25,
+            )
+        ],
+        "STOP_3": [
+            DeparturePrediction(
+                vehicle_id="LK66BXD",
+                destination="Elephant & Castle",
+                expected_time=None,
+                seconds_to_arrival=90,
+            )
+        ],
+    }
+    loc, prog = calculate_corridor_progression(
+        departure=dep_downstream,
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps_turnaround,
+        stop_names=names,
+    )
+    assert loc == "At Robson Rd"
+    assert prog == 2.0
+
+
+def test_calculate_corridor_progression_empty_stop_names() -> None:
+    """Verify empty string stop names fall back to stop IDs without false matches."""
+    corridor = ["STOP_1", "STOP_2", "STOP_3"]
+    names = {"STOP_1": "", "STOP_2": "   ", "STOP_3": "Target"}
+
+    # Location string should not falsely match empty string at index 0
+    dep_with_loc = DeparturePrediction(
+        vehicle_id="V1",
+        destination="Terminus",
+        expected_time=None,
+        seconds_to_arrival=20,
+        location="At Target",
+    )
+    loc, prog = calculate_corridor_progression(
+        departure=dep_with_loc,
+        corridor_stops=corridor,
+        corridor_departures={},
+        stop_names=names,
+    )
+    assert loc == "At Target"
+    assert prog == 2.0
+
+    # Vehicle trajectory between STOP_1 and STOP_2 uses stop IDs when names are empty
+    dep_between = DeparturePrediction(
+        vehicle_id="V1",
+        destination="Terminus",
+        expected_time=None,
+        seconds_to_arrival=300,
+    )
+    corridor_deps = {
+        "STOP_2": [
+            DeparturePrediction(
+                vehicle_id="V1",
+                destination="Terminus",
+                expected_time=None,
+                seconds_to_arrival=100,
+            )
+        ]
+    }
+    loc2, prog2 = calculate_corridor_progression(
+        departure=dep_between,
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps,
+        stop_names=names,
+    )
+    assert loc2 == "Between STOP_1 and STOP_2"
+    assert prog2 == 0.5
+
+
+def test_slice_upstream_corridor_with_alighting_stop_direction() -> None:
+    """Verify branch selection prefers direction where alighting_stop is downstream."""
+    inbound = [
+        CorridorStop(id="STOP_D", name="Oxford Circus"),
+        CorridorStop(id="STOP_C", name="Marble Arch"),
+        CorridorStop(id="STOP_B", name="Hyde Park Corner"),
+        CorridorStop(id="STOP_A", name="Victoria"),
+    ]
+    outbound = [
+        CorridorStop(id="STOP_A", name="Victoria"),
+        CorridorStop(id="STOP_B", name="Hyde Park Corner"),
+        CorridorStop(id="STOP_C", name="Marble Arch"),
+        CorridorStop(id="STOP_D", name="Oxford Circus"),
+    ]
+    # Put inbound first to ensure outbound is chosen by direction, not list order
+    branches = [inbound, outbound]
+
+    corridor_outbound = slice_upstream_corridor(
+        sequences=branches,
+        boarding_stop="STOP_C",
+        alighting_stop="Oxford Circus",
+    )
+    assert [s.id for s in corridor_outbound] == ["STOP_A", "STOP_B", "STOP_C"]
+
+    corridor_inbound = slice_upstream_corridor(
+        sequences=branches,
+        boarding_stop="STOP_C",
+        alighting_stop="Victoria",
+    )
+    assert [s.id for s in corridor_inbound] == ["STOP_D", "STOP_C"]
+
+    # When boarding at terminus STOP_D without alighting_stop, prefer branch where
+    # STOP_D has upstream stops (outbound index 3) over inbound index 0
+    corridor_terminus = slice_upstream_corridor(
+        sequences=branches,
+        boarding_stop="STOP_D",
+    )
+    assert [s.id for s in corridor_terminus] == [
+        "STOP_A",
+        "STOP_B",
+        "STOP_C",
+        "STOP_D",
+    ]

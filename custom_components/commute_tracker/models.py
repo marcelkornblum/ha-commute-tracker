@@ -244,7 +244,7 @@ class CommuteConfig:
                     alighting_walk_seconds=alight_walk,
                     corridor_stops=list(r.get("corridor_stops", [])),
                     corridor_stop_names=dict(r.get("corridor_stop_names", {})),
-                    name=r.get("name"),
+                    name=r.get("name") or r.get("route_name"),
                 )
             )
 

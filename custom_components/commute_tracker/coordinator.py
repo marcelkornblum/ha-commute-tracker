@@ -21,6 +21,7 @@ from custom_components.commute_tracker.engine import (
 )
 from custom_components.commute_tracker.models import (
     CommuteConfig,
+    RollupStrategy,
     RouteConfig,
     UrgencyStage,
 )
@@ -32,6 +33,17 @@ def create_idle_commute_state(
     config: CommuteConfig | list[RouteConfig],
 ) -> CommuteState:
     """Construct default idle CommuteState when commute monitoring is inactive."""
+    if isinstance(config, list):
+        routes = config
+        commute_id = "default"
+        strategy = RollupStrategy.LATE_WITH_BUFFER
+        commute_destination = ""
+    else:
+        routes = config.routes
+        commute_id = config.commute_id
+        strategy = config.rollup_strategy
+        commute_destination = config.destination or ""
+
     master = MasterRollupState(
         active_option="none",
         urgency_stage=UrgencyStage.STANDBY,
@@ -39,32 +51,32 @@ def create_idle_commute_state(
         seconds_to_board=0,
         seconds_to_leave=0,
         route_label="",
+        destination=commute_destination,
+        strategy=strategy,
         is_active=False,
     )
-    if isinstance(config, list):
-        routes = config
-        commute_id = "default"
-    else:
-        routes = config.routes
-        commute_id = config.commute_id
 
     child_routes: dict[str, ChildRouteState] = {}
     for route in routes:
         corridor_stops_raw: list[str] = getattr(route, "corridor_stops", []) or []
         stop_names: dict[str, str] = getattr(route, "corridor_stop_names", {}) or {}
+        boarding_stop = getattr(route, "boarding_stop", None)
         corridor_stops = [
             {
                 "stop_id": sid,
-                "stop_name": stop_names.get(sid, sid),
-                "sequence": idx,
-                "is_target": idx == len(corridor_stops_raw) - 1,
+                "short_name": stop_names[sid] if sid in stop_names else sid,
+                "is_target": (
+                    sid == boarding_stop
+                    if boarding_stop in corridor_stops_raw
+                    else idx == len(corridor_stops_raw) - 1
+                ),
             }
             for idx, sid in enumerate(corridor_stops_raw)
         ]
         route_label = (
             getattr(route, "route_label", None) or getattr(route, "line", "") or ""
         )
-        destination = getattr(route, "destination", "") or ""
+        destination = getattr(route, "destination", None) or commute_destination or ""
         mode_val = route.mode.value if hasattr(route.mode, "value") else str(route.mode)
         child_routes[route.route_id] = ChildRouteState(
             route_id=route.route_id,

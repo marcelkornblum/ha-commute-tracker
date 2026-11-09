@@ -750,3 +750,59 @@ def test_adapt_departures_dynamic_journey_duration(
         target_stop="STOP_BOARD",
     )
     assert predictions_no_alight[0].duration_seconds is None
+
+
+def test_adapt_journey_leaves_location_empty_for_interpolation(
+    tfl_provider: TfLTransitProvider, nelson_commute_dir: Path
+) -> None:
+    """Verify adapt_journey sets location='' rather than static departurePoint name."""
+    rail_path = nelson_commute_dir / "set4_consolidated_train" / "journey_results.json"
+    rail_json = json.loads(rail_path.read_text(encoding="utf-8"))
+
+    predictions = tfl_provider.adapt_journey(
+        raw_payload=rail_json,
+        origin="910GCHRX",
+        destination="910GLNDNBDC",
+        reference_time_iso="2026-09-14T12:54:57Z",
+    )
+    assert len(predictions) > 0
+    assert all(p.location == "" for p in predictions)
+
+
+@pytest.mark.asyncio
+async def test_tfl_corridor_stops_with_alighting_stop_direction() -> None:
+    """Verify async_get_corridor_stops uses alighting_stop to disambiguate branch."""
+    route_seq = {
+        "stopPointSequences": [
+            {
+                "stopPoint": [
+                    {"id": "STOP_D", "name": "Oxford Circus Station"},
+                    {"id": "STOP_C", "name": "Marble Arch Station"},
+                    {"id": "STOP_B", "name": "Hyde Park Corner Station"},
+                    {"id": "STOP_A", "name": "Victoria Station"},
+                ]
+            },
+            {
+                "stopPoint": [
+                    {"id": "STOP_A", "name": "Victoria Station"},
+                    {"id": "STOP_B", "name": "Hyde Park Corner Station"},
+                    {"id": "STOP_C", "name": "Marble Arch Station"},
+                    {"id": "STOP_D", "name": "Oxford Circus Station"},
+                ]
+            },
+        ]
+    }
+    mock_session = MockSession(
+        routes_map={
+            "/Line/73/Route/Sequence/all": route_seq,
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    stops = await provider.async_get_corridor_stops(
+        line_id="73",
+        boarding_stop="STOP_C",
+        mode=TransitMode.BUS,
+        alighting_stop="STOP_D",
+    )
+    assert [s.id for s in stops] == ["STOP_A", "STOP_B", "STOP_C"]

@@ -950,7 +950,7 @@ class st extends I {
             font-family="system-ui"
             font-weight="700"
           >
-            ${h.short_name || h.name || h.stop_name || h.stop_id || ""}
+            ${h.short_name ?? h.name ?? h.stop_name ?? h.stop_id ?? ""}
           </text>
 
           <!-- Vehicle Marker (Clean White Circle, No Outer Halo) -->
@@ -1006,7 +1006,7 @@ class st extends I {
 
         <!-- Stops Nodes -->
         ${e.map((h, x) => {
-      const m = o + x * ((l - o) / c), $ = h.short_name || h.name || h.stop_name || h.stop_id || "";
+      const m = o + x * ((l - o) / c), $ = h.short_name ?? h.name ?? h.stop_name ?? h.stop_id ?? "";
       return h.is_target ? C`
               <circle cx="${m}" cy="22" r="9" fill="#2B2D3A" stroke="${i}" stroke-width="3.5" />
               <circle cx="${m}" cy="22" r="4" fill="#FFFFFF" />

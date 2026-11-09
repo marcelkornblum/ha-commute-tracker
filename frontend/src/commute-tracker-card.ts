@@ -1099,7 +1099,7 @@ export class CommuteTrackerCard extends LitElement {
             font-family="system-ui"
             font-weight="700"
           >
-            ${targetStop.short_name || targetStop.name || targetStop.stop_name || targetStop.stop_id || ""}
+            ${targetStop.short_name ?? targetStop.name ?? targetStop.stop_name ?? targetStop.stop_id ?? ""}
           </text>
 
           <!-- Vehicle Marker (Clean White Circle, No Outer Halo) -->
@@ -1167,7 +1167,7 @@ export class CommuteTrackerCard extends LitElement {
         <!-- Stops Nodes -->
         ${stops.map((stop, idx) => {
           const sx = minX + idx * ((maxX - minX) / maxP);
-          const label = stop.short_name || stop.name || stop.stop_name || stop.stop_id || "";
+          const label = stop.short_name ?? stop.name ?? stop.stop_name ?? stop.stop_id ?? "";
           if (stop.is_target) {
             return svg`
               <circle cx="${sx}" cy="22" r="9" fill="#2B2D3A" stroke="${trackCol}" stroke-width="3.5" />

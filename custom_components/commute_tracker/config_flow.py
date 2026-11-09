@@ -283,7 +283,9 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
         ]
         for idx, r in enumerate(self._routes):
             r_name = (
-                r.get("name") or f"{str(r.get('mode', '')).title()} {r.get('line', '')}"
+                r.get(CONF_ROUTE_NAME)
+                or r.get("route_name")
+                or f"{str(r.get('mode', '')).title()} {r.get('line', '')}"
             )
             b_stop = r.get("boarding_stop", "")
             options_map.append(
@@ -322,8 +324,8 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
 
         routes_summary = (
             "\n".join(
-                f"- **{r.get('name') or r.get('line')}** "
-                f"({r.get('mode')}) at `{r.get('boarding_stop')}`"
+                f"- **{r.get(CONF_ROUTE_NAME) or r.get('route_name') or r.get('line')}"
+                f"** ({r.get('mode')}) at `{r.get('boarding_stop')}`"
                 for r in self._routes
             )
             if self._routes
@@ -402,7 +404,11 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 errors["boarding_stop"] = "invalid_boarding_stop"
 
             if not errors:
-                base_route_id = slugify(flat.get("name") or line)
+                existing_route_name = self._pending_route.get(
+                    CONF_ROUTE_NAME
+                ) or self._pending_route.get("route_name")
+                route_name_val = flat["name"] if "name" in flat else existing_route_name
+                base_route_id = slugify(route_name_val or line)
                 existing_ids = {
                     r[CONF_ROUTE_ID]
                     for idx, r in enumerate(self._routes)
@@ -422,11 +428,13 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     CONF_DIRECTION: RouteDirection.FROM_HOME.value,
                     CONF_BOARDING_STOP: resolved_naptan or boarding_stop,
                     CONF_BOARDING_WALK_SECONDS: flat.get("boarding_walk_seconds", 300),
-                    CONF_GRACE_SECONDS: flat.get("grace_seconds", 60),
                 }
 
-                if flat.get("name"):
-                    route_dict[CONF_ROUTE_NAME] = flat["name"]
+                if flat.get("grace_seconds") is not None:
+                    route_dict[CONF_GRACE_SECONDS] = int(flat["grace_seconds"])
+
+                if route_name_val:
+                    route_dict[CONF_ROUTE_NAME] = route_name_val
                 if flat.get("route_color"):
                     route_dict[CONF_ROUTE_COLOR] = flat["route_color"]
                 if alighting_stop:
@@ -465,6 +473,7 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     boarding_stop=boarding_stop,
                     mode=mode,
                     target_time_window_seconds=None,
+                    alighting_stop=alighting_stop,
                 )
 
                 self._pending_route = route_dict
@@ -524,11 +533,13 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
         else:
             service_dict[vol.Required("line")] = cv.string
 
-        if d.get("name"):
+        existing_name = d.get(CONF_ROUTE_NAME) or d.get("route_name")
+        if existing_name:
             service_dict[
                 vol.Optional(
                     "name",
-                    description={"suggested_value": d.get("name")},
+                    default=existing_name,
+                    description={"suggested_value": existing_name},
                 )
             ] = cv.string
         else:
@@ -564,12 +575,15 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 default=d.get("boarding_walk_seconds", 300),
             )
         ] = cv.positive_int
-        boarding_dict[
-            vol.Optional(
-                "grace_seconds",
-                default=d.get("grace_seconds", 60),
-            )
-        ] = cv.positive_int
+        if d.get(CONF_GRACE_SECONDS) is not None:
+            boarding_dict[
+                vol.Optional(
+                    "grace_seconds",
+                    description={"suggested_value": d.get(CONF_GRACE_SECONDS)},
+                )
+            ] = cv.positive_int
+        else:
+            boarding_dict[vol.Optional("grace_seconds")] = cv.positive_int
 
         alighting_dict: dict[Any, Any] = {}
         if d.get("alighting_stop"):
@@ -723,6 +737,20 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
         options_map: list[selector.SelectOptionDict] = []
         default_ids: list[str] = []
         existing_stops = self._pending_route.get(CONF_CORRIDOR_STOPS)
+        existing_names = self._pending_route.get(CONF_CORRIDOR_STOP_NAMES, {})
+        discovered_ids = {s.id for s in self._discovered_corridor_stops}
+
+        if existing_stops is not None:
+            for sid in existing_stops:
+                if sid not in discovered_ids:
+                    saved_name = existing_names.get(sid) or sid
+                    options_map.append(
+                        selector.SelectOptionDict(
+                            value=sid,
+                            label=f"{saved_name} ({sid})",
+                        )
+                    )
+                    default_ids.append(sid)
 
         for stop in self._discovered_corridor_stops:
             label = f"{stop.name} ({stop.id})" + (
@@ -772,11 +800,14 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
             custom_names: dict[str, str] = {}
             for sid in chosen_ids:
                 field_key = f"name_{slugify(sid)}"
-                val = str(
-                    flat.get(field_key)
-                    or user_input.get(field_key)
-                    or discovered_lookup.get(sid, sid)
-                ).strip()
+                if field_key in flat and flat[field_key] is not None:
+                    val = str(flat[field_key]).strip()
+                elif field_key in user_input and user_input[field_key] is not None:
+                    val = str(user_input[field_key]).strip()
+                elif sid in existing_names and existing_names[sid] is not None:
+                    val = str(existing_names[sid]).strip()
+                else:
+                    val = str(discovered_lookup.get(sid, sid)).strip()
                 custom_names[sid] = val
 
             self._pending_route[CONF_CORRIDOR_STOPS] = list(chosen_ids)
@@ -797,7 +828,10 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
         names_fields: dict[Any, Any] = {}
         for sid in chosen_ids:
             field_key = f"name_{slugify(sid)}"
-            default_label = existing_names.get(sid) or discovered_lookup.get(sid, sid)
+            if sid in existing_names and existing_names[sid] is not None:
+                default_label = existing_names[sid]
+            else:
+                default_label = discovered_lookup.get(sid, sid)
             names_fields[vol.Optional(field_key, default=default_label)] = cv.string
 
         names_schema = vol.Schema(

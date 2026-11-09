@@ -318,6 +318,7 @@ class TemplateTransitProvider(TransitProvider):
         mode: TransitMode = TransitMode.BUS,
         direction: str = "all",
         target_time_window_seconds: int | None = None,
+        alighting_stop: str | None = None,
     ) -> list[CorridorStop]:
         """Discover and order upstream corridor stops leading to boarding stop."""
         from custom_components.commute_tracker.corridor import (
@@ -333,6 +334,7 @@ class TemplateTransitProvider(TransitProvider):
                 sequences=branches,
                 boarding_stop=boarding_stop,
                 target_time_window_seconds=target_time_window_seconds,
+                alighting_stop=alighting_stop,
             )
         except Exception:
             return []

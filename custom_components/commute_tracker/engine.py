@@ -266,7 +266,11 @@ class CommuteEngine:
             corridor_stops_data = [
                 {
                     "stop_id": sid,
-                    "short_name": merged_stop_names.get(sid, sid),
+                    "short_name": (
+                        route_cfg.corridor_stop_names[sid]
+                        if sid in route_cfg.corridor_stop_names
+                        else merged_stop_names.get(sid, sid)
+                    ),
                     "is_target": sid == route_cfg.boarding_stop,
                 }
                 for sid in route_cfg.corridor_stops
@@ -512,19 +516,16 @@ class CommuteEngine:
         Strategy evaluation:
         1. Timeliness Priority: Routes that arrive on time (will_arrive_on_time == True)
            are strictly prioritised over late routes. Late routes are only considered
-           if no candidate arrives on time.
-        2. Catchability Priority: Routes with positive leave windows
-           (seconds_to_leave >= 0) are strictly prioritised over negative
-           leave routes (seconds_to_leave < 0). Negative leave routes are
-           only considered if no candidate has positive leave.
-        3. Strategy Selection:
+           if no candidate arrives on time. All candidates in the pool have already
+           passed physical reachability checks within the configured grace leeway.
+        2. Strategy Selection:
            - SOONEST: Pick candidate with smallest seconds_to_leave.
            - LATEST: Pick candidate with largest seconds_to_leave.
            - LATE_WITH_BUFFER: Sort ascending by seconds_to_leave. If the top two
              candidates have leave times within route_late_buffer_seconds of each
              other, pick the penultimate candidate so the latest acts as a safety
              buffer/fallback. Otherwise, pick the latest candidate.
-        4. Tie-breaking: If multiple candidates tie on seconds_to_leave, select the one
+        3. Tie-breaking: If multiple candidates tie on seconds_to_leave, select the one
            with greater expected_destination_margin_seconds.
         """
         if not candidates:
@@ -549,10 +550,7 @@ class CommuteEngine:
             )
 
         on_time = [c for c in candidates if c.will_arrive_on_time]
-        timely_pool = on_time if on_time else candidates
-
-        positive_leave = [c for c in timely_pool if c.seconds_to_leave >= 0]
-        viable_pool = positive_leave if positive_leave else timely_pool
+        viable_pool = on_time if on_time else candidates
 
         if strategy == RollupStrategy.SOONEST:
             winner = min(

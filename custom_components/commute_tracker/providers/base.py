@@ -489,6 +489,7 @@ class TransitProvider(ABC):
         mode: TransitMode = TransitMode.BUS,
         direction: str = "all",
         target_time_window_seconds: int | None = None,
+        alighting_stop: str | None = None,
     ) -> list[CorridorStop]:
         """Discover and order upstream corridor stops leading to the boarding stop.
 
@@ -497,6 +498,7 @@ class TransitProvider(ABC):
         :param mode: Transit mode.
         :param direction: Direction string.
         :param target_time_window_seconds: Optional time window to constrain stops.
+        :param alighting_stop: Optional alighting stop identifier or name for direction.
         :return: Ordered list of CorridorStop objects.
         :raises NotImplementedError: If not implemented by the provider.
         """
