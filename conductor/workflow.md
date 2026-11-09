@@ -10,8 +10,9 @@ Code goes exclusively into `custom_components/commute_tracker/`.
 Do not register intermediary API state. Stick strictly to Master Rollup and Child Route sensors. Use attributes for metadata like timeliness.
 
 ## 4. Git Workflow
-- **Starting a Track:** When starting a new track, immediately create and checkout a new git branch off `main` before making any code changes.
-- **Finishing a Track:** When a track is complete, push the branch to `origin` and open a Pull Request back onto `main`.
+- **PR-Only Mandate (No Direct Commits to `main`):** All changes (tracks, bug fixes, chores, and documentation) must be made on a dedicated branch off `main` and submitted via a Pull Request. Never commit or push directly to `main`.
+- **Starting Work:** Immediately create and checkout a new git branch off `main` before making any code changes.
+- **Finishing Work:** When complete, push the branch to `origin` and open a Pull Request back onto `main`.
 - **Never Modify Staged Status:** Agents must never stage or unstage files (`git add`, `git reset`, `git restore --staged`, etc.). The user uses git staging exclusively to track their code review progress.
 
 ## 5. Legacy PoC Reference & UI Parity
