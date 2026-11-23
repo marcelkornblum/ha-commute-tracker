@@ -10,6 +10,7 @@ from custom_components.commute_tracker.const import (
     CONF_ACTIVE_SENSOR,
     CONF_ALIGHTING_STOP,
     CONF_ALIGHTING_WALK_SECONDS,
+    CONF_AMBER_THRESHOLD_SECONDS,
     CONF_API_KEY,
     CONF_APP_ID,
     CONF_APP_KEY,
@@ -18,6 +19,7 @@ from custom_components.commute_tracker.const import (
     CONF_COMMUTE_ID,
     CONF_COMMUTE_TITLE,
     CONF_COMMUTES,
+    CONF_CORRIDOR_STOP_LEAD_SECONDS,
     CONF_CORRIDOR_STOPS,
     CONF_DESTINATION,
     CONF_DIRECTION,
@@ -29,6 +31,7 @@ from custom_components.commute_tracker.const import (
     CONF_PERSON_PICTURE,
     CONF_POLL_INTERVAL,
     CONF_PREP_SECONDS,
+    CONF_PREPARE_THRESHOLD_SECONDS,
     CONF_PROVIDER,
     CONF_PROVIDERS,
     CONF_ROLLUP_STRATEGY,
@@ -131,6 +134,8 @@ ROUTE_SCHEMA = vol.All(
             vol.Optional(CONF_DESTINATION): cv.string,
             vol.Optional(CONF_BOARDING_WALK_SECONDS): cv.positive_int,
             vol.Optional(CONF_PREP_SECONDS): cv.positive_int,
+            vol.Optional(CONF_PREPARE_THRESHOLD_SECONDS): cv.positive_int,
+            vol.Optional(CONF_AMBER_THRESHOLD_SECONDS): cv.positive_int,
             vol.Exclusive(
                 CONF_GRACE_SECONDS,
                 "grace_group",
@@ -146,6 +151,7 @@ ROUTE_SCHEMA = vol.All(
             vol.Optional(CONF_CORRIDOR_STOPS, default=list): vol.All(
                 cv.ensure_list, [cv.string]
             ),
+            vol.Optional(CONF_CORRIDOR_STOP_LEAD_SECONDS): {cv.string: cv.positive_int},
         }
     ),
     _normalise_route,
@@ -177,6 +183,8 @@ COMMUTE_SCHEMA = vol.All(
             vol.Optional(CONF_ROUTE_LATE_BUFFER_SECONDS): cv.positive_int,
             vol.Optional(CONF_POLL_INTERVAL): cv.positive_int,
             vol.Optional(CONF_PREP_SECONDS): cv.positive_int,
+            vol.Optional(CONF_PREPARE_THRESHOLD_SECONDS): cv.positive_int,
+            vol.Optional(CONF_AMBER_THRESHOLD_SECONDS): cv.positive_int,
             vol.Optional(CONF_BOARDING_WALK_SECONDS): cv.positive_int,
             vol.Optional(CONF_STAGING_MODE): cv.boolean,
             vol.Required(CONF_ROUTES): vol.All(
@@ -205,6 +213,8 @@ def _normalise_commute_tracker(config: dict[str, Any]) -> dict[str, Any]:
     root_grace_sec = data.get(CONF_GRACE_SECONDS)
     root_grace_frac = data.get(CONF_GRACE_FRACTION)
     root_prep = data.get(CONF_PREP_SECONDS)
+    root_prepare_thresh = data.get(CONF_PREPARE_THRESHOLD_SECONDS)
+    root_amber_thresh = data.get(CONF_AMBER_THRESHOLD_SECONDS)
     root_walk = data.get(CONF_BOARDING_WALK_SECONDS)
     root_staging = data.get(CONF_STAGING_MODE, DEFAULT_STAGING_MODE)
 
@@ -241,6 +251,18 @@ def _normalise_commute_tracker(config: dict[str, Any]) -> dict[str, Any]:
         if CONF_PREP_SECONDS not in commute and root_prep is not None:
             commute[CONF_PREP_SECONDS] = root_prep
 
+        if (
+            CONF_PREPARE_THRESHOLD_SECONDS not in commute
+            and root_prepare_thresh is not None
+        ):
+            commute[CONF_PREPARE_THRESHOLD_SECONDS] = root_prepare_thresh
+
+        if (
+            CONF_AMBER_THRESHOLD_SECONDS not in commute
+            and root_amber_thresh is not None
+        ):
+            commute[CONF_AMBER_THRESHOLD_SECONDS] = root_amber_thresh
+
         if CONF_BOARDING_WALK_SECONDS not in commute and root_walk is not None:
             commute[CONF_BOARDING_WALK_SECONDS] = root_walk
 
@@ -249,6 +271,20 @@ def _normalise_commute_tracker(config: dict[str, Any]) -> dict[str, Any]:
             route = dict(route_raw)
             if CONF_PREP_SECONDS not in route and CONF_PREP_SECONDS in commute:
                 route[CONF_PREP_SECONDS] = commute[CONF_PREP_SECONDS]
+            if (
+                CONF_PREPARE_THRESHOLD_SECONDS not in route
+                and CONF_PREPARE_THRESHOLD_SECONDS in commute
+            ):
+                route[CONF_PREPARE_THRESHOLD_SECONDS] = commute[
+                    CONF_PREPARE_THRESHOLD_SECONDS
+                ]
+            if (
+                CONF_AMBER_THRESHOLD_SECONDS not in route
+                and CONF_AMBER_THRESHOLD_SECONDS in commute
+            ):
+                route[CONF_AMBER_THRESHOLD_SECONDS] = commute[
+                    CONF_AMBER_THRESHOLD_SECONDS
+                ]
             if (
                 CONF_BOARDING_WALK_SECONDS not in route
                 and CONF_BOARDING_WALK_SECONDS in commute
@@ -283,6 +319,8 @@ COMMUTE_TRACKER_SCHEMA = vol.All(
             ),
             vol.Optional(CONF_ROUTE_LATE_BUFFER_SECONDS): cv.positive_int,
             vol.Optional(CONF_PREP_SECONDS): cv.positive_int,
+            vol.Optional(CONF_PREPARE_THRESHOLD_SECONDS): cv.positive_int,
+            vol.Optional(CONF_AMBER_THRESHOLD_SECONDS): cv.positive_int,
             vol.Optional(CONF_BOARDING_WALK_SECONDS): cv.positive_int,
             vol.Optional(CONF_STAGING_MODE, default=DEFAULT_STAGING_MODE): cv.boolean,
             vol.Required(CONF_COMMUTES): COMMUTES_SCHEMA,

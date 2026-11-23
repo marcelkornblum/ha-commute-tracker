@@ -506,7 +506,9 @@ class TfLTransitProvider(TransitProvider):
                 return None
 
         result = await self.async_cached_fetch(
-            cache_key=cache_key, fetch_callable=_fetch
+            cache_key=cache_key,
+            fetch_callable=_fetch,
+            cache_none=False,
         )
         if isinstance(result, dict):
             return result
@@ -516,7 +518,7 @@ class TfLTransitProvider(TransitProvider):
     def _extract_interval_lead_times(
         intervals: list[dict[str, Any]],
         target_query: str,
-        boarding_stop_id: str,
+        from_stop_id: str | None = None,
     ) -> dict[str, int] | None:
         """Extract lead seconds to target stop from a single interval sequence."""
         target_entry = next(
@@ -531,24 +533,26 @@ class TfLTransitProvider(TransitProvider):
             return None
 
         target_arr = float(target_entry.get("timeToArrival", 0.0))
-        return {
+        leads = {
             str(item.get("stopId", "")).strip(): int(
-                (target_arr - float(item.get("timeToArrival", 0.0))) * 60
+                round((target_arr - float(item.get("timeToArrival", 0.0))) * 60)
             )
             for item in intervals
             if float(item.get("timeToArrival", 0.0)) <= target_arr
         }
+        if from_stop_id:
+            clean_origin = from_stop_id.strip()
+            if clean_origin and clean_origin not in leads:
+                leads[clean_origin] = int(round(target_arr * 60))
+        return leads
 
     def parse_timetable_lead_times(
         self,
         timetable_payload: dict[str, Any] | None,
         boarding_stop_id: str,
+        from_stop_id: str | None = None,
     ) -> dict[str, int]:
-        """Extract scheduled travel lead times from timetable station intervals.
-
-        Matches the interval set containing boarding_stop_id and returns a mapping
-        of stop_id to seconds of scheduled travel time leading to the boarding stop.
-        """
+        """Extract scheduled travel lead times from timetable station intervals."""
         if not isinstance(timetable_payload, dict):
             return {}
 
@@ -561,11 +565,59 @@ class TfLTransitProvider(TransitProvider):
                 leads = self._extract_interval_lead_times(
                     intervals=interval_set.get("intervals", []),
                     target_query=target_query,
-                    boarding_stop_id=boarding_stop_id,
+                    from_stop_id=from_stop_id,
                 )
                 if leads is not None:
                     return leads
         return {}
+
+    async def async_get_corridor_lead_times(
+        self,
+        line_id: str,
+        corridor_stops: list[str],
+        boarding_stop: str | None = None,
+    ) -> dict[str, int]:
+        """Fetch and cache scheduled lead seconds across a configured corridor."""
+        if len(corridor_stops) < 2:
+            return {}
+
+        origin_id = corridor_stops[0].strip()
+        target_id = (boarding_stop or corridor_stops[-1]).strip()
+        if not origin_id or not target_id:
+            return {}
+
+        cache_key = (
+            f"tfl_corridor_leads_{line_id.strip().lower()}_"
+            f"{origin_id.upper()}_{target_id.upper()}"
+        )
+
+        async def _fetch_leads() -> dict[str, int] | None:
+            timetable_data = await self.async_fetch_timetable(
+                line_id=line_id,
+                from_stop_id=origin_id,
+            )
+            if timetable_data is None:
+                return None
+            raw_leads = self.parse_timetable_lead_times(
+                timetable_payload=timetable_data,
+                boarding_stop_id=target_id,
+                from_stop_id=origin_id,
+            )
+            corridor_set = {sid.strip().upper(): sid for sid in corridor_stops}
+            matched: dict[str, int] = {}
+            for sid, sec in raw_leads.items():
+                canonical = corridor_set.get(sid.strip().upper())
+                if canonical is not None:
+                    matched[canonical] = sec
+            return matched
+
+        result = await self.async_cached_fetch(
+            cache_key=cache_key,
+            fetch_callable=_fetch_leads,
+            ttl_seconds=3600.0,
+            cache_none=False,
+        )
+        return dict(result) if isinstance(result, dict) else {}
 
     async def _async_annotate_scheduled_branch(
         self,
@@ -584,6 +636,7 @@ class TfLTransitProvider(TransitProvider):
         lead_times = self.parse_timetable_lead_times(
             timetable_payload=timetable_data,
             boarding_stop_id=target_stop_id,
+            from_stop_id=branch[0].id,
         )
         if not lead_times:
             return list(branch)
@@ -725,12 +778,21 @@ class TfLTransitProvider(TransitProvider):
                 if sid not in stop_names:
                     stop_names[sid] = self.clean_stop_name(sid)
 
+            stop_lead_seconds: dict[str, int] = {}
+            if len(route.corridor_stops) >= 2 and not route.corridor_stop_lead_seconds:
+                stop_lead_seconds = await self.async_get_corridor_lead_times(
+                    line_id=route.line,
+                    corridor_stops=route.corridor_stops,
+                    boarding_stop=route.boarding_stop,
+                )
+
             return self.build_route_telemetry(
                 route=route,
                 departures=departures,
                 line_status=line_status,
                 corridor_departures=corridor_departures,
                 stop_names=stop_names,
+                stop_lead_seconds=stop_lead_seconds,
             )
 
         if route.mode == TransitMode.TRAIN:
@@ -775,6 +837,14 @@ class TfLTransitProvider(TransitProvider):
                     self.clean_stop_name(route.alighting_stop),
                 )
 
+            stop_lead_seconds = {}
+            if len(route.corridor_stops) >= 2 and not route.corridor_stop_lead_seconds:
+                stop_lead_seconds = await self.async_get_corridor_lead_times(
+                    line_id=route.line,
+                    corridor_stops=route.corridor_stops,
+                    boarding_stop=route.boarding_stop,
+                )
+
             return self.build_route_telemetry(
                 route=route,
                 departures=departures,
@@ -782,6 +852,7 @@ class TfLTransitProvider(TransitProvider):
                 corridor_departures={},
                 stop_names=stop_names,
                 active_vehicle_id=None,
+                stop_lead_seconds=stop_lead_seconds,
             )
 
         raise NotImplementedError(f"Mode {route.mode} not supported by TfL provider")

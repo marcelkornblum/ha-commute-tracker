@@ -567,6 +567,77 @@ def test_tfl_parse_timetable_lead_times(tfl_provider: TfLTransitProvider) -> Non
     assert tfl_provider.parse_timetable_lead_times(payload, "NONEXISTENT") == {}
 
 
+def test_tfl_parse_timetable_lead_times_includes_implicit_origin(
+    tfl_provider: TfLTransitProvider,
+) -> None:
+    """Verify parse_timetable_lead_times populates from_stop_id when omitted."""
+    payload = {
+        "timetable": {
+            "routes": [
+                {
+                    "stationIntervals": [
+                        {
+                            "intervals": [
+                                {"stopId": "STOP_B", "timeToArrival": 2.0},
+                                {"stopId": "STOP_C", "timeToArrival": 7.5},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    lead_times = tfl_provider.parse_timetable_lead_times(
+        timetable_payload=payload,
+        boarding_stop_id="STOP_C",
+        from_stop_id="STOP_A",
+    )
+    assert lead_times == {
+        "STOP_A": 450,
+        "STOP_B": 330,
+        "STOP_C": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_tfl_corridor_lead_times_does_not_cache_transient_failure() -> None:
+    """Verify transient None timetable fetches are not permanently cached."""
+    timetable = {
+        "timetable": {
+            "routes": [
+                {
+                    "stationIntervals": [
+                        {
+                            "intervals": [
+                                {"stopId": "STOP_B", "timeToArrival": 2.0},
+                                {"stopId": "STOP_C", "timeToArrival": 5.0},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    routes_map: dict[str, Any] = {}
+    mock_session = MockSession(routes_map=routes_map)
+    provider = TfLTransitProvider(session=mock_session)
+
+    first = await provider.async_get_corridor_lead_times(
+        line_id="73",
+        corridor_stops=["STOP_A", "STOP_B", "STOP_C"],
+        boarding_stop="STOP_C",
+    )
+    assert first == {}
+
+    routes_map["/Line/73/Timetable/STOP_A"] = timetable
+    second = await provider.async_get_corridor_lead_times(
+        line_id="73",
+        corridor_stops=["STOP_A", "STOP_B", "STOP_C"],
+        boarding_stop="STOP_C",
+    )
+    assert second == {"STOP_A": 300, "STOP_B": 180, "STOP_C": 0}
+
+
 @pytest.mark.asyncio
 async def test_tfl_async_fetch_timetable() -> None:
     """Verify async_fetch_timetable retrieves and caches timetable JSON."""

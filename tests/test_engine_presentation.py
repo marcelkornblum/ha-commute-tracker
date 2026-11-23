@@ -75,12 +75,19 @@ def test_calculate_pill_badge() -> None:
     assert relaxed.label == "Leave in 10m"
     assert relaxed.color == "#4CAF50"
 
-    prepare = calculate_pill_badge(
+    prepare_green = calculate_pill_badge(
         urgency_stage=UrgencyStage.PREPARE,
         seconds_to_leave=240,
     )
-    assert prepare.label == "Prepare (4m)"
-    assert prepare.color == "#FF9800"
+    assert prepare_green.label == "Leave in 4m"
+    assert prepare_green.color == "#4CAF50"
+
+    prepare_amber = calculate_pill_badge(
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=180,
+    )
+    assert prepare_amber.label == "👟 Leave in 3m"
+    assert prepare_amber.color == "#FF9800"
 
     leave_now = calculate_pill_badge(
         urgency_stage=UrgencyStage.LEAVE_NOW,
@@ -175,7 +182,8 @@ def test_engine_populates_presentation_attributes() -> None:
     assert child.next_summary == "Next at 14:20 (in 20m)"
     assert child.seconds_to_next_board == 1200
     assert child.pill_badge is not None
-    assert child.pill_badge.label == "Prepare (4m)"
+    assert child.pill_badge.label == "Leave in 4m"
+    assert child.pill_badge.color == "#4CAF50"
     assert len(child.corridor_stops) == 2
     assert child.corridor_stops[0] == {
         "stop_id": "STOP_A",
@@ -202,7 +210,8 @@ def test_engine_populates_presentation_attributes() -> None:
     assert master.timeliness == "on_time"
     assert master.next_summary == "Next at 14:20 (in 20m)"
     assert master.pill_badge is not None
-    assert master.pill_badge.label == "Prepare (4m)"
+    assert master.pill_badge.label == "Leave in 4m"
+    assert master.pill_badge.color == "#4CAF50"
 
 
 def test_engine_dynamic_transit_duration_from_prediction() -> None:

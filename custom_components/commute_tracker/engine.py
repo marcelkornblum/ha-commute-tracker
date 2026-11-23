@@ -202,6 +202,14 @@ class CommuteEngine:
             kwargs["default_boarding_walk_seconds"] = self._config.boarding_walk_seconds
         if self._config.prep_seconds is not None:
             kwargs["default_prep_seconds"] = self._config.prep_seconds
+        if self._config.prepare_threshold_seconds is not None:
+            kwargs["default_prepare_threshold_seconds"] = (
+                self._config.prepare_threshold_seconds
+            )
+        if self._config.amber_threshold_seconds is not None:
+            kwargs["default_amber_threshold_seconds"] = (
+                self._config.amber_threshold_seconds
+            )
 
         thresholds = resolve_route_thresholds(**kwargs)
         self._cached_thresholds[route_id] = thresholds
@@ -323,7 +331,13 @@ class CommuteEngine:
             )
             stage = calculate_urgency_stage(
                 seconds_to_leave=seconds_to_leave,
+                prepare_threshold_seconds=thresholds.prepare_threshold_seconds,
             )
+
+            merged_lead_seconds = {
+                **(telemetry.stop_lead_seconds or {}),
+                **(route_cfg.corridor_stop_lead_seconds or {}),
+            }
 
             corridor_loc, progress = calculate_corridor_progression(
                 departure=active_dep,
@@ -331,6 +345,7 @@ class CommuteEngine:
                 corridor_departures=telemetry.corridor_departures,
                 stop_names=merged_stop_names,
                 boarding_stop=route_cfg.boarding_stop,
+                stop_lead_seconds=merged_lead_seconds or None,
             )
 
             transit_dur = (
@@ -375,6 +390,7 @@ class CommuteEngine:
             pill_badge = calculate_pill_badge(
                 urgency_stage=stage,
                 seconds_to_leave=seconds_to_leave,
+                amber_threshold_seconds=thresholds.amber_threshold_seconds,
             )
 
             dep_destination = active_dep.destination or route_destination

@@ -9,6 +9,7 @@ from datetime import datetime, time, timedelta, timezone
 from typing import Any
 
 from custom_components.commute_tracker.const import (
+    DEFAULT_AMBER_THRESHOLD_SECONDS,
     DEFAULT_GRACE_FRACTION,
     DEFAULT_GRACE_SECONDS,
     DEFAULT_PREP_SECONDS,
@@ -32,6 +33,8 @@ class ResolvedThresholds:
     prep_seconds: int
     grace_seconds: int
     target_destination_time: str | None = None
+    prepare_threshold_seconds: int = DEFAULT_PREPARE_THRESHOLD_SECONDS
+    amber_threshold_seconds: int = DEFAULT_AMBER_THRESHOLD_SECONDS
 
     @property
     def total_buffer_seconds(self) -> int:
@@ -47,6 +50,8 @@ def resolve_route_thresholds(
     default_grace_seconds: int | None = None,
     default_grace_fraction: float | None = None,
     default_target_destination_time: str | None = None,
+    default_prepare_threshold_seconds: int = DEFAULT_PREPARE_THRESHOLD_SECONDS,
+    default_amber_threshold_seconds: int = DEFAULT_AMBER_THRESHOLD_SECONDS,
 ) -> ResolvedThresholds:
     """Resolve route time thresholds following the cascading resolution hierarchy.
 
@@ -55,16 +60,6 @@ def resolve_route_thresholds(
     2. YAML Route Configuration (seconds or fraction)
     3. Commute/Overall Defaults (seconds or fraction)
     4. Global Defaults
-
-    :param route_config: RouteConfig object or route configuration dictionary.
-    :param helper_overrides: Optional runtime overrides from HA input helpers.
-    :param default_boarding_walk_seconds: Fallback walk duration in seconds.
-    :param default_prep_seconds: Fallback prep buffer in seconds.
-    :param default_grace_seconds: Fallback grace window in seconds.
-    :param default_grace_fraction: Fallback grace fraction of walk duration.
-    :param default_target_destination_time: Fallback target destination
-        arrival time (HH:MM).
-    :return: ResolvedThresholds instance.
     """
     helpers = helper_overrides or {}
 
@@ -91,6 +86,20 @@ def resolve_route_thresholds(
         global_fallback_fraction=DEFAULT_GRACE_FRACTION,
     )
 
+    prepare_threshold_seconds = _resolve_seconds(
+        helpers=helpers,
+        config=route_config,
+        sec_key="prepare_threshold_seconds",
+        fallback=default_prepare_threshold_seconds,
+    )
+
+    amber_threshold_seconds = _resolve_seconds(
+        helpers=helpers,
+        config=route_config,
+        sec_key="amber_threshold_seconds",
+        fallback=default_amber_threshold_seconds,
+    )
+
     target_destination: str | None = None
     if helpers.get("target_destination_time"):
         target_destination = helpers["target_destination_time"]
@@ -104,6 +113,8 @@ def resolve_route_thresholds(
         prep_seconds=prep_seconds,
         grace_seconds=grace_seconds,
         target_destination_time=target_destination,
+        prepare_threshold_seconds=prepare_threshold_seconds,
+        amber_threshold_seconds=amber_threshold_seconds,
     )
 
 
@@ -331,13 +342,9 @@ def format_next_summary(
 def calculate_pill_badge(
     urgency_stage: UrgencyStage,
     seconds_to_leave: int | None = None,
+    amber_threshold_seconds: int = DEFAULT_AMBER_THRESHOLD_SECONDS,
 ) -> PillBadge:
-    """Calculate UI badge styling and text tokens from urgency stage and countdown.
-
-    :param urgency_stage: Active UrgencyStage enum value.
-    :param seconds_to_leave: Optional countdown until doorstep deadline.
-    :return: Strongly-typed PillBadge token model.
-    """
+    """Calculate UI badge styling and text tokens from urgency stage and countdown."""
     if urgency_stage == UrgencyStage.STANDBY or seconds_to_leave is None:
         return PillBadge(
             label="Standby",
@@ -348,7 +355,7 @@ def calculate_pill_badge(
 
     leave_in_minutes = int(round(seconds_to_leave / 60))
 
-    if urgency_stage == UrgencyStage.LEAVE_NOW:
+    if urgency_stage == UrgencyStage.LEAVE_NOW or seconds_to_leave <= 0:
         return PillBadge(
             label="🚨 LEAVE NOW",
             color="#FF5252",
@@ -356,8 +363,12 @@ def calculate_pill_badge(
             border="#FF5252",
         )
 
-    if urgency_stage == UrgencyStage.PREPARE:
-        label = f"Prepare ({leave_in_minutes}m)" if leave_in_minutes > 0 else "Prepare"
+    if seconds_to_leave <= amber_threshold_seconds:
+        label = (
+            f"👟 Leave in {leave_in_minutes}m"
+            if leave_in_minutes > 0
+            else "👟 Leave in <1m"
+        )
         return PillBadge(
             label=label,
             color="#FF9800",

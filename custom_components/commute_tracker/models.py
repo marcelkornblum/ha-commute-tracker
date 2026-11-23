@@ -122,12 +122,15 @@ class RouteConfig:
     destination: str | None = None
     boarding_walk_seconds: int | None = None
     prep_seconds: int | None = None
+    prepare_threshold_seconds: int | None = None
+    amber_threshold_seconds: int | None = None
     grace_seconds: int | None = None
     grace_fraction: float | None = None
     transit_duration_seconds: int | None = None
     alighting_walk_seconds: int | None = None
     corridor_stops: list[str] = field(default_factory=list)
     corridor_stop_names: dict[str, str] = field(default_factory=dict)
+    corridor_stop_lead_seconds: dict[str, int] = field(default_factory=dict)
     name: str | None = None
 
     @property
@@ -148,6 +151,7 @@ class RouteTelemetry:
         default_factory=dict
     )
     stop_names: dict[str, str] = field(default_factory=dict)
+    stop_lead_seconds: dict[str, int] = field(default_factory=dict)
     active_vehicle_id: str | None = None
     line_status: LineStatus | None = None
 
@@ -178,6 +182,8 @@ class CommuteConfig:
     route_late_buffer_seconds: int = DEFAULT_ROUTE_LATE_BUFFER_SECONDS
     poll_interval: int = DEFAULT_POLL_INTERVAL_SECONDS
     prep_seconds: int | None = None
+    prepare_threshold_seconds: int | None = None
+    amber_threshold_seconds: int | None = None
     boarding_walk_seconds: int | None = None
     staging_mode: bool = DEFAULT_STAGING_MODE
 
@@ -206,6 +212,16 @@ class CommuteConfig:
             prep_sec = (
                 int(r["prep_seconds"]) if r.get("prep_seconds") is not None else None
             )
+            prepare_thresh = (
+                int(r["prepare_threshold_seconds"])
+                if r.get("prepare_threshold_seconds") is not None
+                else None
+            )
+            amber_thresh = (
+                int(r["amber_threshold_seconds"])
+                if r.get("amber_threshold_seconds") is not None
+                else None
+            )
             grace_sec = (
                 int(r["grace_seconds"]) if r.get("grace_seconds") is not None else None
             )
@@ -224,6 +240,12 @@ class CommuteConfig:
                 if r.get("alighting_walk_seconds") is not None
                 else None
             )
+            raw_lead_map = r.get("corridor_stop_lead_seconds") or {}
+            lead_seconds_map = {
+                str(sid): int(val)
+                for sid, val in raw_lead_map.items()
+                if val is not None
+            }
 
             routes.append(
                 RouteConfig(
@@ -238,12 +260,15 @@ class CommuteConfig:
                     destination=r.get("destination"),
                     boarding_walk_seconds=walk_sec,
                     prep_seconds=prep_sec,
+                    prepare_threshold_seconds=prepare_thresh,
+                    amber_threshold_seconds=amber_thresh,
                     grace_seconds=grace_sec,
                     grace_fraction=grace_frac,
                     transit_duration_seconds=transit_dur,
                     alighting_walk_seconds=alight_walk,
                     corridor_stops=list(r.get("corridor_stops", [])),
                     corridor_stop_names=dict(r.get("corridor_stop_names", {})),
+                    corridor_stop_lead_seconds=lead_seconds_map,
                     name=r.get("name") or r.get("route_name"),
                 )
             )
@@ -279,6 +304,16 @@ class CommuteConfig:
         prep_sec = (
             int(data["prep_seconds"]) if data.get("prep_seconds") is not None else None
         )
+        prepare_thresh = (
+            int(data["prepare_threshold_seconds"])
+            if data.get("prepare_threshold_seconds") is not None
+            else None
+        )
+        amber_thresh = (
+            int(data["amber_threshold_seconds"])
+            if data.get("amber_threshold_seconds") is not None
+            else None
+        )
         boarding_walk_sec = (
             int(data["boarding_walk_seconds"])
             if data.get("boarding_walk_seconds") is not None
@@ -302,6 +337,8 @@ class CommuteConfig:
             route_late_buffer_seconds=route_late_buf,
             poll_interval=poll_interval,
             prep_seconds=prep_sec,
+            prepare_threshold_seconds=prepare_thresh,
+            amber_threshold_seconds=amber_thresh,
             boarding_walk_seconds=boarding_walk_sec,
             staging_mode=staging_mode,
         )
