@@ -890,3 +890,138 @@ async def test_options_flow_retains_extra_stops_route_name_and_grace_fraction(
         "490000001C",
     ]
     assert updated_route["corridor_stop_names"]["490000001A"] == ""
+
+
+@pytest.mark.asyncio
+async def test_config_flow_persists_thresholds_and_stop_lead_times(
+    hass: HomeAssistant,
+) -> None:
+    """Verify config flow saves prepare/amber thresholds and per-stop lead times."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Threshold Test",
+                "active_sensor": "binary_sensor.school_active",
+            },
+            "destination_timings": {
+                "prep_seconds": 120,
+                "prepare_threshold_seconds": 540,
+                "amber_threshold_seconds": 180,
+            },
+        },
+    )
+    assert result2["step_id"] == "route"
+
+    result4 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "train",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": 400,
+            },
+        },
+    )
+    assert result4["step_id"] == "corridor"
+
+    result5 = await hass.config_entries.flow.async_configure(
+        result4["flow_id"],
+        user_input={
+            "corridor_stops": ["490000001A", "490000001B", "490000001C"],
+        },
+    )
+    assert result5["step_id"] == "corridor_names"
+
+    result6 = await hass.config_entries.flow.async_configure(
+        result5["flow_id"],
+        user_input={
+            "stop_display_names": {
+                "name_490000001a": "Victoria",
+                "name_490000001b": "Hyde Park",
+                "name_490000001c": "Marble Arch",
+            },
+            "stop_lead_times": {
+                "lead_490000001a": 900,
+                "lead_490000001b": 300,
+            },
+        },
+    )
+    assert result6["step_id"] == "routes"
+
+    result7 = await hass.config_entries.flow.async_configure(
+        result6["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert result7["type"] == FlowResultType.CREATE_ENTRY
+    assert result7["data"]["prepare_threshold_seconds"] == 540
+    assert result7["data"]["amber_threshold_seconds"] == 180
+    assert result7["data"]["routes"][0]["corridor_stop_lead_seconds"] == {
+        "490000001A": 900,
+        "490000001B": 300,
+        "490000001C": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_config_flow_rejects_non_monotonic_lead_times(
+    hass: HomeAssistant,
+) -> None:
+    """Verify corridor_names rejects non-decreasing per-stop lead times."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Invalid Leads Test",
+                "active_sensor": "binary_sensor.school_active",
+            },
+        },
+    )
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "train",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": 400,
+            },
+        },
+    )
+    result4 = await hass.config_entries.flow.async_configure(
+        result3["flow_id"],
+        user_input={
+            "corridor_stops": ["490000001A", "490000001B", "490000001C"],
+        },
+    )
+    assert result4["step_id"] == "corridor_names"
+
+    result_err = await hass.config_entries.flow.async_configure(
+        result4["flow_id"],
+        user_input={
+            "stop_display_names": {
+                "name_490000001a": "Victoria",
+                "name_490000001b": "Hyde Park",
+                "name_490000001c": "Marble Arch",
+            },
+            "stop_lead_times": {
+                "lead_490000001a": 300,
+                "lead_490000001b": 400,
+            },
+        },
+    )
+    assert result_err["step_id"] == "corridor_names"
+    assert result_err["errors"] == {"base": "invalid_lead_times"}

@@ -119,6 +119,98 @@ def test_filter_approaching_departures_direction_evaluation() -> None:
     assert dep_no_vid in filtered
 
 
+def test_filter_approaching_departures_turnaround_and_jitter() -> None:
+    """Verify turnaround predictions and minor ETA jitter keep approaching buses."""
+    corridor = ["STOP_0", "STOP_1", "STOP_2", "STOP_3", "STOP_4"]
+    dep_active = DeparturePrediction(
+        vehicle_id="YX13EHL",
+        destination="Springfield Hospital",
+        expected_time=None,
+        seconds_to_arrival=294,
+    )
+    dep_following = DeparturePrediction(
+        vehicle_id="YX14RYU",
+        destination="Springfield Hospital",
+        expected_time=None,
+        seconds_to_arrival=1380,
+    )
+
+    corridor_deps = {
+        "STOP_0": [
+            DeparturePrediction(
+                vehicle_id="YX13EHL",
+                destination="Springfield Hospital",
+                expected_time=None,
+                seconds_to_arrival=33,
+            ),
+            DeparturePrediction(
+                vehicle_id="YX13EHL",
+                destination="Springfield Hospital",
+                expected_time=None,
+                seconds_to_arrival=1450,
+            ),
+        ],
+        "STOP_3": [
+            DeparturePrediction(
+                vehicle_id="YX13EHL",
+                destination="Springfield Hospital",
+                expected_time=None,
+                seconds_to_arrival=310,
+            ),
+        ],
+    }
+
+    filtered = filter_approaching_departures(
+        departures=[dep_active, dep_following],
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps,
+        boarding_stop="STOP_4",
+    )
+    assert dep_active in filtered
+
+
+def test_filter_approaching_departures_standby_fallback_excludes_reverse() -> None:
+    """Verify far-out buses avoid Standby fallback while reverse buses stay dropped."""
+    corridor = ["STOP_0", "STOP_1", "STOP_2"]
+
+    dep_far_only = DeparturePrediction(
+        vehicle_id="BUS_FAR",
+        destination="Springfield Hospital",
+        expected_time=None,
+        seconds_to_arrival=1532,
+    )
+    filtered_far = filter_approaching_departures(
+        departures=[dep_far_only],
+        corridor_stops=corridor,
+        corridor_departures={"STOP_0": []},
+        boarding_stop="STOP_2",
+    )
+    assert filtered_far == [dep_far_only]
+
+    dep_reverse_only = DeparturePrediction(
+        vehicle_id="BUS_REV",
+        destination="Opposite",
+        expected_time=None,
+        seconds_to_arrival=120,
+    )
+    filtered_rev = filter_approaching_departures(
+        departures=[dep_reverse_only],
+        corridor_stops=corridor,
+        corridor_departures={
+            "STOP_0": [
+                DeparturePrediction(
+                    vehicle_id="BUS_REV",
+                    destination="Opposite",
+                    expected_time=None,
+                    seconds_to_arrival=600,
+                )
+            ]
+        },
+        boarding_stop="STOP_2",
+    )
+    assert filtered_rev == []
+
+
 def test_calculate_corridor_progression_explicit_location() -> None:
     """Verify calculate_corridor_progression with explicit location text."""
     corridor = ["STOP_A", "STOP_B", "STOP_C"]
@@ -754,6 +846,136 @@ def test_calculate_corridor_progression_bus_lingering_origin_and_turnaround() ->
     )
     assert loc == "At Robson Rd"
     assert prog == 2.0
+
+
+def test_calculate_corridor_progression_bus_downstream_first_segment_windows() -> None:
+    """Verify downstream-first segment checks prevent terminus pinning."""
+    corridor = ["STOP_0", "STOP_1", "STOP_2", "STOP_3", "STOP_4"]
+    names = {
+        "STOP_0": "St Julian's",
+        "STOP_1": "WN Station",
+        "STOP_2": "Robson Rd",
+        "STOP_3": "York Hill",
+        "STOP_4": "Royal Circus",
+    }
+    lead_seconds = {
+        "STOP_0": 450,
+        "STOP_1": 360,
+        "STOP_2": 210,
+        "STOP_3": 90,
+        "STOP_4": 0,
+    }
+
+    dep_0803 = DeparturePrediction(
+        vehicle_id="YY64TXF",
+        destination="Springfield Hospital",
+        expected_time=None,
+        seconds_to_arrival=366,
+    )
+    corridor_deps_0803 = {
+        "STOP_0": [DeparturePrediction(vehicle_id="YY64TXF", seconds_to_arrival=40)],
+        "STOP_1": [DeparturePrediction(vehicle_id="YY64TXF", seconds_to_arrival=87)],
+        "STOP_2": [DeparturePrediction(vehicle_id="YY64TXF", seconds_to_arrival=176)],
+        "STOP_3": [DeparturePrediction(vehicle_id="YY64TXF", seconds_to_arrival=282)],
+    }
+    loc, prog = calculate_corridor_progression(
+        departure=dep_0803,
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps_0803,
+        stop_names=names,
+        stop_lead_seconds=lead_seconds,
+    )
+    assert loc == "Between WN Station and Robson Rd"
+    assert prog == 1.5
+
+    loc_default, prog_default = calculate_corridor_progression(
+        departure=dep_0803,
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps_0803,
+        stop_names=names,
+    )
+    assert loc_default == "Between WN Station and Robson Rd"
+    assert prog_default == 1.5
+
+    dep_0728 = DeparturePrediction(
+        vehicle_id="YX13EHL",
+        destination="Springfield Hospital",
+        expected_time=None,
+        seconds_to_arrival=337,
+    )
+    corridor_deps_0728 = {
+        "STOP_0": [DeparturePrediction(vehicle_id="YX13EHL", seconds_to_arrival=79)],
+        "STOP_1": [DeparturePrediction(vehicle_id="YX13EHL", seconds_to_arrival=110)],
+        "STOP_2": [DeparturePrediction(vehicle_id="YX13EHL", seconds_to_arrival=198)],
+        "STOP_3": [DeparturePrediction(vehicle_id="YX13EHL", seconds_to_arrival=300)],
+    }
+    loc_0728, prog_0728 = calculate_corridor_progression(
+        departure=dep_0728,
+        corridor_stops=corridor,
+        corridor_departures=corridor_deps_0728,
+        stop_names=names,
+        stop_lead_seconds=lead_seconds,
+    )
+    assert loc_0728 == "Between St Julian's and WN Station"
+    assert prog_0728 == 0.5
+
+
+def test_calculate_corridor_progression_train_piecewise_lead_times() -> None:
+    """Verify non-uniform train lead times interpolate piecewise-linearly."""
+    corridor = [
+        "910GBRCKLY",
+        "910GHONRPK",
+        "910GFORESTH",
+        "910GSYDENHM",
+        "910GCRYSTLP",
+        "910GGIPSYH",
+        "910GWNORWOD",
+    ]
+    names = {
+        "910GBRCKLY": "Brockley",
+        "910GHONRPK": "Honor Oak Park",
+        "910GFORESTH": "Forest Hill",
+        "910GSYDENHM": "Sydenham",
+        "910GCRYSTLP": "Crystal Palace",
+        "910GGIPSYH": "Gipsy Hill",
+        "910GWNORWOD": "West Norwood",
+    }
+    lead_seconds = {
+        "910GBRCKLY": 1500,
+        "910GHONRPK": 1380,
+        "910GFORESTH": 1200,
+        "910GSYDENHM": 1020,
+        "910GCRYSTLP": 360,
+        "910GGIPSYH": 180,
+        "910GWNORWOD": 0,
+    }
+
+    cases = [
+        (1550, "Scheduled from Brockley", 0.0),
+        (1439, "Between Brockley and Honor Oak Park", 0.51),
+        (1289, "Between Honor Oak Park and Forest Hill", 1.51),
+        (1079, "Between Forest Hill and Sydenham", 2.67),
+        (1019, "At Sydenham", 3.0),
+        (899, "Between Sydenham and Crystal Palace", 3.18),
+        (689, "Between Sydenham and Crystal Palace", 3.5),
+    ]
+    for secs, expected_loc, expected_prog in cases:
+        dep = DeparturePrediction(
+            vehicle_id="",
+            destination="Victoria",
+            expected_time=None,
+            seconds_to_arrival=secs,
+            is_realtime=False,
+        )
+        loc, prog = calculate_corridor_progression(
+            departure=dep,
+            corridor_stops=corridor,
+            corridor_departures={},
+            stop_names=names,
+            stop_lead_seconds=lead_seconds,
+        )
+        assert loc == expected_loc
+        assert prog == expected_prog
 
 
 def test_calculate_corridor_progression_empty_stop_names() -> None:

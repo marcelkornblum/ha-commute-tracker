@@ -11,6 +11,7 @@ from custom_components.commute_tracker.models import (
 )
 from custom_components.commute_tracker.timeliness import (
     calculate_destination_margin,
+    calculate_pill_badge,
     calculate_seconds_to_leave,
     calculate_urgency_stage,
     is_departure_reachable,
@@ -442,3 +443,89 @@ def test_grace_precedence_hierarchy() -> None:
         helper_overrides={"grace_seconds": 5, "grace_fraction": 0.05},
     )
     assert res7.grace_seconds == 5
+
+
+def test_prepare_and_amber_threshold_resolution() -> None:
+    """Verify prepare and amber pill thresholds cascade across config tiers."""
+    res_default = resolve_route_thresholds(route_config={})
+    assert res_default.prepare_threshold_seconds == 480
+    assert res_default.amber_threshold_seconds == 210
+
+    res_commute = resolve_route_thresholds(
+        route_config={},
+        default_prepare_threshold_seconds=600,
+        default_amber_threshold_seconds=180,
+    )
+    assert res_commute.prepare_threshold_seconds == 600
+    assert res_commute.amber_threshold_seconds == 180
+
+    route_cfg = RouteConfig(
+        route_id="bus_315",
+        mode=TransitMode.BUS,
+        line="315",
+        prepare_threshold_seconds=420,
+        amber_threshold_seconds=150,
+    )
+    res_route = resolve_route_thresholds(
+        route_config=route_cfg,
+        default_prepare_threshold_seconds=600,
+        default_amber_threshold_seconds=180,
+    )
+    assert res_route.prepare_threshold_seconds == 420
+    assert res_route.amber_threshold_seconds == 150
+
+    res_helper = resolve_route_thresholds(
+        route_config=route_cfg,
+        helper_overrides={
+            "prepare_threshold_seconds": 360,
+            "amber_threshold_seconds": 120,
+        },
+    )
+    assert res_helper.prepare_threshold_seconds == 360
+    assert res_helper.amber_threshold_seconds == 120
+
+
+def test_pill_badge_splits_prepare_stage_and_amber_threshold() -> None:
+    """Verify pill stays green above amber threshold and turns amber at or below it."""
+    prepare_green = calculate_pill_badge(
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=420,
+    )
+    assert prepare_green.color == "#4CAF50"
+    assert prepare_green.label == "Leave in 7m"
+
+    boundary_green = calculate_pill_badge(
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=211,
+    )
+    assert boundary_green.color == "#4CAF50"
+    assert boundary_green.label == "Leave in 4m"
+
+    boundary_amber = calculate_pill_badge(
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=210,
+    )
+    assert boundary_amber.color == "#FF9800"
+    assert boundary_amber.label == "👟 Leave in 4m"
+
+    imminent_amber = calculate_pill_badge(
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=120,
+    )
+    assert imminent_amber.color == "#FF9800"
+    assert imminent_amber.label == "👟 Leave in 2m"
+
+    sub_minute_amber = calculate_pill_badge(
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=20,
+    )
+    assert sub_minute_amber.color == "#FF9800"
+    assert sub_minute_amber.label == "👟 Leave in <1m"
+
+    custom_amber = calculate_pill_badge(
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=240,
+        amber_threshold_seconds=300,
+    )
+    assert custom_amber.color == "#FF9800"
+    assert custom_amber.label == "👟 Leave in 4m"

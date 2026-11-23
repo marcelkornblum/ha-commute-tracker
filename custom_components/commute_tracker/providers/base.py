@@ -41,25 +41,25 @@ class DebouncedCache:
         self._lock = asyncio.Lock()
 
     async def async_get_or_set(
-        self, key: str, fetch_callable: Callable[[], Awaitable[T]]
+        self,
+        key: str,
+        fetch_callable: Callable[[], Awaitable[T]],
+        ttl_seconds: float | None = None,
+        cache_none: bool = True,
     ) -> T:
-        """Retrieve existing cached value or execute fetcher with coalescing.
-
-        :param key: Unique cache key identifying the resource.
-        :param fetch_callable: Asynchronous callable returning the fresh value.
-        :return: Cached or fetched value.
-        """
+        """Retrieve existing cached value or execute fetcher with coalescing."""
         now = time.monotonic()
+        effective_ttl = self._ttl_seconds if ttl_seconds is None else float(ttl_seconds)
 
         if key in self._cache:
             timestamp, cached_val = self._cache[key]
-            if now - timestamp < self._ttl_seconds:
+            if now - timestamp < effective_ttl:
                 return cached_val  # type: ignore[no-any-return]
 
         async with self._lock:
             if key in self._cache:
                 timestamp, cached_val = self._cache[key]
-                if now - timestamp < self._ttl_seconds:
+                if now - timestamp < effective_ttl:
                     return cached_val  # type: ignore[no-any-return]
 
             if key in self._inflight:
@@ -73,6 +73,7 @@ class DebouncedCache:
                         key=key,
                         future=future,
                         fetch_callable=fetch_callable,
+                        cache_none=cache_none,
                     )
                 )
 
@@ -84,17 +85,14 @@ class DebouncedCache:
         key: str,
         future: asyncio.Future[Any],
         fetch_callable: Callable[[], Awaitable[T]],
+        cache_none: bool = True,
     ) -> None:
-        """Execute underlying fetcher and resolve in-flight future.
-
-        :param key: Cache key.
-        :param future: Pending future for concurrent callers.
-        :param fetch_callable: Callable providing the data.
-        """
+        """Execute underlying fetcher and resolve in-flight future."""
         try:
             val = await fetch_callable()
-            now = time.monotonic()
-            self._cache[key] = (now, val)
+            if val is not None or cache_none:
+                now = time.monotonic()
+                self._cache[key] = (now, val)
             if not future.done():
                 future.set_result(val)
         except BaseException as err:
@@ -210,15 +208,15 @@ class TransitProvider(ABC):
         self,
         cache_key: str,
         fetch_callable: Callable[[], Awaitable[T]],
+        ttl_seconds: float | None = None,
+        cache_none: bool = True,
     ) -> T:
-        """Fetch with in-flight debouncing and TTL caching.
-
-        :param cache_key: Unique cache identifier.
-        :param fetch_callable: Asynchronous fetcher invoked on cache miss.
-        :return: Result from cache or fetcher.
-        """
+        """Fetch with in-flight debouncing and TTL caching."""
         return await self._cache.async_get_or_set(
-            key=cache_key, fetch_callable=fetch_callable
+            key=cache_key,
+            fetch_callable=fetch_callable,
+            ttl_seconds=ttl_seconds,
+            cache_none=cache_none,
         )
 
     def clean_stop_name(self, raw_name: str) -> str:
@@ -299,17 +297,9 @@ class TransitProvider(ABC):
         corridor_departures: dict[str, list[DeparturePrediction]] | None = None,
         stop_names: dict[str, str] | None = None,
         active_vehicle_id: str | None = None,
+        stop_lead_seconds: dict[str, int] | None = None,
     ) -> RouteTelemetry:
-        """Assemble normalised RouteTelemetry domain model.
-
-        :param route: Configured RouteConfig instance.
-        :param departures: Ordered departure predictions for target boarding stop.
-        :param line_status: Operational line health status.
-        :param corridor_departures: Map of stop identifier to arrivals along corridor.
-        :param stop_names: Map of stop identifiers to friendly labels.
-        :param active_vehicle_id: Explicit lead vehicle identifier if known.
-        :return: Normalised RouteTelemetry instance.
-        """
+        """Assemble normalised RouteTelemetry domain model."""
         lead_vid = (
             active_vehicle_id
             if active_vehicle_id is not None
@@ -322,6 +312,7 @@ class TransitProvider(ABC):
             departures=departures,
             corridor_departures=corridor_departures or {},
             stop_names=stop_names or {},
+            stop_lead_seconds=stop_lead_seconds or {},
             active_vehicle_id=lead_vid,
             line_status=line_status or UNKNOWN_LINE_STATUS,
         )
@@ -491,18 +482,17 @@ class TransitProvider(ABC):
         target_time_window_seconds: int | None = None,
         alighting_stop: str | None = None,
     ) -> list[CorridorStop]:
-        """Discover and order upstream corridor stops leading to the boarding stop.
-
-        :param line_id: Transit line identifier.
-        :param boarding_stop: Boarding stop identifier or name.
-        :param mode: Transit mode.
-        :param direction: Direction string.
-        :param target_time_window_seconds: Optional time window to constrain stops.
-        :param alighting_stop: Optional alighting stop identifier or name for direction.
-        :return: Ordered list of CorridorStop objects.
-        :raises NotImplementedError: If not implemented by the provider.
-        """
+        """Discover and order upstream corridor stops leading to the boarding stop."""
         raise NotImplementedError
+
+    async def async_get_corridor_lead_times(
+        self,
+        line_id: str,
+        corridor_stops: list[str],
+        boarding_stop: str | None = None,
+    ) -> dict[str, int]:
+        """Return scheduled lead seconds per corridor stop when supported."""
+        return {}
 
     @abstractmethod
     async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:

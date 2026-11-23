@@ -30,6 +30,8 @@
           "destination": "Commute Destination",
           "target_destination_time": "Target Destination Time",
           "prep_seconds": "Preparation Buffer (seconds)",
+          "prepare_threshold_seconds": "Prepare Stage Threshold (seconds)",
+          "amber_threshold_seconds": "Amber Pill Threshold (seconds)",
           "rollup_strategy": "Rollup Strategy",
           "route_late_buffer_seconds": "Late Route Buffer (seconds)",
           "poll_interval": "Poll Interval (seconds)",
@@ -42,6 +44,8 @@
           "destination": "Name or label of the final destination (e.g. Office).",
           "target_destination_time": "Desired arrival time at your final destination.",
           "prep_seconds": "Preparation time before leaving the house. Offsets notifications and urgency stages.",
+          "prepare_threshold_seconds": "Countdown in seconds before leaving when the urgency stage enters Prepare.",
+          "amber_threshold_seconds": "Countdown in seconds before leaving when the badge pill turns amber.",
           "rollup_strategy": "Strategy used to choose the optimal route.",
           "route_late_buffer_seconds": "Time margin to allow for a fallback route to be viable when using the Late with Buffer strategy.",
           "poll_interval": "Seconds between live transit feed refreshes while active.",
@@ -125,6 +129,10 @@
           "stop_display_names": {
             "name": "Stop Short Names",
             "description": "Set user-friendly short names for corridor stations."
+          },
+          "stop_lead_times": {
+            "name": "Stop Lead Times (seconds)",
+            "description": "Optional scheduled travel time in seconds from each upstream stop to the boarding stop."
           }
         }
       }
@@ -137,6 +145,7 @@
       "invalid_line": "Line identifier not recognised by provider.",
       "invalid_boarding_stop": "Boarding stop not found along this line.",
       "invalid_alighting_stop": "Alighting stop not found along this line.",
+      "invalid_lead_times": "Upstream stop lead times must strictly decrease towards the boarding stop.",
       "mutual_grace": "Cannot specify both grace_seconds and grace_fraction.",
       "no_routes": "At least one route must be configured.",
       "no_commutes": "At least one commute must be configured.",
@@ -178,6 +187,8 @@
           "destination": "Commute Destination",
           "target_destination_time": "Target Destination Time",
           "prep_seconds": "Preparation Buffer (seconds)",
+          "prepare_threshold_seconds": "Prepare Stage Threshold (seconds)",
+          "amber_threshold_seconds": "Amber Pill Threshold (seconds)",
           "rollup_strategy": "Rollup Strategy",
           "route_late_buffer_seconds": "Late Route Buffer (seconds)",
           "poll_interval": "Poll Interval (seconds)",
@@ -190,6 +201,8 @@
           "destination": "Name or label of the final destination (e.g. Office).",
           "target_destination_time": "Desired arrival time at your final destination.",
           "prep_seconds": "Preparation time before leaving the house. Offsets notifications and urgency stages.",
+          "prepare_threshold_seconds": "Countdown in seconds before leaving when the urgency stage enters Prepare.",
+          "amber_threshold_seconds": "Countdown in seconds before leaving when the badge pill turns amber.",
           "rollup_strategy": "Strategy used to choose the optimal route.",
           "route_late_buffer_seconds": "Time margin to allow for a fallback route to be viable when using the Late with Buffer strategy.",
           "poll_interval": "Seconds between live transit feed refreshes while active.",
@@ -273,6 +286,10 @@
           "stop_display_names": {
             "name": "Stop Short Names",
             "description": "Set user-friendly short names for corridor stations."
+          },
+          "stop_lead_times": {
+            "name": "Stop Lead Times (seconds)",
+            "description": "Optional scheduled travel time in seconds from each upstream stop to the boarding stop."
           }
         }
       }

@@ -311,6 +311,46 @@ def test_root_level_options_cascade_to_commutes_and_routes() -> None:
     assert route["boarding_walk_seconds"] == 350
 
 
+def test_prepare_amber_thresholds_and_corridor_lead_seconds_validation() -> None:
+    """Validate prepare/amber threshold cascading and per-stop lead times."""
+    raw_config = {
+        "prepare_threshold_seconds": 540,
+        "amber_threshold_seconds": 180,
+        "commutes": [
+            {
+                "name": "School",
+                "active_sensor": "binary_sensor.school_active",
+                "routes": [
+                    {
+                        "mode": "train",
+                        "line": "southern",
+                        "boarding_stop": "910GWNORWOD",
+                        "corridor_stops": ["910GBRCKLY", "910GCRYSTLP", "910GWNORWOD"],
+                        "corridor_stop_lead_seconds": {
+                            "910GBRCKLY": 1500,
+                            "910GCRYSTLP": 360,
+                            "910GWNORWOD": 0,
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+    validated = COMMUTE_TRACKER_SCHEMA(raw_config)
+    commute = validated["commutes"][0]
+    assert commute["prepare_threshold_seconds"] == 540
+    assert commute["amber_threshold_seconds"] == 180
+
+    route = commute["routes"][0]
+    assert route["prepare_threshold_seconds"] == 540
+    assert route["amber_threshold_seconds"] == 180
+    assert route["corridor_stop_lead_seconds"] == {
+        "910GBRCKLY": 1500,
+        "910GCRYSTLP": 360,
+        "910GWNORWOD": 0,
+    }
+
+
 def test_commute_and_route_overrides_root_level_options() -> None:
     """Validate that commute/route options take precedence over root defaults."""
     raw_config = {
