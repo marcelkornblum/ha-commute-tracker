@@ -458,17 +458,30 @@ async def test_options_flow(hass: HomeAssistant) -> None:
 
     entry.add_update_listener(async_update_options)
 
-    # Initialize options flow
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] == FlowResultType.FORM
+    assert result["type"] == FlowResultType.MENU
     assert result["step_id"] == "init"
+    assert result["menu_options"] == ["commute_settings", "routes"]
 
-    # Submit updated options
-    with patch.object(
-        hass.config_entries, "async_reload", new_callable=AsyncMock
-    ) as mock_reload:
+    result_form = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "commute_settings"},
+    )
+    assert result_form["type"] == FlowResultType.FORM
+    assert result_form["step_id"] == "commute_settings"
+
+    with (
+        patch.object(
+            hass.config_entries, "async_reload", new_callable=AsyncMock
+        ) as mock_reload,
+        patch.object(
+            MockTransitProvider,
+            "async_get_corridor_stops",
+            new_callable=AsyncMock,
+        ) as mock_discovery,
+    ):
         result2 = await hass.config_entries.options.async_configure(
-            result["flow_id"],
+            result_form["flow_id"],
             user_input={
                 "overview": {
                     "name": "Work Commute",
@@ -487,17 +500,11 @@ async def test_options_flow(hass: HomeAssistant) -> None:
                 },
             },
         )
-        assert result2["type"] == FlowResultType.FORM
-        assert result2["step_id"] == "routes"
-
-        result3 = await hass.config_entries.options.async_configure(
-            result2["flow_id"],
-            user_input={"route_action": "finish"},
-        )
-        assert result3["type"] == FlowResultType.CREATE_ENTRY
+        assert result2["type"] == FlowResultType.CREATE_ENTRY
         assert entry.data["prep_seconds"] == 180
         assert entry.data["rollup_strategy"] == "soonest"
         assert entry.data["poll_interval"] == 45
+        mock_discovery.assert_not_called()
         mock_reload.assert_called_once_with(entry.entry_id)
 
 
@@ -710,66 +717,71 @@ async def test_options_flow_edit_route_transit_duration(hass: HomeAssistant) -> 
     entry.add_to_hass(hass)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.MENU
     assert result["step_id"] == "init"
 
     result2 = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input={
-            "overview": {
-                "name": "Office Commute",
-                "active_sensor": "binary_sensor.workday",
-            },
-        },
+        user_input={"next_step_id": "routes"},
     )
     assert result2["step_id"] == "routes"
 
-    # Select edit route 0
     result3 = await hass.config_entries.options.async_configure(
         result2["flow_id"],
         user_input={"route_action": "edit_route_0"},
     )
-    assert result3["step_id"] == "route"
+    assert result3["type"] == FlowResultType.MENU
+    assert result3["step_id"] == "route_menu"
 
-    # Update transit_duration_seconds to 900
-    result4 = await hass.config_entries.options.async_configure(
+    result3b = await hass.config_entries.options.async_configure(
         result3["flow_id"],
-        user_input={
-            "service_details": {
-                "provider": "mock_tfl",
-                "mode": "bus",
-                "line": "73",
-            },
-            "boarding_walk": {
-                "boarding_stop": "Marble Arch",
-            },
-            "alighting_walk": {
-                "alighting_stop": "490000001D",
-                "transit_duration_seconds": 900,
-                "alighting_walk_seconds": 120,
-            },
-        },
+        user_input={"next_step_id": "route"},
     )
-    assert result4["step_id"] == "corridor"
+    assert result3b["step_id"] == "route"
+
+    with (
+        patch.object(
+            MockTransitProvider, "async_validate_line", new_callable=AsyncMock
+        ) as mock_val_line,
+        patch.object(
+            MockTransitProvider, "async_validate_stop", new_callable=AsyncMock
+        ) as mock_val_stop,
+        patch.object(
+            MockTransitProvider, "async_get_corridor_stops", new_callable=AsyncMock
+        ) as mock_corridor,
+    ):
+        result4 = await hass.config_entries.options.async_configure(
+            result3b["flow_id"],
+            user_input={
+                "service_details": {
+                    "provider": "mock_tfl",
+                    "mode": "bus",
+                    "line": "73",
+                },
+                "boarding_walk": {
+                    "boarding_stop": "490000001C",
+                    "boarding_walk_seconds": 240,
+                },
+                "alighting_walk": {
+                    "alighting_stop": "490000001D",
+                    "transit_duration_seconds": 900,
+                    "alighting_walk_seconds": 120,
+                },
+            },
+        )
+        assert result4["step_id"] == "routes"
+        mock_val_line.assert_not_called()
+        mock_val_stop.assert_not_called()
+        mock_corridor.assert_not_called()
 
     result5 = await hass.config_entries.options.async_configure(
         result4["flow_id"],
-        user_input={"corridor_stops": ["490000001A", "490000001C"]},
-    )
-    assert result5["step_id"] == "corridor_names"
-
-    result6 = await hass.config_entries.options.async_configure(
-        result5["flow_id"],
-        user_input={"stop_display_names": {}},
-    )
-    assert result6["step_id"] == "routes"
-
-    result7 = await hass.config_entries.options.async_configure(
-        result6["flow_id"],
         user_input={"route_action": "finish"},
     )
-    assert result7["type"] == FlowResultType.CREATE_ENTRY
+    assert result5["type"] == FlowResultType.CREATE_ENTRY
     updated_route = entry.data["routes"][0]
     assert updated_route[CONF_TRANSIT_DURATION_SECONDS] == 900
+    assert updated_route["corridor_stops"] == ["490000001A", "490000001C"]
 
 
 @pytest.mark.asyncio
@@ -816,27 +828,26 @@ async def test_options_flow_retains_extra_stops_route_name_and_grace_fraction(
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result2 = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input={
-            "overview": {
-                "name": "Office Commute",
-                "active_sensor": "binary_sensor.workday",
-            },
-        },
+        user_input={"next_step_id": "routes"},
     )
     result3 = await hass.config_entries.options.async_configure(
         result2["flow_id"],
         user_input={"route_action": "edit_route_0"},
     )
-    assert result3["step_id"] == "route"
+    assert result3["step_id"] == "route_menu"
+    result3b = await hass.config_entries.options.async_configure(
+        result3["flow_id"],
+        user_input={"next_step_id": "route"},
+    )
+    assert result3b["step_id"] == "route"
 
-    # Submit route step without specifying 'name' or 'grace_seconds'
     with patch.object(
         MockTransitProvider,
         "async_get_corridor_stops",
         wraps=MockTransitProvider().async_get_corridor_stops,
     ) as mock_get_corridor:
         result4 = await hass.config_entries.options.async_configure(
-            result3["flow_id"],
+            result3b["flow_id"],
             user_input={
                 "service_details": {
                     "provider": "mock_tfl",
@@ -1094,3 +1105,196 @@ async def test_config_flow_persists_destination_and_hidden_labels(
     assert route["destination"] == "Victoria"
     assert route["corridor_stop_names"]["910GSYDENHM"] == "Sydenham"
     assert route["corridor_hidden_labels"] == ["910GSYDENHM"]
+
+
+@pytest.mark.asyncio
+async def test_options_flow_route_menu_direct_corridor_and_names_paths(
+    hass: HomeAssistant,
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="School Run",
+        unique_id="school_run",
+        data={
+            "id": "school_run",
+            "name": "School Run",
+            "active_sensor": "binary_sensor.school_active",
+            "routes": [
+                {
+                    "id": "southern",
+                    "name": "Southern",
+                    "provider": "mock_tfl",
+                    "mode": "train",
+                    "line": "southern",
+                    "boarding_stop": "490000001C",
+                    "corridor_stops": ["490000001A", "490000001B", "490000001C"],
+                    "corridor_stop_names": {
+                        "490000001A": "Victoria",
+                        "490000001B": "Hyde Park",
+                        "490000001C": "Marble Arch",
+                    },
+                }
+            ],
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    init_res = await hass.config_entries.options.async_init(entry.entry_id)
+    routes_res = await hass.config_entries.options.async_configure(
+        init_res["flow_id"], user_input={"next_step_id": "routes"}
+    )
+    menu_res = await hass.config_entries.options.async_configure(
+        routes_res["flow_id"], user_input={"route_action": "edit_route_0"}
+    )
+    assert menu_res["step_id"] == "route_menu"
+
+    with patch.object(
+        MockTransitProvider, "async_get_corridor_stops", new_callable=AsyncMock
+    ) as mock_discovery:
+        names_res = await hass.config_entries.options.async_configure(
+            menu_res["flow_id"], user_input={"next_step_id": "edit_corridor_names"}
+        )
+        assert names_res["step_id"] == "corridor_names"
+        mock_discovery.assert_not_called()
+
+    after_names = await hass.config_entries.options.async_configure(
+        names_res["flow_id"],
+        user_input={
+            "stop_display_names": {
+                "name_490000001a": "Victoria",
+                "name_490000001b": "Hyde Park",
+                "name_490000001c": "Marble Arch",
+            },
+            "hide_schematic_labels": ["490000001B"],
+            "stop_lead_times": {
+                "lead_490000001a": 600,
+                "lead_490000001b": 300,
+            },
+        },
+    )
+    assert after_names["step_id"] == "routes"
+
+    menu_res2 = await hass.config_entries.options.async_configure(
+        after_names["flow_id"], user_input={"route_action": "edit_route_0"}
+    )
+    corridor_res = await hass.config_entries.options.async_configure(
+        menu_res2["flow_id"], user_input={"next_step_id": "edit_corridor"}
+    )
+    assert corridor_res["step_id"] == "corridor"
+
+    names_res2 = await hass.config_entries.options.async_configure(
+        corridor_res["flow_id"],
+        user_input={"corridor_stops": ["490000001A", "490000001C"]},
+    )
+    assert names_res2["step_id"] == "corridor_names"
+
+    after_corridor = await hass.config_entries.options.async_configure(
+        names_res2["flow_id"],
+        user_input={"stop_display_names": {}},
+    )
+    assert after_corridor["step_id"] == "routes"
+
+    done = await hass.config_entries.options.async_configure(
+        after_corridor["flow_id"], user_input={"route_action": "finish"}
+    )
+    assert done["type"] == FlowResultType.CREATE_ENTRY
+    saved_route = entry.data["routes"][0]
+    assert saved_route["corridor_stops"] == ["490000001A", "490000001C"]
+    assert saved_route["corridor_stop_lead_seconds"] == {
+        "490000001A": 600,
+        "490000001C": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_config_flow_grace_fraction_and_mutual_grace_validation(
+    hass: HomeAssistant,
+) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    err_commute = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Grace Test",
+                "active_sensor": "binary_sensor.school_active",
+            },
+            "advanced_settings": {
+                "grace_seconds": 60,
+                "grace_fraction": 0.2,
+            },
+        },
+    )
+    assert err_commute["step_id"] == "user"
+    assert err_commute["errors"] == {"base": "mutual_grace"}
+
+    ok_commute = await hass.config_entries.flow.async_configure(
+        err_commute["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Grace Test",
+                "active_sensor": "binary_sensor.school_active",
+            },
+            "advanced_settings": {
+                "grace_fraction": 0.2,
+            },
+        },
+    )
+    assert ok_commute["step_id"] == "route"
+
+    err_route = await hass.config_entries.flow.async_configure(
+        ok_commute["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": 300,
+                "grace_seconds": 45,
+                "grace_fraction": 0.15,
+            },
+        },
+    )
+    assert err_route["step_id"] == "route"
+    assert err_route["errors"] == {"base": "mutual_grace"}
+
+    ok_route = await hass.config_entries.flow.async_configure(
+        err_route["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "bus",
+                "line": "73",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": 300,
+                "grace_fraction": 0.15,
+            },
+        },
+    )
+    assert ok_route["step_id"] == "corridor"
+
+    step_names = await hass.config_entries.flow.async_configure(
+        ok_route["flow_id"],
+        user_input={"corridor_stops": ["490000001C"]},
+    )
+    step_routes = await hass.config_entries.flow.async_configure(
+        step_names["flow_id"],
+        user_input={"stop_display_names": {}},
+    )
+    created = await hass.config_entries.flow.async_configure(
+        step_routes["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert created["type"] == FlowResultType.CREATE_ENTRY
+    assert created["data"]["grace_fraction"] == 0.2
+    assert "grace_seconds" not in created["data"]
+    assert created["data"]["routes"][0]["grace_fraction"] == 0.15
+    assert "grace_seconds" not in created["data"]["routes"][0]
