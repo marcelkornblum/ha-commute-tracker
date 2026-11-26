@@ -255,7 +255,7 @@ class CommuteEngine:
             telemetry_stop_names = telemetry.stop_names if telemetry is not None else {}
             merged_stop_names = {
                 sid: (
-                    route_cfg.corridor_stop_names.get(sid)
+                    (route_cfg.corridor_stop_names.get(sid) or "").strip()
                     or telemetry_stop_names.get(sid)
                     or sid
                 )
@@ -266,17 +266,22 @@ class CommuteEngine:
                 and route_cfg.boarding_stop not in merged_stop_names
             ):
                 merged_stop_names[route_cfg.boarding_stop] = (
-                    route_cfg.corridor_stop_names.get(route_cfg.boarding_stop)
+                    (
+                        route_cfg.corridor_stop_names.get(route_cfg.boarding_stop) or ""
+                    ).strip()
                     or telemetry_stop_names.get(route_cfg.boarding_stop)
                     or route_cfg.boarding_stop
                 )
 
+            hidden_stop_ids = {
+                sid.strip().upper() for sid in route_cfg.corridor_hidden_labels
+            }
             corridor_stops_data = [
                 {
                     "stop_id": sid,
                     "short_name": (
-                        route_cfg.corridor_stop_names[sid]
-                        if sid in route_cfg.corridor_stop_names
+                        ""
+                        if sid.strip().upper() in hidden_stop_ids
                         else merged_stop_names.get(sid, sid)
                     ),
                     "is_target": sid == route_cfg.boarding_stop,
@@ -393,7 +398,12 @@ class CommuteEngine:
                 amber_threshold_seconds=thresholds.amber_threshold_seconds,
             )
 
-            dep_destination = active_dep.destination or route_destination
+            dep_destination = (
+                route_cfg.destination
+                or active_dep.destination
+                or self._config.destination
+                or ""
+            )
 
             child_states[route_id] = ChildRouteState(
                 route_id=route_id,
@@ -629,8 +639,12 @@ class CommuteEngine:
             expected_destination_margin_seconds=winner.expected_destination_margin_seconds,
             route_label=label,
             route_color=winning_route.route_color,
-            destination=winner.departure.destination
-            or (winning_route.destination or ""),
+            destination=(
+                winning_route.destination
+                or winner.departure.destination
+                or self._config.destination
+                or ""
+            ),
             will_arrive_on_time=winner.will_arrive_on_time,
             timeliness=winner.timeliness,
             strategy=strategy,

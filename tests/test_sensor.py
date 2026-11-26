@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 
 from custom_components.commute_tracker.const import DOMAIN
@@ -471,3 +472,58 @@ async def test_sensor_setup_staging_mode(hass: HomeAssistant) -> None:
 
     for coordinator in hass.data[DOMAIN]["coordinators"].values():
         coordinator.async_unload()
+
+
+async def test_master_sensor_child_entities_survive_commute_title_rename(
+    hass: HomeAssistant,
+) -> None:
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        domain="sensor",
+        platform=DOMAIN,
+        unique_id="kolya_school_test_bus_322",
+        suggested_object_id="commute_kolya_school_test_bus_322",
+    )
+    registry.async_get_or_create(
+        domain="sensor",
+        platform=DOMAIN,
+        unique_id="kolya_school_test_southern",
+        suggested_object_id="commute_kolya_school_test_southern",
+    )
+
+    route_bus = RouteConfig(
+        route_id="bus_322",
+        mode=TransitMode.BUS,
+        line="322",
+        boarding_stop="490019609S",
+    )
+    route_train = RouteConfig(
+        route_id="southern",
+        mode=TransitMode.TRAIN,
+        line="southern",
+        boarding_stop="910GWNORWOD",
+    )
+    route_unregistered = RouteConfig(
+        route_id="tube_victoria",
+        mode=TransitMode.TUBE,
+        line="victoria",
+        boarding_stop="940GZZLUVIC",
+    )
+    commute_cfg = CommuteConfig(
+        commute_id="kolya_school_test",
+        commute_title="Kolya · To School",
+        routes=[route_train, route_bus, route_unregistered],
+    )
+    coordinator = CommuteCoordinator(
+        hass=hass,
+        config=commute_cfg,
+        engine=CommuteEngine(config=commute_cfg),
+    )
+    master_sensor = CommuteMasterRollupSensor(coordinator=coordinator)
+    master_sensor.hass = hass
+
+    assert master_sensor.extra_state_attributes["child_entities"] == [
+        "sensor.commute_kolya_school_test_southern",
+        "sensor.commute_kolya_school_test_bus_322",
+        "sensor.commute_kolya_to_school_tube_victoria",
+    ]

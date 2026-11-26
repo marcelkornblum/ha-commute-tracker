@@ -3,6 +3,7 @@
 import zoneinfo
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, ClassVar
 
 from custom_components.commute_tracker.corridor import (
@@ -619,6 +620,39 @@ class TfLTransitProvider(TransitProvider):
         )
         return dict(result) if isinstance(result, dict) else {}
 
+    async def _async_fetch_stop_name(self, stop_id: str) -> str | None:
+        """Fetch and clean a stop display name from TfL StopPoint API."""
+        try:
+            payload = await self.async_fetch_json(
+                endpoint_or_url=f"StopPoint/{stop_id}"
+            )
+        except Exception:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        raw_name = payload.get("commonName") or payload.get("name")
+        if not isinstance(raw_name, str) or not raw_name.strip():
+            return None
+        return self.clean_stop_name(raw_name=raw_name)
+
+    async def async_resolve_stop_names(self, stop_ids: Sequence[str]) -> dict[str, str]:
+        """Resolve stop identifiers to cleaned TfL display names with caching."""
+        resolved: dict[str, str] = {}
+        for sid in stop_ids:
+            clean_sid = sid.strip()
+            if not clean_sid or clean_sid in resolved:
+                continue
+            cache_key = f"tfl_stop_name_{clean_sid.upper()}"
+            name = await self.async_cached_fetch(
+                cache_key=cache_key,
+                fetch_callable=partial(self._async_fetch_stop_name, stop_id=clean_sid),
+                ttl_seconds=3600.0,
+                cache_none=False,
+            )
+            if isinstance(name, str) and name:
+                resolved[clean_sid] = name
+        return resolved
+
     async def _async_annotate_scheduled_branch(
         self,
         line_id: str,
@@ -819,23 +853,28 @@ class TfLTransitProvider(TransitProvider):
             )
 
             stop_names = {}
-            if route.corridor_stops:
-                for sid in route.corridor_stops:
-                    custom = (route.corridor_stop_names or {}).get(sid)
-                    if custom:
-                        stop_names[sid] = custom
-                    else:
-                        stop_names[sid] = self.clean_stop_name(sid)
-            if route.boarding_stop:
-                stop_names.setdefault(
-                    route.boarding_stop,
-                    self.clean_stop_name(route.boarding_stop),
+            candidate_sids: list[str] = list(route.corridor_stops)
+            if route.boarding_stop and route.boarding_stop not in candidate_sids:
+                candidate_sids.append(route.boarding_stop)
+            if route.alighting_stop and route.alighting_stop not in candidate_sids:
+                candidate_sids.append(route.alighting_stop)
+
+            unresolved_sids: list[str] = []
+            for sid in candidate_sids:
+                custom = (route.corridor_stop_names or {}).get(sid)
+                if custom and custom.strip():
+                    stop_names[sid] = custom.strip()
+                else:
+                    unresolved_sids.append(sid)
+
+            if unresolved_sids:
+                resolved_names = await self.async_resolve_stop_names(
+                    stop_ids=unresolved_sids
                 )
-            if route.alighting_stop:
-                stop_names.setdefault(
-                    route.alighting_stop,
-                    self.clean_stop_name(route.alighting_stop),
-                )
+                for sid in unresolved_sids:
+                    stop_names[sid] = resolved_names.get(
+                        sid, self.clean_stop_name(raw_name=sid)
+                    )
 
             stop_lead_seconds = {}
             if len(route.corridor_stops) >= 2 and not route.corridor_stop_lead_seconds:

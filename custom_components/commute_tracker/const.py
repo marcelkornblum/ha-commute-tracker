@@ -59,6 +59,7 @@ CONF_TRANSIT_DURATION_SECONDS = "transit_duration_seconds"
 CONF_ALIGHTING_WALK_SECONDS = "alighting_walk_seconds"
 CONF_CORRIDOR_STOPS = "corridor_stops"
 CONF_CORRIDOR_STOP_NAMES = "corridor_stop_names"
+CONF_CORRIDOR_HIDDEN_LABELS = "corridor_hidden_labels"
 CONF_CORRIDOR_STOP_LEAD_SECONDS = "corridor_stop_lead_seconds"
 
 CONF_APP_ID = "app_id"

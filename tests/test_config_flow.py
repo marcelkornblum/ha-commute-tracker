@@ -1,5 +1,6 @@
 """Tests for Commute Tracker config flow and options flow."""
 
+from collections.abc import Sequence
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -50,6 +51,10 @@ class MockTransitProvider(TransitProvider):
             CorridorStop(id="490000001B", name="Hyde Park Corner", is_target=False),
             CorridorStop(id="490000001C", name="Marble Arch", is_target=True),
         ]
+
+    async def async_resolve_stop_names(self, stop_ids: Sequence[str]) -> dict[str, str]:
+        known = {"910GSYDENHM": "Sydenham", "STOP_MANUAL_1": "Manual Stop"}
+        return {sid: known[sid] for sid in stop_ids if sid in known}
 
     async def async_get_telemetry(self, route: Any) -> Any:
         raise NotImplementedError
@@ -796,9 +801,10 @@ async def test_options_flow_retains_extra_stops_route_name_and_grace_fraction(
                     ],
                     "corridor_stop_names": {
                         "STOP_MANUAL_1": "Manual Stop",
-                        "490000001A": "",
+                        "490000001A": "Victoria",
                         "490000001C": "Marble Arch",
                     },
+                    "corridor_hidden_labels": ["490000001A"],
                 }
             ],
         },
@@ -863,15 +869,15 @@ async def test_options_flow_retains_extra_stops_route_name_and_grace_fraction(
     )
     assert result5["step_id"] == "corridor_names"
 
-    # Submit corridor_names with an explicit empty string "" for 490000001A
     result6 = await hass.config_entries.options.async_configure(
         result5["flow_id"],
         user_input={
             "stop_display_names": {
                 "name_stop_manual_1": "Manual Stop",
-                "name_490000001a": "",
+                "name_490000001a": "Victoria",
                 "name_490000001c": "Marble Arch",
-            }
+            },
+            "hide_schematic_labels": ["490000001A"],
         },
     )
     assert result6["step_id"] == "routes"
@@ -889,7 +895,8 @@ async def test_options_flow_retains_extra_stops_route_name_and_grace_fraction(
         "490000001A",
         "490000001C",
     ]
-    assert updated_route["corridor_stop_names"]["490000001A"] == ""
+    assert updated_route["corridor_stop_names"]["490000001A"] == "Victoria"
+    assert updated_route["corridor_hidden_labels"] == ["490000001A"]
 
 
 @pytest.mark.asyncio
@@ -1025,3 +1032,65 @@ async def test_config_flow_rejects_non_monotonic_lead_times(
     )
     assert result_err["step_id"] == "corridor_names"
     assert result_err["errors"] == {"base": "invalid_lead_times"}
+
+
+@pytest.mark.asyncio
+async def test_config_flow_persists_destination_and_hidden_labels(
+    hass: HomeAssistant,
+) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "School Run",
+                "active_sensor": "binary_sensor.school_active",
+            },
+        },
+    )
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "train",
+                "line": "southern",
+                "destination": "Victoria",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": 300,
+            },
+        },
+    )
+    assert result3["step_id"] == "corridor"
+
+    result4 = await hass.config_entries.flow.async_configure(
+        result3["flow_id"],
+        user_input={
+            "corridor_stops": ["490000001A", "490000001C"],
+            "extra_stops": "910GSYDENHM",
+        },
+    )
+    assert result4["step_id"] == "corridor_names"
+
+    result5 = await hass.config_entries.flow.async_configure(
+        result4["flow_id"],
+        user_input={
+            "stop_display_names": {},
+            "hide_schematic_labels": ["910GSYDENHM"],
+        },
+    )
+    assert result5["step_id"] == "routes"
+
+    result6 = await hass.config_entries.flow.async_configure(
+        result5["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert result6["type"] == FlowResultType.CREATE_ENTRY
+    route = result6["data"]["routes"][0]
+    assert route["destination"] == "Victoria"
+    assert route["corridor_stop_names"]["910GSYDENHM"] == "Sydenham"
+    assert route["corridor_hidden_labels"] == ["910GSYDENHM"]

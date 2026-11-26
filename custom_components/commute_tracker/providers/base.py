@@ -7,7 +7,7 @@ import logging
 import pkgutil
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
 
@@ -492,6 +492,10 @@ class TransitProvider(ABC):
         boarding_stop: str | None = None,
     ) -> dict[str, int]:
         """Return scheduled lead seconds per corridor stop when supported."""
+        return {}
+
+    async def async_resolve_stop_names(self, stop_ids: Sequence[str]) -> dict[str, str]:
+        """Resolve stop identifiers to human-readable stop names when supported."""
         return {}
 
     @abstractmethod

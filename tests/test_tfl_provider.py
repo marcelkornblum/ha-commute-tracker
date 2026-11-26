@@ -877,3 +877,110 @@ async def test_tfl_corridor_stops_with_alighting_stop_direction() -> None:
         alighting_stop="STOP_D",
     )
     assert [s.id for s in stops] == ["STOP_A", "STOP_B", "STOP_C"]
+
+
+@pytest.mark.asyncio
+async def test_tfl_resolve_stop_names_fetches_cleans_and_caches() -> None:
+    call_count = 0
+
+    class CountingMockSession(MockSession):
+        def get(self, url: str, **kwargs: Any) -> MockResponse:
+            nonlocal call_count
+            call_count += 1
+            return super().get(url, **kwargs)
+
+    mock_session = CountingMockSession(
+        routes_map={
+            "/StopPoint/910GSYDENHM": {
+                "id": "910GSYDENHM",
+                "commonName": "Sydenham Rail Station",
+            },
+            "/StopPoint/910GCRYSTLP": {
+                "id": "910GCRYSTLP",
+                "commonName": "Crystal Palace Rail Station",
+            },
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    resolved = await provider.async_resolve_stop_names(
+        stop_ids=["910GSYDENHM", "910GCRYSTLP", "910GMISSING"]
+    )
+    assert resolved == {
+        "910GSYDENHM": "Sydenham",
+        "910GCRYSTLP": "Crystal Palace",
+    }
+    first_calls = call_count
+
+    resolved_cached = await provider.async_resolve_stop_names(
+        stop_ids=["910GSYDENHM", "910GCRYSTLP"]
+    )
+    assert resolved_cached == {
+        "910GSYDENHM": "Sydenham",
+        "910GCRYSTLP": "Crystal Palace",
+    }
+    assert call_count == first_calls
+
+
+@pytest.mark.asyncio
+async def test_tfl_train_telemetry_resolves_extra_stop_names() -> None:
+    journey_payload = {
+        "journeys": [
+            {
+                "startDateTime": "2099-09-14T14:10:00Z",
+                "duration": 15,
+                "legs": [
+                    {
+                        "duration": 15,
+                        "instruction": {"summary": "Southern to Balham"},
+                    }
+                ],
+            }
+        ]
+    }
+    mock_session = MockSession(
+        routes_map={
+            "/Line/southern/Status": [
+                {"lineStatuses": [{"statusSeverityDescription": "Good Service"}]}
+            ],
+            "/Journey/JourneyResults/910GWNORWOD/to/910GBALHAM": journey_payload,
+            "/StopPoint/910GSYDENHM": {
+                "id": "910GSYDENHM",
+                "commonName": "Sydenham Rail Station",
+            },
+            "/StopPoint/910GCRYSTLP": {
+                "id": "910GCRYSTLP",
+                "commonName": "Crystal Palace Rail Station",
+            },
+            "/StopPoint/910GWNORWOD": {
+                "id": "910GWNORWOD",
+                "commonName": "West Norwood Rail Station",
+            },
+            "/StopPoint/910GBALHAM": {
+                "id": "910GBALHAM",
+                "commonName": "Balham Rail Station",
+            },
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+    route = RouteConfig(
+        route_id="southern",
+        mode=TransitMode.TRAIN,
+        line="southern",
+        boarding_stop="910GWNORWOD",
+        alighting_stop="910GBALHAM",
+        corridor_stops=["910GSYDENHM", "910GCRYSTLP", "910GWNORWOD"],
+        corridor_stop_names={"910GWNORWOD": "W Norwood"},
+        corridor_hidden_labels=["910GSYDENHM"],
+        corridor_stop_lead_seconds={
+            "910GSYDENHM": 600,
+            "910GCRYSTLP": 300,
+            "910GWNORWOD": 0,
+        },
+    )
+
+    telemetry = await provider.async_get_telemetry(route=route)
+    assert telemetry.stop_names["910GSYDENHM"] == "Sydenham"
+    assert telemetry.stop_names["910GCRYSTLP"] == "Crystal Palace"
+    assert telemetry.stop_names["910GWNORWOD"] == "W Norwood"
+    assert telemetry.stop_names["910GBALHAM"] == "Balham"

@@ -85,6 +85,7 @@
           "line": "Line / Route Identifier",
           "name": "Route Display Name",
           "route_color": "Route Colour",
+          "destination": "Destination Override",
           "app_id": "Application ID",
           "app_key": "Application Key",
           "boarding_stop": "Boarding Stop",
@@ -100,6 +101,7 @@
           "line": "Line name or route number (e.g. 73, victoria).",
           "name": "Display label for this option (e.g. Bus 73 or Victoria Line).",
           "route_color": "Hex colour code for badges and timelines (e.g. #DC241F).",
+          "destination": "Optional concise terminus label (e.g. Victoria) overriding verbose live provider destinations.",
           "app_id": "Optional API Application ID credentials.",
           "app_key": "Optional API Key credentials.",
           "boarding_stop": "Station name or stop identifier code where you board.",
@@ -124,11 +126,17 @@
       },
       "corridor_names": {
         "title": "Corridor Stop Display Names",
-        "description": "Customise display labels for each selected corridor stop. Short names will be shown on dashboard cards and status timelines.",
+        "description": "Customise human-readable names for each selected corridor stop, choose which labels to hide on crowded schematic bars, and set optional lead times.",
+        "data": {
+          "hide_schematic_labels": "Hide Schematic Bar Labels"
+        },
+        "data_description": {
+          "hide_schematic_labels": "Selected stops keep their full name in corridor location text while hiding their label under the schematic dot."
+        },
         "sections": {
           "stop_display_names": {
-            "name": "Stop Short Names",
-            "description": "Set user-friendly short names for corridor stations."
+            "name": "Stop Names",
+            "description": "Set concise human-readable names for corridor stations."
           },
           "stop_lead_times": {
             "name": "Stop Lead Times (seconds)",
@@ -242,6 +250,7 @@
           "line": "Line / Route Identifier",
           "name": "Route Display Name",
           "route_color": "Route Colour",
+          "destination": "Destination Override",
           "app_id": "Application ID",
           "app_key": "Application Key",
           "boarding_stop": "Boarding Stop",
@@ -257,6 +266,7 @@
           "line": "Line name or route number (e.g. 73, victoria).",
           "name": "Display label for this option (e.g. Bus 73 or Victoria Line).",
           "route_color": "Hex colour code for badges and timelines (e.g. #DC241F).",
+          "destination": "Optional concise terminus label (e.g. Victoria) overriding verbose live provider destinations.",
           "app_id": "Optional API Application ID credentials.",
           "app_key": "Optional API Key credentials.",
           "boarding_stop": "Station name or stop identifier code where you board.",
@@ -281,11 +291,17 @@
       },
       "corridor_names": {
         "title": "Corridor Stop Display Names",
-        "description": "Customise display labels for each selected corridor stop. Short names will be shown on dashboard cards and status timelines.",
+        "description": "Customise human-readable names for each selected corridor stop, choose which labels to hide on crowded schematic bars, and set optional lead times.",
+        "data": {
+          "hide_schematic_labels": "Hide Schematic Bar Labels"
+        },
+        "data_description": {
+          "hide_schematic_labels": "Selected stops keep their full name in corridor location text while hiding their label under the schematic dot."
+        },
         "sections": {
           "stop_display_names": {
-            "name": "Stop Short Names",
-            "description": "Set user-friendly short names for corridor stations."
+            "name": "Stop Names",
+            "description": "Set concise human-readable names for corridor stations."
           },
           "stop_lead_times": {
             "name": "Stop Lead Times (seconds)",

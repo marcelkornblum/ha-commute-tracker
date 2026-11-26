@@ -441,3 +441,36 @@ def test_staging_mode_commute_override() -> None:
     validated = COMMUTE_TRACKER_SCHEMA(raw_config)
     commute = validated["commutes"][0]
     assert commute["staging_mode"] is True
+
+
+def test_corridor_stop_names_and_hidden_labels_validation() -> None:
+    raw_config = {
+        "commutes": [
+            {
+                "name": "School",
+                "active_sensor": "binary_sensor.school_active",
+                "routes": [
+                    {
+                        "mode": "train",
+                        "line": "southern",
+                        "boarding_stop": "910GWNORWOD",
+                        "corridor_stops": ["910GSYDENHM", "910GCRYSTLP", "910GWNORWOD"],
+                        "corridor_stop_names": {
+                            "910GSYDENHM": "Sydenham",
+                            "910GCRYSTLP": "Crystal Palace",
+                            "910GWNORWOD": "W Norwood",
+                        },
+                        "corridor_hidden_labels": ["910GSYDENHM"],
+                    }
+                ],
+            }
+        ],
+    }
+    validated = COMMUTE_TRACKER_SCHEMA(raw_config)
+    route = validated["commutes"][0]["routes"][0]
+    assert route["corridor_stop_names"] == {
+        "910GSYDENHM": "Sydenham",
+        "910GCRYSTLP": "Crystal Palace",
+        "910GWNORWOD": "W Norwood",
+    }
+    assert route["corridor_hidden_labels"] == ["910GSYDENHM"]

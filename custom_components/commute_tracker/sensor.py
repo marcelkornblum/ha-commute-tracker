@@ -5,6 +5,7 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -183,15 +184,29 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
         )
 
     def _get_child_entity_ids(self) -> list[str]:
-        """Compute expected child route entity IDs for dashboard navigation."""
+        """Resolve child route entity IDs from registry with slug fallback."""
         cfg = self.coordinator.commute_config
         commute_title = cfg.commute_title or cfg.commute_id
         base_master_name = _format_display_commute_name(
             commute_title=commute_title,
             staging_mode=False,
         )
+        registry = er.async_get(self.hass) if self.hass is not None else None
         child_ids: list[str] = []
         for route in cfg.routes:
+            if registry is not None:
+                child_uid = derive_child_unique_id(
+                    commute_unique_id=cfg.commute_id,
+                    route_id=route.route_id,
+                    staging_mode=cfg.staging_mode,
+                )
+                registered_entity_id = registry.async_get_entity_id(
+                    "sensor", DOMAIN, child_uid
+                )
+                if registered_entity_id is not None:
+                    child_ids.append(registered_entity_id)
+                    continue
+
             route_display = _format_route_display(route_config=route)
             child_name = _format_child_display_name(
                 master_display_name=base_master_name,

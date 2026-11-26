@@ -130,6 +130,7 @@ class RouteConfig:
     alighting_walk_seconds: int | None = None
     corridor_stops: list[str] = field(default_factory=list)
     corridor_stop_names: dict[str, str] = field(default_factory=dict)
+    corridor_hidden_labels: list[str] = field(default_factory=list)
     corridor_stop_lead_seconds: dict[str, int] = field(default_factory=dict)
     name: str | None = None
 
@@ -268,6 +269,7 @@ class CommuteConfig:
                     alighting_walk_seconds=alight_walk,
                     corridor_stops=list(r.get("corridor_stops", [])),
                     corridor_stop_names=dict(r.get("corridor_stop_names", {})),
+                    corridor_hidden_labels=list(r.get("corridor_hidden_labels", [])),
                     corridor_stop_lead_seconds=lead_seconds_map,
                     name=r.get("name") or r.get("route_name"),
                 )

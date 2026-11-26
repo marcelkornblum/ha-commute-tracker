@@ -60,11 +60,19 @@ def create_idle_commute_state(
     for route in routes:
         corridor_stops_raw: list[str] = getattr(route, "corridor_stops", []) or []
         stop_names: dict[str, str] = getattr(route, "corridor_stop_names", {}) or {}
+        hidden_stop_ids = {
+            sid.strip().upper()
+            for sid in (getattr(route, "corridor_hidden_labels", []) or [])
+        }
         boarding_stop = getattr(route, "boarding_stop", None)
         corridor_stops = [
             {
                 "stop_id": sid,
-                "short_name": stop_names[sid] if sid in stop_names else sid,
+                "short_name": (
+                    ""
+                    if sid.strip().upper() in hidden_stop_ids
+                    else ((stop_names.get(sid) or "").strip() or sid)
+                ),
                 "is_target": (
                     sid == boarding_stop
                     if boarding_stop in corridor_stops_raw
