@@ -16,6 +16,9 @@ from custom_components.commute_tracker.const import (
 )
 from custom_components.commute_tracker.models import (
     CorridorStop,
+    DeparturePrediction,
+    LineStatus,
+    RouteTelemetry,
     TransitMode,
 )
 from custom_components.commute_tracker.providers.base import TransitProvider
@@ -125,14 +128,14 @@ async def test_full_config_flow_single_route_with_corridor(hass: HomeAssistant) 
             },
             "destination_timings": {
                 "target_destination_time": "09:00:00",
-                "prep_seconds": 120,
+                "prep_seconds": {"minutes": 2},
             },
             "rollup_strategy_sec": {
                 "rollup_strategy": "late_with_buffer",
-                "route_late_buffer_seconds": 300,
+                "route_late_buffer_seconds": {"minutes": 5},
             },
             "advanced_settings": {
-                "poll_interval": 30,
+                "poll_interval": {"seconds": 30},
             },
         },
     )
@@ -153,8 +156,8 @@ async def test_full_config_flow_single_route_with_corridor(hass: HomeAssistant) 
             },
             "boarding_walk": {
                 "boarding_stop": "Marble Arch",
-                "boarding_walk_seconds": 300,
-                "grace_seconds": 60,
+                "boarding_walk_seconds": {"minutes": 5},
+                "grace_seconds": {"minutes": 1},
             },
         },
     )
@@ -488,15 +491,15 @@ async def test_options_flow(hass: HomeAssistant) -> None:
                     "active_sensor": "binary_sensor.workday",
                 },
                 "destination_timings": {
-                    "prep_seconds": 180,
+                    "prep_seconds": {"minutes": 3},
                     "target_destination_time": "08:45:00",
                 },
                 "rollup_strategy_sec": {
                     "rollup_strategy": "soonest",
-                    "route_late_buffer_seconds": 400,
+                    "route_late_buffer_seconds": {"minutes": 6, "seconds": 40},
                 },
                 "advanced_settings": {
-                    "poll_interval": 45,
+                    "poll_interval": {"seconds": 45},
                 },
             },
         )
@@ -565,12 +568,12 @@ async def test_route_transit_duration_seconds_saved(hass: HomeAssistant) -> None
             },
             "boarding_walk": {
                 "boarding_stop": "Marble Arch",
-                "boarding_walk_seconds": 300,
+                "boarding_walk_seconds": {"minutes": 5},
             },
             "alighting_walk": {
                 "alighting_stop": "Oxford Circus",
-                "transit_duration_seconds": 720,
-                "alighting_walk_seconds": 180,
+                "transit_duration_seconds": {"minutes": 12},
+                "alighting_walk_seconds": {"minutes": 3},
             },
         },
     )
@@ -760,12 +763,12 @@ async def test_options_flow_edit_route_transit_duration(hass: HomeAssistant) -> 
                 },
                 "boarding_walk": {
                     "boarding_stop": "490000001C",
-                    "boarding_walk_seconds": 240,
+                    "boarding_walk_seconds": {"minutes": 4},
                 },
                 "alighting_walk": {
                     "alighting_stop": "490000001D",
-                    "transit_duration_seconds": 900,
-                    "alighting_walk_seconds": 120,
+                    "transit_duration_seconds": {"minutes": 15},
+                    "alighting_walk_seconds": {"minutes": 2},
                 },
             },
         )
@@ -856,7 +859,7 @@ async def test_options_flow_retains_extra_stops_route_name_and_grace_fraction(
                 },
                 "boarding_walk": {
                     "boarding_stop": "Marble Arch",
-                    "boarding_walk_seconds": 400,
+                    "boarding_walk_seconds": {"minutes": 6, "seconds": 40},
                 },
                 "alighting_walk": {
                     "alighting_stop": "490000001D",
@@ -926,9 +929,9 @@ async def test_config_flow_persists_thresholds_and_stop_lead_times(
                 "active_sensor": "binary_sensor.school_active",
             },
             "destination_timings": {
-                "prep_seconds": 120,
-                "prepare_threshold_seconds": 540,
-                "amber_threshold_seconds": 180,
+                "prep_seconds": {"minutes": 2},
+                "prepare_threshold_seconds": {"minutes": 9},
+                "amber_threshold_seconds": {"minutes": 3},
             },
         },
     )
@@ -944,7 +947,7 @@ async def test_config_flow_persists_thresholds_and_stop_lead_times(
             },
             "boarding_walk": {
                 "boarding_stop": "Marble Arch",
-                "boarding_walk_seconds": 400,
+                "boarding_walk_seconds": {"minutes": 6, "seconds": 40},
             },
         },
     )
@@ -967,8 +970,8 @@ async def test_config_flow_persists_thresholds_and_stop_lead_times(
                 "name_490000001c": "Marble Arch",
             },
             "stop_lead_times": {
-                "lead_490000001a": 900,
-                "lead_490000001b": 300,
+                "lead_490000001a": {"minutes": 15},
+                "lead_490000001b": {"minutes": 5},
             },
         },
     )
@@ -1015,7 +1018,7 @@ async def test_config_flow_rejects_non_monotonic_lead_times(
             },
             "boarding_walk": {
                 "boarding_stop": "Marble Arch",
-                "boarding_walk_seconds": 400,
+                "boarding_walk_seconds": {"minutes": 6, "seconds": 40},
             },
         },
     )
@@ -1036,8 +1039,8 @@ async def test_config_flow_rejects_non_monotonic_lead_times(
                 "name_490000001c": "Marble Arch",
             },
             "stop_lead_times": {
-                "lead_490000001a": 300,
-                "lead_490000001b": 400,
+                "lead_490000001a": {"minutes": 5},
+                "lead_490000001b": {"minutes": 6, "seconds": 40},
             },
         },
     )
@@ -1072,7 +1075,7 @@ async def test_config_flow_persists_destination_and_hidden_labels(
             },
             "boarding_walk": {
                 "boarding_stop": "Marble Arch",
-                "boarding_walk_seconds": 300,
+                "boarding_walk_seconds": {"minutes": 5},
             },
         },
     )
@@ -1168,8 +1171,8 @@ async def test_options_flow_route_menu_direct_corridor_and_names_paths(
             },
             "hide_schematic_labels": ["490000001B"],
             "stop_lead_times": {
-                "lead_490000001a": 600,
-                "lead_490000001b": 300,
+                "lead_490000001a": {"minutes": 10},
+                "lead_490000001b": {"minutes": 5},
             },
         },
     )
@@ -1223,7 +1226,7 @@ async def test_config_flow_grace_fraction_and_mutual_grace_validation(
                 "active_sensor": "binary_sensor.school_active",
             },
             "advanced_settings": {
-                "grace_seconds": 60,
+                "grace_seconds": {"minutes": 1},
                 "grace_fraction": 0.2,
             },
         },
@@ -1255,8 +1258,8 @@ async def test_config_flow_grace_fraction_and_mutual_grace_validation(
             },
             "boarding_walk": {
                 "boarding_stop": "Marble Arch",
-                "boarding_walk_seconds": 300,
-                "grace_seconds": 45,
+                "boarding_walk_seconds": {"minutes": 5},
+                "grace_seconds": {"seconds": 45},
                 "grace_fraction": 0.15,
             },
         },
@@ -1274,7 +1277,7 @@ async def test_config_flow_grace_fraction_and_mutual_grace_validation(
             },
             "boarding_walk": {
                 "boarding_stop": "Marble Arch",
-                "boarding_walk_seconds": 300,
+                "boarding_walk_seconds": {"minutes": 5},
                 "grace_fraction": 0.15,
             },
         },
@@ -1298,3 +1301,202 @@ async def test_config_flow_grace_fraction_and_mutual_grace_validation(
     assert "grace_seconds" not in created["data"]
     assert created["data"]["routes"][0]["grace_fraction"] == 0.15
     assert "grace_seconds" not in created["data"]["routes"][0]
+
+
+@pytest.mark.asyncio
+async def test_config_flow_sub_minute_duration_selector_round_trip(
+    hass: HomeAssistant,
+) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    step_route = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Sub-Minute Test",
+                "active_sensor": "binary_sensor.school_active",
+            },
+            "destination_timings": {
+                "prep_seconds": {"minutes": 2, "seconds": 15},
+                "prepare_threshold_seconds": {"minutes": 8},
+                "amber_threshold_seconds": {"minutes": 3, "seconds": 30},
+            },
+            "advanced_settings": {
+                "poll_interval": {"seconds": 30},
+            },
+        },
+    )
+    assert step_route["step_id"] == "route"
+
+    step_corridor = await hass.config_entries.flow.async_configure(
+        step_route["flow_id"],
+        user_input={
+            "service_details": {
+                "provider": "mock_tfl",
+                "mode": "train",
+                "line": "southern",
+            },
+            "boarding_walk": {
+                "boarding_stop": "Marble Arch",
+                "boarding_walk_seconds": {"minutes": 13},
+                "grace_seconds": {"minutes": 2, "seconds": 15},
+            },
+            "alighting_walk": {
+                "transit_duration_seconds": {"minutes": 29},
+                "alighting_walk_seconds": {"minutes": 4, "seconds": 30},
+            },
+        },
+    )
+    step_names = await hass.config_entries.flow.async_configure(
+        step_corridor["flow_id"],
+        user_input={"corridor_stops": ["490000001A", "490000001C"]},
+    )
+    step_routes = await hass.config_entries.flow.async_configure(
+        step_names["flow_id"],
+        user_input={
+            "stop_display_names": {},
+            "stop_lead_times": {
+                "lead_490000001a": {"minutes": 25},
+            },
+        },
+    )
+    created = await hass.config_entries.flow.async_configure(
+        step_routes["flow_id"],
+        user_input={"route_action": "finish"},
+    )
+    assert created["type"] == FlowResultType.CREATE_ENTRY
+    assert created["data"]["prep_seconds"] == 135
+    assert created["data"]["prepare_threshold_seconds"] == 480
+    assert created["data"]["amber_threshold_seconds"] == 210
+    route = created["data"]["routes"][0]
+    assert route["boarding_walk_seconds"] == 780
+    assert route["grace_seconds"] == 135
+    assert route["transit_duration_seconds"] == 1740
+    assert route["alighting_walk_seconds"] == 270
+    assert route["corridor_stop_lead_seconds"] == {
+        "490000001A": 1500,
+        "490000001C": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_options_flow_test_route_live_standby_and_error_previews(
+    hass: HomeAssistant,
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="School Run",
+        unique_id="school_run",
+        data={
+            "id": "school_run",
+            "name": "School Run",
+            "active_sensor": "binary_sensor.school_active",
+            "routes": [
+                {
+                    "id": "southern",
+                    "name": "Southern",
+                    "provider": "mock_tfl",
+                    "mode": "train",
+                    "line": "southern",
+                    "boarding_stop": "490000001C",
+                    "alighting_stop": "490000001D",
+                    "boarding_walk_seconds": 300,
+                    "transit_duration_seconds": 900,
+                    "corridor_stops": ["490000001A", "490000001C"],
+                    "corridor_stop_names": {
+                        "490000001A": "Victoria",
+                        "490000001C": "Marble Arch",
+                    },
+                }
+            ],
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    init_res = await hass.config_entries.options.async_init(entry.entry_id)
+    routes_res = await hass.config_entries.options.async_configure(
+        init_res["flow_id"], user_input={"next_step_id": "routes"}
+    )
+    menu_res = await hass.config_entries.options.async_configure(
+        routes_res["flow_id"], user_input={"route_action": "edit_route_0"}
+    )
+    assert menu_res["step_id"] == "route_menu"
+    assert "test_route" in menu_res["menu_options"]
+
+    live_telemetry = RouteTelemetry(
+        route_id="southern",
+        line_id="southern",
+        mode=TransitMode.TRAIN,
+        departures=[
+            DeparturePrediction(
+                vehicle_id="TR1",
+                destination="Victoria",
+                expected_time="2026-09-14T08:11:00Z",
+                seconds_to_arrival=600,
+                duration_seconds=900,
+            )
+        ],
+        line_status=LineStatus(status_label="Good Service"),
+    )
+    with patch.object(
+        MockTransitProvider,
+        "async_get_telemetry",
+        new_callable=AsyncMock,
+        return_value=live_telemetry,
+    ):
+        preview_res = await hass.config_entries.options.async_configure(
+            menu_res["flow_id"], user_input={"next_step_id": "test_route"}
+        )
+    assert preview_res["type"] == FlowResultType.FORM
+    assert preview_res["step_id"] == "test_route"
+    preview_placeholders = preview_res["description_placeholders"]
+    assert preview_placeholders is not None
+    summary = preview_placeholders["preview_summary"]
+    assert "Good Service" in summary
+    assert "Victoria" in summary
+    assert "2" in summary
+
+    back_menu = await hass.config_entries.options.async_configure(
+        preview_res["flow_id"], user_input={}
+    )
+    assert back_menu["type"] == FlowResultType.MENU
+    assert back_menu["step_id"] == "route_menu"
+
+    empty_telemetry = RouteTelemetry(
+        route_id="southern",
+        line_id="southern",
+        mode=TransitMode.TRAIN,
+        departures=[],
+        line_status=LineStatus(status_label="Good Service"),
+    )
+    with patch.object(
+        MockTransitProvider,
+        "async_get_telemetry",
+        new_callable=AsyncMock,
+        return_value=empty_telemetry,
+    ):
+        standby_res = await hass.config_entries.options.async_configure(
+            back_menu["flow_id"], user_input={"next_step_id": "test_route"}
+        )
+    standby_placeholders = standby_res["description_placeholders"]
+    assert standby_placeholders is not None
+    assert "Standby" in standby_placeholders["preview_summary"]
+
+    back_menu2 = await hass.config_entries.options.async_configure(
+        standby_res["flow_id"], user_input={}
+    )
+    with patch.object(
+        MockTransitProvider,
+        "async_get_telemetry",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("Upstream timeout"),
+    ):
+        err_res = await hass.config_entries.options.async_configure(
+            back_menu2["flow_id"], user_input={"next_step_id": "test_route"}
+        )
+    assert err_res["step_id"] == "test_route"
+    err_placeholders = err_res["description_placeholders"]
+    assert err_placeholders is not None
+    assert "Standby" in err_placeholders["preview_summary"]
