@@ -22,6 +22,7 @@ from custom_components.commute_tracker.const import (
     CONF_BOARDING_WALK_SECONDS,
     CONF_COMMUTE_ID,
     CONF_COMMUTE_TITLE,
+    CONF_CORRIDOR_HIDDEN_LABELS,
     CONF_CORRIDOR_STOP_LEAD_SECONDS,
     CONF_CORRIDOR_STOP_NAMES,
     CONF_CORRIDOR_STOPS,
@@ -101,6 +102,7 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
     _discovered_corridor_stops: list[CorridorStop]
     _chosen_corridor_stops: list[str]
     _discovered_lead_times: dict[str, int]
+    _resolved_stop_names: dict[str, str]
     _providers_config: dict[str, Any]
 
     async def _async_get_registry(self) -> TransitProviderRegistry:
@@ -463,6 +465,9 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     route_dict[CONF_ROUTE_NAME] = route_name_val
                 if flat.get("route_color"):
                     route_dict[CONF_ROUTE_COLOR] = flat["route_color"]
+                dest_override = str(flat.get("destination", "")).strip()
+                if dest_override:
+                    route_dict[CONF_DESTINATION] = dest_override
                 if alighting_stop:
                     route_dict[CONF_ALIGHTING_STOP] = alighting_stop
                 transit_dur = int(
@@ -491,6 +496,10 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     if CONF_CORRIDOR_STOP_NAMES in self._pending_route:
                         route_dict[CONF_CORRIDOR_STOP_NAMES] = self._pending_route[
                             CONF_CORRIDOR_STOP_NAMES
+                        ]
+                    if CONF_CORRIDOR_HIDDEN_LABELS in self._pending_route:
+                        route_dict[CONF_CORRIDOR_HIDDEN_LABELS] = self._pending_route[
+                            CONF_CORRIDOR_HIDDEN_LABELS
                         ]
                     if CONF_CORRIDOR_STOP_LEAD_SECONDS in self._pending_route:
                         route_dict[CONF_CORRIDOR_STOP_LEAD_SECONDS] = (
@@ -584,6 +593,16 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
             ] = cv.string
         else:
             service_dict[vol.Optional("route_color")] = cv.string
+
+        if d.get(CONF_DESTINATION):
+            service_dict[
+                vol.Optional(
+                    "destination",
+                    description={"suggested_value": d.get(CONF_DESTINATION)},
+                )
+            ] = cv.string
+        else:
+            service_dict[vol.Optional("destination")] = cv.string
 
         service_dict[vol.Optional("app_id")] = cv.string
         service_dict[vol.Optional("app_key")] = cv.string
@@ -820,10 +839,11 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
     async def async_step_corridor_names(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Screen 4b: Configure short display names and optional lead times per stop."""
+        """Screen 4b: Configure stop names, hidden schematic labels, and lead times."""
         errors: dict[str, str] = {}
         chosen_ids = getattr(self, "_chosen_corridor_stops", [])
         discovered_lookup = {s.id: s.name for s in self._discovered_corridor_stops}
+        resolved_names: dict[str, str] = dict(getattr(self, "_resolved_stop_names", {}))
         discovered_leads: dict[str, int] = dict(
             getattr(self, "_discovered_lead_times", {})
         )
@@ -831,34 +851,66 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
             if stop.scheduled_lead_seconds is not None:
                 discovered_leads.setdefault(stop.id, stop.scheduled_lead_seconds)
         existing_names = self._pending_route.get(CONF_CORRIDOR_STOP_NAMES, {})
+        existing_hidden = list(self._pending_route.get(CONF_CORRIDOR_HIDDEN_LABELS, []))
         existing_leads = self._pending_route.get(CONF_CORRIDOR_STOP_LEAD_SECONDS, {})
 
-        if user_input is None and len(chosen_ids) >= 2:
-            missing_lead = any(
+        if user_input is None and chosen_ids:
+            missing_name_sids = [
+                sid
+                for sid in chosen_ids
+                if sid not in discovered_lookup
+                and sid not in resolved_names
+                and not str(existing_names.get(sid) or "").strip()
+            ]
+            missing_lead = len(chosen_ids) >= 2 and any(
                 sid not in existing_leads and sid not in discovered_leads
                 for sid in chosen_ids[:-1]
             )
-            if missing_lead and self._pending_route.get(CONF_LINE):
-                try:
-                    registry = await self._async_get_registry()
-                    provider_id = self._pending_route.get(
-                        CONF_PROVIDER, DEFAULT_PROVIDER
-                    )
-                    provider_instance = registry.get_provider(provider_id=provider_id)
-                    backfilled = await provider_instance.async_get_corridor_lead_times(
-                        line_id=str(self._pending_route[CONF_LINE]),
-                        corridor_stops=list(chosen_ids),
-                        boarding_stop=self._pending_route.get(CONF_BOARDING_STOP),
-                    )
-                    for sid, sec in backfilled.items():
-                        discovered_leads.setdefault(sid, sec)
-                except Exception as err:
-                    _LOGGER.debug(
-                        "Failed to backfill corridor lead times for %s: %s",
-                        self._pending_route.get(CONF_LINE),
-                        err,
-                    )
-            self._discovered_lead_times = dict(discovered_leads)
+            if missing_name_sids or (
+                missing_lead and self._pending_route.get(CONF_LINE)
+            ):
+                registry = await self._async_get_registry()
+                provider_id = self._pending_route.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+                provider_instance = registry.get_provider(provider_id=provider_id)
+
+                if missing_name_sids:
+                    try:
+                        fetched_names = (
+                            await provider_instance.async_resolve_stop_names(
+                                stop_ids=missing_name_sids
+                            )
+                        )
+                        resolved_names.update(fetched_names)
+                    except Exception as err:
+                        _LOGGER.debug(
+                            "Failed to resolve corridor stop names for %s: %s",
+                            missing_name_sids,
+                            err,
+                        )
+                    self._resolved_stop_names = dict(resolved_names)
+
+                if missing_lead and self._pending_route.get(CONF_LINE):
+                    try:
+                        backfilled = (
+                            await provider_instance.async_get_corridor_lead_times(
+                                line_id=str(self._pending_route[CONF_LINE]),
+                                corridor_stops=list(chosen_ids),
+                                boarding_stop=self._pending_route.get(
+                                    CONF_BOARDING_STOP
+                                ),
+                            )
+                        )
+                        for sid, sec in backfilled.items():
+                            discovered_leads.setdefault(sid, sec)
+                    except Exception as err:
+                        _LOGGER.debug(
+                            "Failed to backfill corridor lead times for %s: %s",
+                            self._pending_route.get(CONF_LINE),
+                            err,
+                        )
+                    self._discovered_lead_times = dict(discovered_leads)
+
+        name_lookup = {**resolved_names, **discovered_lookup}
 
         if user_input is not None:
             flat = _flatten_input(user_input)
@@ -869,14 +921,14 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
             lead_seconds: dict[str, int] = {}
             for idx, sid in enumerate(chosen_ids):
                 field_key = f"name_{slugify(sid)}"
-                if field_key in flat and flat[field_key] is not None:
-                    val = str(flat[field_key]).strip()
-                elif field_key in user_input and user_input[field_key] is not None:
-                    val = str(user_input[field_key]).strip()
-                elif sid in existing_names and existing_names[sid] is not None:
-                    val = str(existing_names[sid]).strip()
-                else:
-                    val = str(discovered_lookup.get(sid, sid)).strip()
+                raw_name = flat.get(field_key)
+                if raw_name is None:
+                    raw_name = user_input.get(field_key)
+                val = str(raw_name).strip() if raw_name is not None else ""
+                if not val:
+                    val = str(existing_names.get(sid) or "").strip()
+                if not val:
+                    val = str(name_lookup.get(sid, sid)).strip()
                 custom_names[sid] = val
 
                 if idx >= len(chosen_ids) - 1:
@@ -908,8 +960,24 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 ):
                     lead_seconds[chosen_ids[-1]] = 0
 
+                if "hide_schematic_labels" in flat:
+                    raw_hidden = flat.get("hide_schematic_labels") or []
+                    hidden_labels = [
+                        str(sid).strip()
+                        for sid in raw_hidden
+                        if str(sid).strip() in chosen_ids
+                    ]
+                else:
+                    hidden_labels = [
+                        sid for sid in existing_hidden if sid in chosen_ids
+                    ]
+
                 self._pending_route[CONF_CORRIDOR_STOPS] = list(chosen_ids)
                 self._pending_route[CONF_CORRIDOR_STOP_NAMES] = custom_names
+                if hidden_labels:
+                    self._pending_route[CONF_CORRIDOR_HIDDEN_LABELS] = hidden_labels
+                else:
+                    self._pending_route.pop(CONF_CORRIDOR_HIDDEN_LABELS, None)
                 if lead_seconds:
                     self._pending_route[CONF_CORRIDOR_STOP_LEAD_SECONDS] = lead_seconds
                 else:
@@ -925,18 +993,24 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 self._discovered_corridor_stops = []
                 self._chosen_corridor_stops = []
                 self._discovered_lead_times = {}
+                self._resolved_stop_names = {}
 
                 return await self.async_step_routes()
 
         names_fields: dict[Any, Any] = {}
+        hide_options: list[selector.SelectOptionDict] = []
         lead_fields: dict[Any, Any] = {}
         for idx, sid in enumerate(chosen_ids):
             field_key = f"name_{slugify(sid)}"
-            if sid in existing_names and existing_names[sid] is not None:
-                default_label = existing_names[sid]
-            else:
-                default_label = discovered_lookup.get(sid, sid)
+            existing_label = str(existing_names.get(sid) or "").strip()
+            default_label = existing_label or name_lookup.get(sid, sid)
             names_fields[vol.Optional(field_key, default=default_label)] = cv.string
+            hide_options.append(
+                selector.SelectOptionDict(
+                    value=sid,
+                    label=f"{default_label} ({sid})",
+                )
+            )
 
             if idx < len(chosen_ids) - 1:
                 lead_key = f"lead_{slugify(sid)}"
@@ -953,8 +1027,17 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 else:
                     lead_fields[vol.Optional(lead_key)] = cv.positive_int
 
+        default_hidden = [sid for sid in chosen_ids if sid in existing_hidden]
         schema_dict: dict[Any, Any] = {
             vol.Required("stop_display_names"): section(vol.Schema(names_fields)),
+            vol.Optional(
+                "hide_schematic_labels", default=default_hidden
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=hide_options,
+                    multiple=True,
+                )
+            ),
         }
         if lead_fields:
             schema_dict[vol.Optional("stop_lead_times")] = section(
@@ -1040,6 +1123,7 @@ class CommuteTrackerConfigFlow(
         self._discovered_corridor_stops: list[CorridorStop] = []
         self._chosen_corridor_stops: list[str] = []
         self._discovered_lead_times: dict[str, int] = {}
+        self._resolved_stop_names: dict[str, str] = {}
         self._providers_config: dict[str, Any] = {}
 
     async def async_step_user(
@@ -1111,6 +1195,7 @@ class CommuteTrackerOptionsFlow(CommuteFlowHandlerMixin, config_entries.OptionsF
         self._discovered_corridor_stops: list[CorridorStop] = []
         self._chosen_corridor_stops: list[str] = []
         self._discovered_lead_times: dict[str, int] = {}
+        self._resolved_stop_names: dict[str, str] = {}
         self._providers_config: dict[str, Any] = {}
 
     @property

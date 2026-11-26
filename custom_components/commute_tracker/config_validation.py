@@ -19,7 +19,9 @@ from custom_components.commute_tracker.const import (
     CONF_COMMUTE_ID,
     CONF_COMMUTE_TITLE,
     CONF_COMMUTES,
+    CONF_CORRIDOR_HIDDEN_LABELS,
     CONF_CORRIDOR_STOP_LEAD_SECONDS,
+    CONF_CORRIDOR_STOP_NAMES,
     CONF_CORRIDOR_STOPS,
     CONF_DESTINATION,
     CONF_DIRECTION,
@@ -149,6 +151,10 @@ ROUTE_SCHEMA = vol.All(
             vol.Optional(CONF_TRANSIT_DURATION_SECONDS): cv.positive_int,
             vol.Optional(CONF_ALIGHTING_WALK_SECONDS): cv.positive_int,
             vol.Optional(CONF_CORRIDOR_STOPS, default=list): vol.All(
+                cv.ensure_list, [cv.string]
+            ),
+            vol.Optional(CONF_CORRIDOR_STOP_NAMES): {cv.string: cv.string},
+            vol.Optional(CONF_CORRIDOR_HIDDEN_LABELS): vol.All(
                 cv.ensure_list, [cv.string]
             ),
             vol.Optional(CONF_CORRIDOR_STOP_LEAD_SECONDS): {cv.string: cv.positive_int},

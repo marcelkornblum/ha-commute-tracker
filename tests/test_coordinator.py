@@ -206,7 +206,6 @@ def test_create_idle_commute_state(sample_commute_config: CommuteConfig) -> None
 
 
 def test_create_idle_commute_state_populates_route_metadata() -> None:
-    """Verify idle state preserves route_label, destination, and corridor_stops."""
     route = RouteConfig(
         route_id="bus_73",
         mode=TransitMode.BUS,
@@ -216,7 +215,8 @@ def test_create_idle_commute_state_populates_route_metadata() -> None:
         prep_seconds=120,
         destination="Victoria Bus Station",
         corridor_stops=["Stop_A", "Stop_B", "Stop_C"],
-        corridor_stop_names={"Stop_A": "Victoria", "Stop_B": ""},
+        corridor_stop_names={"Stop_A": "Victoria", "Stop_B": "Hyde Park"},
+        corridor_hidden_labels=["Stop_B"],
     )
     config = CommuteConfig(
         commute_id="work_commute",

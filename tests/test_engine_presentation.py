@@ -323,55 +323,145 @@ def test_engine_configured_transit_duration_overrides_prediction() -> None:
     assert child.expected_destination_time == "14:30"
 
 
-def test_engine_preserves_explicit_empty_corridor_stop_short_names() -> None:
-    """Verify explicit empty string in corridor_stop_names is kept in short_name."""
+def test_engine_hides_schematic_labels_while_preserving_corridor_location() -> None:
     route_cfg = RouteConfig(
-        route_id="bus_73",
-        mode=TransitMode.BUS,
-        line="73",
+        route_id="southern",
+        mode=TransitMode.TRAIN,
+        line="southern",
         provider="tfl",
         boarding_walk_seconds=120,
         prep_seconds=60,
-        boarding_stop="STOP_3",
-        corridor_stops=["STOP_1", "STOP_2", "STOP_3"],
-        corridor_stop_names={"STOP_1": "Victoria", "STOP_2": "", "STOP_3": "Target"},
+        boarding_stop="910GWNORWOD",
+        corridor_stops=["910GSYDENHM", "910GCRYSTLP", "910GWNORWOD"],
+        corridor_stop_names={
+            "910GSYDENHM": "Sydenham",
+            "910GCRYSTLP": "Crystal Palace",
+            "910GWNORWOD": "W Norwood",
+        },
+        corridor_hidden_labels=["910GSYDENHM"],
+        corridor_stop_lead_seconds={
+            "910GSYDENHM": 600,
+            "910GCRYSTLP": 300,
+            "910GWNORWOD": 0,
+        },
     )
     commute_cfg = CommuteConfig(
-        commute_id="work",
+        commute_id="school",
         routes=[route_cfg],
     )
     engine = CommuteEngine(config=commute_cfg)
 
     active_dep = DeparturePrediction(
-        vehicle_id="BUS1",
-        destination="Oxford Circus",
-        expected_time="2026-09-14T14:10:00Z",
-        seconds_to_arrival=300,
-    )
-    corridor_dep = DeparturePrediction(
-        vehicle_id="BUS1",
-        destination="Oxford Circus",
-        expected_time="2026-09-14T14:06:00Z",
-        seconds_to_arrival=100,
+        vehicle_id=None,
+        destination="Southern to Balham",
+        expected_time="2026-09-14T14:07:30Z",
+        seconds_to_arrival=450,
     )
     telemetry = RouteTelemetry(
-        route_id="bus_73",
-        line_id="73",
-        mode=TransitMode.BUS,
+        route_id="southern",
+        line_id="southern",
+        mode=TransitMode.TRAIN,
         departures=[active_dep],
-        corridor_departures={"STOP_2": [corridor_dep]},
         stop_names={
-            "STOP_1": "Victoria",
-            "STOP_2": "Hyde Park Corner",
-            "STOP_3": "Target",
+            "910GSYDENHM": "Sydenham",
+            "910GCRYSTLP": "Crystal Palace",
+            "910GWNORWOD": "W Norwood",
         },
     )
 
     state = engine.evaluate_commute(
-        telemetries={"bus_73": telemetry},
+        telemetries={"southern": telemetry},
         reference_time=datetime(2026, 9, 14, 14, 0, 0),
     )
-    child = state.child_routes["bus_73"]
-    assert child.corridor_stops[1]["short_name"] == ""
-    assert child.corridor_location == "Between Victoria and Hyde Park Corner"
+    child = state.child_routes["southern"]
+    assert child.corridor_stops == [
+        {"stop_id": "910GSYDENHM", "short_name": "", "is_target": False},
+        {"stop_id": "910GCRYSTLP", "short_name": "Crystal Palace", "is_target": False},
+        {"stop_id": "910GWNORWOD", "short_name": "W Norwood", "is_target": True},
+    ]
+    assert child.corridor_location == "Between Sydenham and Crystal Palace"
     assert child.corridor_progress == 0.5
+
+
+def test_engine_route_destination_override_precedence() -> None:
+    override_route = RouteConfig(
+        route_id="southern",
+        mode=TransitMode.TRAIN,
+        line="southern",
+        provider="tfl",
+        boarding_walk_seconds=120,
+        prep_seconds=60,
+        boarding_stop="910GWNORWOD",
+        destination="Victoria",
+    )
+    live_fallback_route = RouteConfig(
+        route_id="bus_322",
+        mode=TransitMode.BUS,
+        line="322",
+        provider="tfl",
+        boarding_walk_seconds=120,
+        prep_seconds=60,
+        boarding_stop="490019609S",
+    )
+    commute_cfg = CommuteConfig(
+        commute_id="school",
+        destination="School",
+        routes=[override_route, live_fallback_route],
+    )
+    engine = CommuteEngine(config=commute_cfg)
+
+    train_dep = DeparturePrediction(
+        vehicle_id=None,
+        destination="Southern to Balham",
+        expected_time="2026-09-14T14:10:00Z",
+        seconds_to_arrival=600,
+    )
+    bus_dep = DeparturePrediction(
+        vehicle_id="BUS1",
+        destination="Clapham Common",
+        expected_time="2026-09-14T14:08:00Z",
+        seconds_to_arrival=480,
+    )
+    state = engine.evaluate_commute(
+        telemetries={
+            "southern": RouteTelemetry(
+                route_id="southern",
+                line_id="southern",
+                mode=TransitMode.TRAIN,
+                departures=[train_dep],
+            ),
+            "bus_322": RouteTelemetry(
+                route_id="bus_322",
+                line_id="322",
+                mode=TransitMode.BUS,
+                departures=[bus_dep],
+            ),
+        },
+        reference_time=datetime(2026, 9, 14, 14, 0, 0),
+    )
+
+    assert state.child_routes["southern"].destination == "Victoria"
+    assert state.child_routes["bus_322"].destination == "Clapham Common"
+    assert state.master_rollup.active_option == "bus_322"
+    assert state.master_rollup.destination == "Clapham Common"
+
+    train_only_state = engine.evaluate_commute(
+        telemetries={
+            "southern": RouteTelemetry(
+                route_id="southern",
+                line_id="southern",
+                mode=TransitMode.TRAIN,
+                departures=[train_dep],
+            ),
+            "bus_322": RouteTelemetry(
+                route_id="bus_322",
+                line_id="322",
+                mode=TransitMode.BUS,
+                departures=[],
+            ),
+        },
+        reference_time=datetime(2026, 9, 14, 14, 0, 0),
+    )
+    assert train_only_state.master_rollup.active_option == "southern"
+    assert train_only_state.master_rollup.destination == "Victoria"
+    assert train_only_state.child_routes["bus_322"].destination == "School"
