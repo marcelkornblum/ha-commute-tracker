@@ -1500,3 +1500,126 @@ async def test_options_flow_test_route_live_standby_and_error_previews(
     err_placeholders = err_res["description_placeholders"]
     assert err_placeholders is not None
     assert "Standby" in err_placeholders["preview_summary"]
+
+
+@pytest.mark.asyncio
+async def test_config_flow_disambiguates_stops_and_resolves_extra_stop_names(
+    hass: HomeAssistant,
+) -> None:
+    async def _mock_search_stops(
+        self: Any,
+        query: str,
+        line_id: str | None = None,
+        mode: TransitMode | None = None,
+    ) -> list[CorridorStop]:
+        q = query.strip().lower()
+        if q == "norwood":
+            return [
+                CorridorStop(id="910GWNORWOD", name="West Norwood"),
+                CorridorStop(id="910GNORWDJ", name="Norwood Junction"),
+            ]
+        if q == "balham":
+            return [
+                CorridorStop(id="910GBALHAM", name="Balham"),
+                CorridorStop(id="940GZZLUBLM", name="Balham Underground"),
+            ]
+        if q == "sydenham":
+            return [CorridorStop(id="910GSYDENHM", name="Sydenham")]
+        return []
+
+    async def _mock_corridor_leads(
+        self: Any,
+        line_id: str,
+        corridor_stops: list[str],
+        boarding_stop: str | None = None,
+    ) -> dict[str, int]:
+        return {"910GSYDENHM": 600, "910GWNORWOD": 0}
+
+    with (
+        patch.object(MockTransitProvider, "async_search_stops", _mock_search_stops),
+        patch.object(
+            MockTransitProvider,
+            "async_get_corridor_stops",
+            new_callable=AsyncMock,
+            return_value=[
+                CorridorStop(id="910GWNORWOD", name="West Norwood", is_target=True)
+            ],
+        ),
+        patch.object(
+            MockTransitProvider,
+            "async_get_corridor_lead_times",
+            _mock_corridor_leads,
+        ),
+    ):
+        init_res = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        route_step = await hass.config_entries.flow.async_configure(
+            init_res["flow_id"],
+            user_input={
+                "overview": {
+                    "name": "Rail Search Test",
+                    "active_sensor": "binary_sensor.school_active",
+                }
+            },
+        )
+        assert route_step["step_id"] == "route"
+
+        pick_step = await hass.config_entries.flow.async_configure(
+            route_step["flow_id"],
+            user_input={
+                "service_details": {
+                    "provider": "mock_tfl",
+                    "mode": "train",
+                    "line": "southern",
+                },
+                "boarding_walk": {
+                    "boarding_stop": "Norwood",
+                    "boarding_walk_seconds": {"minutes": 10},
+                },
+                "alighting_walk": {
+                    "alighting_stop": "Balham",
+                },
+            },
+        )
+        assert pick_step["type"] == FlowResultType.FORM
+        assert pick_step["step_id"] == "select_stops"
+
+        corridor_step = await hass.config_entries.flow.async_configure(
+            pick_step["flow_id"],
+            user_input={
+                "boarding_stop": "910GWNORWOD",
+                "alighting_stop": "910GBALHAM",
+            },
+        )
+        assert corridor_step["step_id"] == "corridor"
+
+        names_step = await hass.config_entries.flow.async_configure(
+            corridor_step["flow_id"],
+            user_input={
+                "corridor_stops": ["910GWNORWOD"],
+                "extra_stops": "Sydenham",
+            },
+        )
+        assert names_step["step_id"] == "corridor_names"
+
+        routes_step = await hass.config_entries.flow.async_configure(
+            names_step["flow_id"],
+            user_input={"stop_display_names": {}},
+        )
+        assert routes_step["step_id"] == "routes"
+
+        created = await hass.config_entries.flow.async_configure(
+            routes_step["flow_id"],
+            user_input={"route_action": "finish"},
+        )
+        assert created["type"] == FlowResultType.CREATE_ENTRY
+        route = created["data"]["routes"][0]
+        assert route["boarding_stop"] == "910GWNORWOD"
+        assert route["alighting_stop"] == "910GBALHAM"
+        assert route["corridor_stops"] == ["910GSYDENHM", "910GWNORWOD"]
+        assert route["corridor_stop_names"]["910GSYDENHM"] == "Sydenham"
+        assert route["corridor_stop_lead_seconds"] == {
+            "910GSYDENHM": 600,
+            "910GWNORWOD": 0,
+        }

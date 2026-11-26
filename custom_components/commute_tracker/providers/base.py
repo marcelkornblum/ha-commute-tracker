@@ -498,6 +498,15 @@ class TransitProvider(ABC):
         """Resolve stop identifiers to human-readable stop names when supported."""
         return {}
 
+    async def async_search_stops(
+        self,
+        query: str,
+        line_id: str | None = None,
+        mode: TransitMode | None = None,
+    ) -> list[CorridorStop]:
+        """Search for candidate stops matching a name or stop identifier."""
+        return []
+
     @abstractmethod
     async def async_get_telemetry(self, route: RouteConfig) -> RouteTelemetry:
         """Retrieve live telemetry and predictions for a configured route.
