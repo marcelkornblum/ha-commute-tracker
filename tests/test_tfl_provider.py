@@ -984,3 +984,123 @@ async def test_tfl_train_telemetry_resolves_extra_stop_names() -> None:
     assert telemetry.stop_names["910GCRYSTLP"] == "Crystal Palace"
     assert telemetry.stop_names["910GWNORWOD"] == "W Norwood"
     assert telemetry.stop_names["910GBALHAM"] == "Balham"
+
+
+@pytest.mark.asyncio
+async def test_tfl_search_stops_line_sequence_and_stoppoint_fallback() -> None:
+    route_seq = {
+        "stopPointSequences": [
+            {
+                "stopPoint": [
+                    {"id": "490000001A", "name": "Victoria Station"},
+                    {"id": "490000001B", "name": "Victoria Coach Station"},
+                    {"id": "490000001C", "name": "Marble Arch Station"},
+                ]
+            }
+        ]
+    }
+    search_payload = {
+        "matches": [
+            {"id": "910GWNORWOD", "name": "West Norwood Rail Station"},
+            {"id": "910GNORWDJ", "name": "Norwood Junction Rail Station"},
+        ]
+    }
+    mock_session = MockSession(
+        routes_map={
+            "/Line/73/Route/Sequence/all": route_seq,
+            "/StopPoint/Search/Norwood": search_payload,
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    line_matches = await provider.async_search_stops(
+        query="Victoria", line_id="73", mode=TransitMode.BUS
+    )
+    assert [s.id for s in line_matches] == ["490000001A", "490000001B"]
+    assert [s.name for s in line_matches] == ["Victoria", "Victoria Coach"]
+
+    exact_match = await provider.async_search_stops(
+        query="490000001C", line_id="73", mode=TransitMode.BUS
+    )
+    assert [s.id for s in exact_match] == ["490000001C"]
+
+    fallback_matches = await provider.async_search_stops(
+        query="Norwood", line_id="southern", mode=TransitMode.TRAIN
+    )
+    assert [s.id for s in fallback_matches] == ["910GWNORWOD", "910GNORWDJ"]
+    assert [s.name for s in fallback_matches] == ["West Norwood", "Norwood Junction"]
+
+
+@pytest.mark.asyncio
+async def test_tfl_corridor_lead_times_journey_fallback_for_rail_extra_stops() -> None:
+    mock_session = MockSession(
+        routes_map={
+            "/Journey/JourneyResults/910GBRCKLY/to/910GWNORWOD": {
+                "journeys": [{"duration": 18, "legs": [{"duration": 18}]}]
+            },
+            "/Journey/JourneyResults/910GSYDENHM/to/910GWNORWOD": {
+                "journeys": [{"duration": 10, "legs": [{"duration": 10}]}]
+            },
+            "/Journey/JourneyResults/910GCRYSTLP/to/910GWNORWOD": {
+                "journeys": [{"duration": 10, "legs": [{"duration": 10}]}]
+            },
+            "/Journey/JourneyResults/910GGIPSYHL/to/910GWNORWOD": {
+                "journeys": [{"duration": 3, "legs": [{"duration": 3}]}]
+            },
+        }
+    )
+    provider = TfLTransitProvider(session=mock_session)
+
+    leads = await provider.async_get_corridor_lead_times(
+        line_id="southern",
+        corridor_stops=[
+            "910GBRCKLY",
+            "910GSYDENHM",
+            "910GCRYSTLP",
+            "910GGIPSYHL",
+            "910GWNORWOD",
+        ],
+        boarding_stop="910GWNORWOD",
+    )
+    assert leads["910GBRCKLY"] == 1080
+    assert leads["910GSYDENHM"] == 600
+    assert "910GCRYSTLP" not in leads
+    assert leads["910GGIPSYHL"] == 180
+    assert leads["910GWNORWOD"] == 0
+
+
+@pytest.mark.asyncio
+async def test_tfl_corridor_lead_times_cache_key_respects_intermediate_stops() -> None:
+    timetable = {
+        "timetable": {
+            "routes": [
+                {
+                    "stationIntervals": [
+                        {
+                            "intervals": [
+                                {"stopId": "STOP_A", "timeToArrival": 0.0},
+                                {"stopId": "STOP_B", "timeToArrival": 3.0},
+                                {"stopId": "STOP_C", "timeToArrival": 8.0},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    mock_session = MockSession(routes_map={"/Line/73/Timetable/STOP_A": timetable})
+    provider = TfLTransitProvider(session=mock_session)
+
+    two_stop_leads = await provider.async_get_corridor_lead_times(
+        line_id="73",
+        corridor_stops=["STOP_A", "STOP_C"],
+        boarding_stop="STOP_C",
+    )
+    assert two_stop_leads == {"STOP_A": 480, "STOP_C": 0}
+
+    three_stop_leads = await provider.async_get_corridor_lead_times(
+        line_id="73",
+        corridor_stops=["STOP_A", "STOP_B", "STOP_C"],
+        boarding_stop="STOP_C",
+    )
+    assert three_stop_leads == {"STOP_A": 480, "STOP_B": 300, "STOP_C": 0}

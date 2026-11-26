@@ -222,3 +222,6 @@ def test_announcement_blueprint_yaml_is_valid() -> None:
     assert "tts_entity" in inputs
     assert "media_player" in inputs
     assert "extra_actions" in inputs
+    cond_template = parsed["conditions"][0]["value_template"]
+    assert "trigger.from_state is not none" in cond_template
+    assert "trigger.to_state.state != trigger.from_state.state" in cond_template

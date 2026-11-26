@@ -14,6 +14,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from custom_components.commute_tracker.corridor import build_corridor_stops_payload
 from custom_components.commute_tracker.engine import (
     ChildRouteState,
     CommuteEngine,
@@ -65,27 +66,15 @@ def create_idle_commute_state(
     for route in routes:
         corridor_stops_raw: list[str] = getattr(route, "corridor_stops", []) or []
         stop_names: dict[str, str] = getattr(route, "corridor_stop_names", {}) or {}
-        hidden_stop_ids = {
-            sid.strip().upper()
-            for sid in (getattr(route, "corridor_hidden_labels", []) or [])
-        }
+        hidden_labels: list[str] = getattr(route, "corridor_hidden_labels", []) or []
         boarding_stop = getattr(route, "boarding_stop", None)
-        corridor_stops = [
-            {
-                "stop_id": sid,
-                "short_name": (
-                    ""
-                    if sid.strip().upper() in hidden_stop_ids
-                    else ((stop_names.get(sid) or "").strip() or sid)
-                ),
-                "is_target": (
-                    sid == boarding_stop
-                    if boarding_stop in corridor_stops_raw
-                    else idx == len(corridor_stops_raw) - 1
-                ),
-            }
-            for idx, sid in enumerate(corridor_stops_raw)
-        ]
+        corridor_stops = build_corridor_stops_payload(
+            corridor_stops=corridor_stops_raw,
+            stop_names=stop_names,
+            hidden_labels=hidden_labels,
+            boarding_stop=boarding_stop,
+            fallback_target_last=True,
+        )
         route_label = (
             getattr(route, "route_label", None) or getattr(route, "line", "") or ""
         )
@@ -145,25 +134,29 @@ class CommuteCoordinator(DataUpdateCoordinator[CommuteState]):
         """Return whether the coordinator is actively polling transit APIs."""
         return self._is_active
 
-    def _resolve_person_name(self) -> str | None:
-        """Resolve commuter display name from linked person entity or static config."""
+    def resolve_person_profile(self) -> tuple[str | None, str | None]:
+        """Resolve commuter name and picture from linked person entity or config."""
         cfg = self.commute_config
+        person_name = cfg.person_name
+        person_picture = cfg.person_picture
         if cfg.person and self.hass is not None:
             person_state = self.hass.states.get(cfg.person)
             if person_state is not None:
                 friendly = person_state.attributes.get("friendly_name")
-                return str(friendly or person_state.name)
-        return cfg.person_name
+                person_name = str(friendly or person_state.name)
+                person_picture = person_state.attributes.get("entity_picture")
+        return person_name, person_picture
 
     def _record_lifecycle_events(self, state: CommuteState) -> None:
         """Evaluate lifecycle transitions and append newly emitted events."""
         cfg = self.commute_config
         commute_title = cfg.commute_title or cfg.commute_id
+        person_name, _ = self.resolve_person_profile()
         emitted = self.lifecycle_tracker.evaluate(
             state=state,
             is_active=self._is_active,
             commute_title=commute_title,
-            person_name=self._resolve_person_name(),
+            person_name=person_name,
         )
         for lifecycle_event in emitted:
             self._event_seq += 1

@@ -152,6 +152,7 @@ class CommuteLifecycleTracker:
         self._pending_switch: tuple[str, int] | None = None
         self._last_dep_key: tuple[str, str] | None = None
         self._last_seconds_to_board: int | None = None
+        self._last_urgency_stage: UrgencyStage | None = None
         self._latched_stages: set[tuple[str, str, CommuteEventType]] = set()
         self._was_disrupted_by_option: dict[str, bool] = {}
 
@@ -161,6 +162,7 @@ class CommuteLifecycleTracker:
         self._pending_switch = None
         self._last_dep_key = None
         self._last_seconds_to_board = None
+        self._last_urgency_stage = None
         self._latched_stages.clear()
         self._was_disrupted_by_option.clear()
 
@@ -183,8 +185,10 @@ class CommuteLifecycleTracker:
     ) -> list[CommuteLifecycleEvent]:
         """Evaluate a commute snapshot and return newly triggered lifecycle events."""
         master = state.master_rollup
-        if not is_active or not master.is_active or master.active_option == "none":
+        if not is_active or not master.is_active:
             self.reset()
+            return []
+        if master.active_option == "none":
             return []
 
         dep_identity = master.vehicle_id or master.expected_boarding_time
@@ -192,11 +196,16 @@ class CommuteLifecycleTracker:
         reached_stage = _determine_reached_stage(master=master)
         events: list[CommuteLifecycleEvent] = []
         emitted_transition = False
+        action_stages = {UrgencyStage.PREPARE, UrgencyStage.LEAVE_NOW}
+        in_action_window = (
+            self._last_urgency_stage in action_stages
+            or master.urgency_stage in action_stages
+        )
 
         if self._confirmed_option is None:
             self._confirmed_option = master.active_option
         elif master.active_option != self._confirmed_option:
-            if master.urgency_stage in {UrgencyStage.PREPARE, UrgencyStage.LEAVE_NOW}:
+            if in_action_window:
                 prev_candidate, prev_count = (
                     self._pending_switch
                     if self._pending_switch is not None
@@ -278,4 +287,5 @@ class CommuteLifecycleTracker:
 
         self._last_dep_key = dep_key
         self._last_seconds_to_board = master.seconds_to_board
+        self._last_urgency_stage = master.urgency_stage
         return events

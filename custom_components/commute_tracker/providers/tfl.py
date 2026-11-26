@@ -1,5 +1,7 @@
 """Transport for London (TfL) transit provider implementation."""
 
+import asyncio
+import urllib.parse
 import zoneinfo
 from collections.abc import Sequence
 from datetime import datetime, timezone
@@ -25,6 +27,14 @@ from custom_components.commute_tracker.providers.base import (
 
 TFL_API_BASE_URL = "https://api.tfl.gov.uk"
 LONDON_TIMEZONE = zoneinfo.ZoneInfo("Europe/London")
+MAX_STOP_SEARCH_RESULTS = 25
+
+TFL_MODE_SLUGS: dict[TransitMode, str] = {
+    TransitMode.BUS: "bus",
+    TransitMode.TRAIN: "national-rail",
+    TransitMode.TUBE: "tube",
+    TransitMode.TRAM: "tram",
+}
 
 TFL_CANCELLED_STATUSES = {
     "Suspended",
@@ -85,6 +95,27 @@ def _parse_datetime(iso_str: str) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=LONDON_TIMEZONE)
     return dt.astimezone(timezone.utc)
+
+
+def _sanitise_monotonic_leads(
+    corridor_stops: list[str],
+    raw_leads: dict[str, int],
+    target_id: str,
+) -> dict[str, int]:
+    """Keep strictly decreasing positive upstream lead seconds ending at 0."""
+    cleaned: dict[str, int] = {}
+    prev_sec: int | None = None
+    for sid in corridor_stops[:-1]:
+        sec = raw_leads.get(sid)
+        if sec is None or sec <= 0:
+            continue
+        if prev_sec is not None and sec >= prev_sec:
+            continue
+        cleaned[sid] = sec
+        prev_sec = sec
+    if cleaned:
+        cleaned[target_id] = 0
+    return cleaned
 
 
 class TfLTransitProvider(TransitProvider):
@@ -572,6 +603,33 @@ class TfLTransitProvider(TransitProvider):
                     return leads
         return {}
 
+    async def _async_fetch_timetable_leads(
+        self,
+        line_id: str,
+        origin_id: str,
+        target_id: str,
+        corridor_stops: list[str],
+    ) -> dict[str, int] | None:
+        """Fetch timetable lead seconds matching the configured corridor stops."""
+        timetable_data = await self.async_fetch_timetable(
+            line_id=line_id,
+            from_stop_id=origin_id,
+        )
+        if timetable_data is None:
+            return None
+        raw_leads = self.parse_timetable_lead_times(
+            timetable_payload=timetable_data,
+            boarding_stop_id=target_id,
+            from_stop_id=origin_id,
+        )
+        corridor_set = {sid.strip().upper(): sid for sid in corridor_stops}
+        matched: dict[str, int] = {}
+        for sid, sec in raw_leads.items():
+            canonical = corridor_set.get(sid.strip().upper())
+            if canonical is not None:
+                matched[canonical] = sec
+        return matched
+
     async def async_get_corridor_lead_times(
         self,
         line_id: str,
@@ -587,38 +645,191 @@ class TfLTransitProvider(TransitProvider):
         if not origin_id or not target_id:
             return {}
 
+        corridor_sig = "_".join(sid.strip().upper() for sid in corridor_stops)
         cache_key = (
             f"tfl_corridor_leads_{line_id.strip().lower()}_"
-            f"{origin_id.upper()}_{target_id.upper()}"
+            f"{corridor_sig}_{target_id.upper()}"
         )
-
-        async def _fetch_leads() -> dict[str, int] | None:
-            timetable_data = await self.async_fetch_timetable(
-                line_id=line_id,
-                from_stop_id=origin_id,
-            )
-            if timetable_data is None:
-                return None
-            raw_leads = self.parse_timetable_lead_times(
-                timetable_payload=timetable_data,
-                boarding_stop_id=target_id,
-                from_stop_id=origin_id,
-            )
-            corridor_set = {sid.strip().upper(): sid for sid in corridor_stops}
-            matched: dict[str, int] = {}
-            for sid, sec in raw_leads.items():
-                canonical = corridor_set.get(sid.strip().upper())
-                if canonical is not None:
-                    matched[canonical] = sec
-            return matched
 
         result = await self.async_cached_fetch(
             cache_key=cache_key,
-            fetch_callable=_fetch_leads,
+            fetch_callable=partial(
+                self._async_fetch_timetable_leads,
+                line_id=line_id,
+                origin_id=origin_id,
+                target_id=target_id,
+                corridor_stops=list(corridor_stops),
+            ),
             ttl_seconds=3600.0,
             cache_none=False,
         )
-        return dict(result) if isinstance(result, dict) else {}
+        matched = dict(result) if isinstance(result, dict) else {}
+
+        missing_upstream = [sid for sid in corridor_stops[:-1] if sid not in matched]
+        if missing_upstream:
+            durations = await asyncio.gather(
+                *(
+                    self._async_fetch_journey_duration_seconds(
+                        origin=sid, destination=target_id
+                    )
+                    for sid in missing_upstream
+                )
+            )
+            for sid, dur_sec in zip(missing_upstream, durations, strict=True):
+                if dur_sec is not None and dur_sec > 0:
+                    matched[sid] = dur_sec
+
+        return _sanitise_monotonic_leads(
+            corridor_stops=corridor_stops,
+            raw_leads=matched,
+            target_id=target_id,
+        )
+
+    async def _async_fetch_journey_duration_uncached(
+        self, origin: str, destination: str
+    ) -> int | None:
+        """Fetch shortest positive National Rail journey duration in seconds."""
+        try:
+            payload = await self.async_fetch_journey(
+                origin=origin,
+                destination=destination,
+                mode=TransitMode.TRAIN,
+            )
+        except Exception:
+            return None
+        if not isinstance(payload, dict):
+            return None
+
+        durations_min: list[float] = []
+        for journey in payload.get("journeys", []):
+            if not isinstance(journey, dict):
+                continue
+            raw_dur = journey.get("duration")
+            if isinstance(raw_dur, (int, float)) and raw_dur > 0:
+                durations_min.append(float(raw_dur))
+                continue
+            legs = journey.get("legs", [])
+            if legs and isinstance(legs[0], dict):
+                leg_dur = legs[0].get("duration")
+                if isinstance(leg_dur, (int, float)) and leg_dur > 0:
+                    durations_min.append(float(leg_dur))
+        if not durations_min:
+            return None
+        return int(round(min(durations_min) * 60))
+
+    async def _async_fetch_journey_duration_seconds(
+        self, origin: str, destination: str
+    ) -> int | None:
+        """Fetch and cache rail travel duration between two stop IDs."""
+        clean_origin = origin.strip()
+        clean_dest = destination.strip()
+        if not clean_origin or not clean_dest:
+            return None
+        cache_key = f"tfl_journey_dur_{clean_origin.upper()}_{clean_dest.upper()}"
+        result = await self.async_cached_fetch(
+            cache_key=cache_key,
+            fetch_callable=partial(
+                self._async_fetch_journey_duration_uncached,
+                origin=clean_origin,
+                destination=clean_dest,
+            ),
+            ttl_seconds=3600.0,
+            cache_none=False,
+        )
+        return int(result) if isinstance(result, int) and result > 0 else None
+
+    async def _async_fetch_stop_search(
+        self, query: str, mode: TransitMode | None
+    ) -> list[CorridorStop]:
+        """Query TfL StopPoint Search API and adapt results into CorridorStops."""
+        encoded = urllib.parse.quote(query, safe="")
+        params = (
+            {"modes": TFL_MODE_SLUGS[mode]}
+            if mode is not None and mode in TFL_MODE_SLUGS
+            else None
+        )
+        try:
+            payload = await self.async_fetch_json(
+                endpoint_or_url=f"StopPoint/Search/{encoded}",
+                params=params,
+            )
+        except Exception:
+            return []
+        if not isinstance(payload, dict):
+            return []
+
+        results: list[CorridorStop] = []
+        seen: set[str] = set()
+        for match in payload.get("matches", []):
+            if not isinstance(match, dict):
+                continue
+            sid = str(match.get("id") or match.get("icsId") or "").strip()
+            if not sid or sid.upper() in seen:
+                continue
+            seen.add(sid.upper())
+            raw_name = str(match.get("name") or sid).strip()
+            results.append(
+                CorridorStop(
+                    id=sid,
+                    name=self.clean_stop_name(raw_name=raw_name),
+                )
+            )
+            if len(results) >= MAX_STOP_SEARCH_RESULTS:
+                break
+        return results
+
+    async def async_search_stops(
+        self,
+        query: str,
+        line_id: str | None = None,
+        mode: TransitMode | None = None,
+    ) -> list[CorridorStop]:
+        """Search candidate stops along a TfL line or via StopPoint Search."""
+        clean_query = query.strip()
+        if not clean_query:
+            return []
+        query_lower = clean_query.lower()
+
+        if line_id and line_id.strip():
+            try:
+                seq_data = await self.async_fetch_route_sequence(
+                    line_id=line_id.strip(), direction="all"
+                )
+                branches = self.parse_route_sequences(sequence_payload=seq_data)
+            except Exception:
+                branches = []
+
+            line_matches: list[CorridorStop] = []
+            seen_ids: set[str] = set()
+            for branch in branches:
+                for stop in branch:
+                    norm_id = stop.id.strip().upper()
+                    if norm_id in seen_ids:
+                        continue
+                    if stop.id.strip().lower() == query_lower:
+                        return [stop]
+                    if (
+                        query_lower in stop.id.lower()
+                        or query_lower in stop.name.lower()
+                    ):
+                        seen_ids.add(norm_id)
+                        line_matches.append(stop)
+            if line_matches:
+                return line_matches[:MAX_STOP_SEARCH_RESULTS]
+
+        mode_slug = TFL_MODE_SLUGS.get(mode, "all") if mode is not None else "all"
+        cache_key = f"tfl_stop_search_{mode_slug}_{query_lower}"
+        cached = await self.async_cached_fetch(
+            cache_key=cache_key,
+            fetch_callable=partial(
+                self._async_fetch_stop_search,
+                query=clean_query,
+                mode=mode,
+            ),
+            ttl_seconds=3600.0,
+            cache_none=False,
+        )
+        return list(cached) if isinstance(cached, list) else []
 
     async def _async_fetch_stop_name(self, stop_id: str) -> str | None:
         """Fetch and clean a stop display name from TfL StopPoint API."""
@@ -635,23 +846,37 @@ class TfLTransitProvider(TransitProvider):
             return None
         return self.clean_stop_name(raw_name=raw_name)
 
+    async def _async_resolve_single_stop_name(self, stop_id: str) -> str | None:
+        """Resolve and cache a single stop's cleaned display name."""
+        cache_key = f"tfl_stop_name_{stop_id.upper()}"
+        name = await self.async_cached_fetch(
+            cache_key=cache_key,
+            fetch_callable=partial(self._async_fetch_stop_name, stop_id=stop_id),
+            ttl_seconds=3600.0,
+            cache_none=False,
+        )
+        return name if isinstance(name, str) and name else None
+
     async def async_resolve_stop_names(self, stop_ids: Sequence[str]) -> dict[str, str]:
-        """Resolve stop identifiers to cleaned TfL display names with caching."""
-        resolved: dict[str, str] = {}
+        """Resolve stop identifiers to cleaned TfL display names concurrently."""
+        unique_sids: list[str] = []
+        seen: set[str] = set()
         for sid in stop_ids:
             clean_sid = sid.strip()
-            if not clean_sid or clean_sid in resolved:
-                continue
-            cache_key = f"tfl_stop_name_{clean_sid.upper()}"
-            name = await self.async_cached_fetch(
-                cache_key=cache_key,
-                fetch_callable=partial(self._async_fetch_stop_name, stop_id=clean_sid),
-                ttl_seconds=3600.0,
-                cache_none=False,
-            )
-            if isinstance(name, str) and name:
-                resolved[clean_sid] = name
-        return resolved
+            if clean_sid and clean_sid not in seen:
+                seen.add(clean_sid)
+                unique_sids.append(clean_sid)
+        if not unique_sids:
+            return {}
+
+        names = await asyncio.gather(
+            *(self._async_resolve_single_stop_name(stop_id=sid) for sid in unique_sids)
+        )
+        return {
+            sid: name
+            for sid, name in zip(unique_sids, names, strict=True)
+            if name is not None
+        }
 
     async def _async_annotate_scheduled_branch(
         self,

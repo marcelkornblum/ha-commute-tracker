@@ -87,6 +87,35 @@ def _resolve_stop_name(sid: str, stop_names: dict[str, str]) -> str:
     return sid
 
 
+def build_corridor_stops_payload(
+    corridor_stops: Sequence[str],
+    stop_names: dict[str, str],
+    hidden_labels: Sequence[str],
+    boarding_stop: str | None = None,
+    fallback_target_last: bool = False,
+) -> list[dict[str, object]]:
+    """Build Lovelace schematic corridor_stops entries respecting hidden labels."""
+    hidden_ids = {sid.strip().upper() for sid in hidden_labels}
+    has_boarding_in_corridor = bool(boarding_stop and boarding_stop in corridor_stops)
+    last_idx = len(corridor_stops) - 1
+    return [
+        {
+            "stop_id": sid,
+            "short_name": (
+                ""
+                if sid.strip().upper() in hidden_ids
+                else _resolve_stop_name(sid=sid, stop_names=stop_names)
+            ),
+            "is_target": (
+                sid == boarding_stop
+                if has_boarding_in_corridor or not fallback_target_last
+                else idx == last_idx
+            ),
+        }
+        for idx, sid in enumerate(corridor_stops)
+    ]
+
+
 def _resolve_corridor_lead_times(
     corridor_stops: list[str],
     stop_lead_seconds: dict[str, int] | None,
