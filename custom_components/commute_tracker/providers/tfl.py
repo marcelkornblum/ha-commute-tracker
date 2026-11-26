@@ -603,6 +603,33 @@ class TfLTransitProvider(TransitProvider):
                     return leads
         return {}
 
+    async def _async_fetch_timetable_leads(
+        self,
+        line_id: str,
+        origin_id: str,
+        target_id: str,
+        corridor_stops: list[str],
+    ) -> dict[str, int] | None:
+        """Fetch timetable lead seconds matching the configured corridor stops."""
+        timetable_data = await self.async_fetch_timetable(
+            line_id=line_id,
+            from_stop_id=origin_id,
+        )
+        if timetable_data is None:
+            return None
+        raw_leads = self.parse_timetable_lead_times(
+            timetable_payload=timetable_data,
+            boarding_stop_id=target_id,
+            from_stop_id=origin_id,
+        )
+        corridor_set = {sid.strip().upper(): sid for sid in corridor_stops}
+        matched: dict[str, int] = {}
+        for sid, sec in raw_leads.items():
+            canonical = corridor_set.get(sid.strip().upper())
+            if canonical is not None:
+                matched[canonical] = sec
+        return matched
+
     async def async_get_corridor_lead_times(
         self,
         line_id: str,
@@ -618,34 +645,21 @@ class TfLTransitProvider(TransitProvider):
         if not origin_id or not target_id:
             return {}
 
+        corridor_sig = "_".join(sid.strip().upper() for sid in corridor_stops)
         cache_key = (
             f"tfl_corridor_leads_{line_id.strip().lower()}_"
-            f"{origin_id.upper()}_{target_id.upper()}"
+            f"{corridor_sig}_{target_id.upper()}"
         )
-
-        async def _fetch_leads() -> dict[str, int] | None:
-            timetable_data = await self.async_fetch_timetable(
-                line_id=line_id,
-                from_stop_id=origin_id,
-            )
-            if timetable_data is None:
-                return None
-            raw_leads = self.parse_timetable_lead_times(
-                timetable_payload=timetable_data,
-                boarding_stop_id=target_id,
-                from_stop_id=origin_id,
-            )
-            corridor_set = {sid.strip().upper(): sid for sid in corridor_stops}
-            matched: dict[str, int] = {}
-            for sid, sec in raw_leads.items():
-                canonical = corridor_set.get(sid.strip().upper())
-                if canonical is not None:
-                    matched[canonical] = sec
-            return matched
 
         result = await self.async_cached_fetch(
             cache_key=cache_key,
-            fetch_callable=_fetch_leads,
+            fetch_callable=partial(
+                self._async_fetch_timetable_leads,
+                line_id=line_id,
+                origin_id=origin_id,
+                target_id=target_id,
+                corridor_stops=list(corridor_stops),
+            ),
             ttl_seconds=3600.0,
             cache_none=False,
         )
@@ -832,23 +846,37 @@ class TfLTransitProvider(TransitProvider):
             return None
         return self.clean_stop_name(raw_name=raw_name)
 
+    async def _async_resolve_single_stop_name(self, stop_id: str) -> str | None:
+        """Resolve and cache a single stop's cleaned display name."""
+        cache_key = f"tfl_stop_name_{stop_id.upper()}"
+        name = await self.async_cached_fetch(
+            cache_key=cache_key,
+            fetch_callable=partial(self._async_fetch_stop_name, stop_id=stop_id),
+            ttl_seconds=3600.0,
+            cache_none=False,
+        )
+        return name if isinstance(name, str) and name else None
+
     async def async_resolve_stop_names(self, stop_ids: Sequence[str]) -> dict[str, str]:
-        """Resolve stop identifiers to cleaned TfL display names with caching."""
-        resolved: dict[str, str] = {}
+        """Resolve stop identifiers to cleaned TfL display names concurrently."""
+        unique_sids: list[str] = []
+        seen: set[str] = set()
         for sid in stop_ids:
             clean_sid = sid.strip()
-            if not clean_sid or clean_sid in resolved:
-                continue
-            cache_key = f"tfl_stop_name_{clean_sid.upper()}"
-            name = await self.async_cached_fetch(
-                cache_key=cache_key,
-                fetch_callable=partial(self._async_fetch_stop_name, stop_id=clean_sid),
-                ttl_seconds=3600.0,
-                cache_none=False,
-            )
-            if isinstance(name, str) and name:
-                resolved[clean_sid] = name
-        return resolved
+            if clean_sid and clean_sid not in seen:
+                seen.add(clean_sid)
+                unique_sids.append(clean_sid)
+        if not unique_sids:
+            return {}
+
+        names = await asyncio.gather(
+            *(self._async_resolve_single_stop_name(stop_id=sid) for sid in unique_sids)
+        )
+        return {
+            sid: name
+            for sid, name in zip(unique_sids, names, strict=True)
+            if name is not None
+        }
 
     async def _async_annotate_scheduled_branch(
         self,

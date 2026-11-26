@@ -406,3 +406,68 @@ def test_lifecycle_disrupted_transitions_and_idle_reset() -> None:
         commute_title="School",
     )
     assert [e.event_type for e in rearmed] == [CommuteEventType.DISRUPTED]
+
+
+def test_lifecycle_transient_standby_blip_preserves_latches() -> None:
+    tracker = CommuteLifecycleTracker()
+    leave_state = _make_state(
+        active_option="bus_322",
+        mode="bus",
+        route_label="322",
+        vehicle_id="BUS1",
+        urgency_stage=UrgencyStage.LEAVE_NOW,
+        seconds_to_leave=0,
+    )
+    first = tracker.evaluate(
+        state=leave_state,
+        is_active=True,
+        commute_title="School",
+    )
+    assert [e.event_type for e in first] == [CommuteEventType.LEAVE_NOW]
+
+    blip_state = _make_state(
+        active_option="none",
+        urgency_stage=UrgencyStage.STANDBY,
+        is_active=True,
+    )
+    assert (
+        tracker.evaluate(state=blip_state, is_active=True, commute_title="School") == []
+    )
+
+    recovered = tracker.evaluate(
+        state=leave_state,
+        is_active=True,
+        commute_title="School",
+    )
+    assert recovered == []
+
+
+def test_lifecycle_route_switched_fires_from_leave_now_to_relaxed() -> None:
+    tracker = CommuteLifecycleTracker()
+    bus_leave_now = _make_state(
+        active_option="bus_322",
+        mode="bus",
+        route_label="322",
+        vehicle_id="BUS1",
+        urgency_stage=UrgencyStage.LEAVE_NOW,
+        seconds_to_leave=0,
+    )
+    train_relaxed = _make_state(
+        active_option="southern",
+        mode="train",
+        route_label="Southern",
+        expected_boarding_time="08:25",
+        urgency_stage=UrgencyStage.RELAXED,
+        seconds_to_leave=600,
+    )
+
+    tracker.evaluate(state=bus_leave_now, is_active=True, commute_title="School")
+    assert (
+        tracker.evaluate(state=train_relaxed, is_active=True, commute_title="School")
+        == []
+    )
+    switched = tracker.evaluate(
+        state=train_relaxed, is_active=True, commute_title="School"
+    )
+    assert [e.event_type for e in switched] == [CommuteEventType.ROUTE_SWITCHED]
+    assert switched[0].data["active_option"] == "southern"
