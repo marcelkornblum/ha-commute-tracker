@@ -17,6 +17,7 @@ from custom_components.commute_tracker.const import (
     DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
 )
 from custom_components.commute_tracker.corridor import (
+    build_corridor_stops_payload,
     calculate_corridor_progression,
     filter_approaching_departures,
     select_active_departures,
@@ -281,21 +282,12 @@ class CommuteEngine:
                     or route_cfg.boarding_stop
                 )
 
-            hidden_stop_ids = {
-                sid.strip().upper() for sid in route_cfg.corridor_hidden_labels
-            }
-            corridor_stops_data = [
-                {
-                    "stop_id": sid,
-                    "short_name": (
-                        ""
-                        if sid.strip().upper() in hidden_stop_ids
-                        else merged_stop_names.get(sid, sid)
-                    ),
-                    "is_target": sid == route_cfg.boarding_stop,
-                }
-                for sid in route_cfg.corridor_stops
-            ]
+            corridor_stops_data = build_corridor_stops_payload(
+                corridor_stops=route_cfg.corridor_stops,
+                stop_names=merged_stop_names,
+                hidden_labels=route_cfg.corridor_hidden_labels,
+                boarding_stop=route_cfg.boarding_stop,
+            )
 
             route_destination = route_cfg.destination or self._config.destination or ""
 

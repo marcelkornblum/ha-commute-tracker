@@ -1067,3 +1067,40 @@ async def test_tfl_corridor_lead_times_journey_fallback_for_rail_extra_stops() -
     assert "910GCRYSTLP" not in leads
     assert leads["910GGIPSYHL"] == 180
     assert leads["910GWNORWOD"] == 0
+
+
+@pytest.mark.asyncio
+async def test_tfl_corridor_lead_times_cache_key_respects_intermediate_stops() -> None:
+    timetable = {
+        "timetable": {
+            "routes": [
+                {
+                    "stationIntervals": [
+                        {
+                            "intervals": [
+                                {"stopId": "STOP_A", "timeToArrival": 0.0},
+                                {"stopId": "STOP_B", "timeToArrival": 3.0},
+                                {"stopId": "STOP_C", "timeToArrival": 8.0},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    mock_session = MockSession(routes_map={"/Line/73/Timetable/STOP_A": timetable})
+    provider = TfLTransitProvider(session=mock_session)
+
+    two_stop_leads = await provider.async_get_corridor_lead_times(
+        line_id="73",
+        corridor_stops=["STOP_A", "STOP_C"],
+        boarding_stop="STOP_C",
+    )
+    assert two_stop_leads == {"STOP_A": 480, "STOP_C": 0}
+
+    three_stop_leads = await provider.async_get_corridor_lead_times(
+        line_id="73",
+        corridor_stops=["STOP_A", "STOP_B", "STOP_C"],
+        boarding_stop="STOP_C",
+    )
+    assert three_stop_leads == {"STOP_A": 480, "STOP_B": 300, "STOP_C": 0}

@@ -172,6 +172,7 @@
       "invalid_boarding_stop": "Boarding stop not found along this line.",
       "invalid_alighting_stop": "Alighting stop not found along this line.",
       "invalid_lead_times": "Upstream stop lead times must strictly decrease towards the boarding stop.",
+      "invalid_poll_interval": "Poll interval must be at least 5 seconds.",
       "mutual_grace": "Cannot specify both grace_seconds and grace_fraction.",
       "no_routes": "At least one route must be configured.",
       "no_commutes": "At least one commute must be configured.",
@@ -378,6 +379,7 @@
       "invalid_boarding_stop": "Boarding stop not found along this line.",
       "invalid_alighting_stop": "Alighting stop not found along this line.",
       "invalid_lead_times": "Upstream stop lead times must strictly decrease towards the boarding stop.",
+      "invalid_poll_interval": "Poll interval must be at least 5 seconds.",
       "mutual_grace": "Cannot specify both grace_seconds and grace_fraction.",
       "no_routes": "At least one route must be configured.",
       "unknown": "Unexpected error occurred."

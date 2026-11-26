@@ -1499,7 +1499,7 @@ async def test_options_flow_test_route_live_standby_and_error_previews(
     assert err_res["step_id"] == "test_route"
     err_placeholders = err_res["description_placeholders"]
     assert err_placeholders is not None
-    assert "Standby" in err_placeholders["preview_summary"]
+    assert "Upstream timeout" in err_placeholders["preview_summary"]
 
 
 @pytest.mark.asyncio
@@ -1623,3 +1623,64 @@ async def test_config_flow_disambiguates_stops_and_resolves_extra_stop_names(
             "910GSYDENHM": 600,
             "910GWNORWOD": 0,
         }
+
+
+@pytest.mark.asyncio
+async def test_config_flow_rejects_poll_interval_below_minimum(
+    hass: HomeAssistant,
+) -> None:
+    init_res = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    err_res = await hass.config_entries.flow.async_configure(
+        init_res["flow_id"],
+        user_input={
+            "overview": {
+                "name": "Zero Poll Test",
+                "active_sensor": "binary_sensor.school_active",
+            },
+            "advanced_settings": {
+                "poll_interval": {"seconds": 0},
+            },
+        },
+    )
+    assert err_res["step_id"] == "user"
+    assert err_res["errors"] == {"poll_interval": "invalid_poll_interval"}
+
+
+@pytest.mark.asyncio
+async def test_options_flow_route_menu_hides_edit_corridor_names_when_corridor_empty(
+    hass: HomeAssistant,
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="No Corridor Commute",
+        unique_id="no_corridor_commute",
+        data={
+            "id": "no_corridor_commute",
+            "name": "No Corridor Commute",
+            "active_sensor": "binary_sensor.active",
+            "routes": [
+                {
+                    "id": "bus_73",
+                    "provider": "mock_tfl",
+                    "mode": "bus",
+                    "line": "73",
+                    "boarding_stop": "490000001C",
+                    "corridor_stops": [],
+                }
+            ],
+        },
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    init_res = await hass.config_entries.options.async_init(entry.entry_id)
+    routes_res = await hass.config_entries.options.async_configure(
+        init_res["flow_id"], user_input={"next_step_id": "routes"}
+    )
+    menu_res = await hass.config_entries.options.async_configure(
+        routes_res["flow_id"], user_input={"route_action": "edit_route_0"}
+    )
+    assert menu_res["step_id"] == "route_menu"
+    assert "edit_corridor_names" not in menu_res["menu_options"]
