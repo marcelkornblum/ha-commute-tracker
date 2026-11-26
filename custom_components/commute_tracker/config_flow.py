@@ -11,6 +11,7 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from custom_components.commute_tracker.const import (
@@ -57,6 +58,7 @@ from custom_components.commute_tracker.const import (
     DEFAULT_STAGING_MODE,
     DOMAIN,
 )
+from custom_components.commute_tracker.engine import CommuteEngine
 from custom_components.commute_tracker.models import (
     CommuteConfig,
     CorridorStop,
@@ -80,11 +82,66 @@ GRACE_FRACTION_SELECTOR = selector.NumberSelector(
     )
 )
 
+DURATION_SELECTOR = selector.DurationSelector(
+    selector.DurationSelectorConfig(enable_day=False)
+)
+
+_COMMUTE_DURATION_KEYS: tuple[str, ...] = (
+    CONF_PREP_SECONDS,
+    CONF_PREPARE_THRESHOLD_SECONDS,
+    CONF_AMBER_THRESHOLD_SECONDS,
+    CONF_ROUTE_LATE_BUFFER_SECONDS,
+    CONF_POLL_INTERVAL,
+    CONF_GRACE_SECONDS,
+)
+
+
+def _seconds_to_duration(total_seconds: int) -> dict[str, int]:
+    """Convert integer seconds to a Home Assistant DurationSelector mapping."""
+    clamped = max(0, int(total_seconds))
+    hours, rem = divmod(clamped, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return {"hours": hours, "minutes": minutes, "seconds": seconds}
+
+
+def _duration_to_seconds(value: Any) -> int | None:
+    """Convert a DurationSelector mapping or numeric value into integer seconds."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        hours = int(value.get("hours") or 0)
+        minutes = int(value.get("minutes") or 0)
+        seconds = int(value.get("seconds") or 0)
+        return max(0, hours * 3600 + minutes * 60 + seconds)
+    if isinstance(value, (int, float)):
+        return max(0, int(value))
+    raw = str(value).strip()
+    if not raw:
+        return None
+    return max(0, int(raw))
+
+
+def _normalise_commute_durations(flat: dict[str, Any]) -> dict[str, Any]:
+    """Convert DurationSelector fields in flattened commute input to integer seconds."""
+    normalised = dict(flat)
+    for key in _COMMUTE_DURATION_KEYS:
+        if key in normalised:
+            parsed = _duration_to_seconds(value=normalised[key])
+            if parsed is None:
+                normalised.pop(key, None)
+            else:
+                normalised[key] = parsed
+    return normalised
+
 
 def _has_input_value(flat: dict[str, Any], key: str) -> bool:
     """Return whether a flattened form dictionary contains a non-empty value."""
     value = flat.get(key)
-    return value is not None and str(value).strip() != ""
+    if value is None:
+        return False
+    if isinstance(value, dict):
+        return True
+    return str(value).strip() != ""
 
 
 def _validate_grace_inputs(flat: dict[str, Any], errors: dict[str, str]) -> None:
@@ -256,29 +313,51 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 selector.TimeSelector(selector.TimeSelectorConfig())
             )
 
+        prep_default = _duration_to_seconds(
+            value=d.get("prep_seconds", DEFAULT_PREP_SECONDS)
+        )
+        prepare_default = _duration_to_seconds(
+            value=d.get(
+                CONF_PREPARE_THRESHOLD_SECONDS, DEFAULT_PREPARE_THRESHOLD_SECONDS
+            )
+        )
+        amber_default = _duration_to_seconds(
+            value=d.get(CONF_AMBER_THRESHOLD_SECONDS, DEFAULT_AMBER_THRESHOLD_SECONDS)
+        )
         dest_timings_dict[
             vol.Optional(
                 "prep_seconds",
-                default=d.get("prep_seconds", DEFAULT_PREP_SECONDS),
+                default=_seconds_to_duration(
+                    total_seconds=prep_default
+                    if prep_default is not None
+                    else DEFAULT_PREP_SECONDS
+                ),
             )
-        ] = cv.positive_int
+        ] = DURATION_SELECTOR
         dest_timings_dict[
             vol.Optional(
                 CONF_PREPARE_THRESHOLD_SECONDS,
-                default=d.get(
-                    CONF_PREPARE_THRESHOLD_SECONDS, DEFAULT_PREPARE_THRESHOLD_SECONDS
+                default=_seconds_to_duration(
+                    total_seconds=prepare_default
+                    if prepare_default is not None
+                    else DEFAULT_PREPARE_THRESHOLD_SECONDS
                 ),
             )
-        ] = cv.positive_int
+        ] = DURATION_SELECTOR
         dest_timings_dict[
             vol.Optional(
                 CONF_AMBER_THRESHOLD_SECONDS,
-                default=d.get(
-                    CONF_AMBER_THRESHOLD_SECONDS, DEFAULT_AMBER_THRESHOLD_SECONDS
+                default=_seconds_to_duration(
+                    total_seconds=amber_default
+                    if amber_default is not None
+                    else DEFAULT_AMBER_THRESHOLD_SECONDS
                 ),
             )
-        ] = cv.positive_int
+        ] = DURATION_SELECTOR
 
+        late_buffer_default = _duration_to_seconds(
+            value=d.get("route_late_buffer_seconds", DEFAULT_ROUTE_LATE_BUFFER_SECONDS)
+        )
         strategy_dict: dict[Any, Any] = {
             vol.Optional(
                 "rollup_strategy",
@@ -291,31 +370,45 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
             ),
             vol.Optional(
                 "route_late_buffer_seconds",
-                default=d.get(
-                    "route_late_buffer_seconds", DEFAULT_ROUTE_LATE_BUFFER_SECONDS
+                default=_seconds_to_duration(
+                    total_seconds=late_buffer_default
+                    if late_buffer_default is not None
+                    else DEFAULT_ROUTE_LATE_BUFFER_SECONDS
                 ),
-            ): cv.positive_int,
+            ): DURATION_SELECTOR,
         }
 
+        poll_default = _duration_to_seconds(
+            value=d.get("poll_interval", DEFAULT_POLL_INTERVAL_SECONDS)
+        )
         advanced_dict: dict[Any, Any] = {
             vol.Optional(
                 "poll_interval",
-                default=d.get("poll_interval", DEFAULT_POLL_INTERVAL_SECONDS),
-            ): cv.positive_int,
+                default=_seconds_to_duration(
+                    total_seconds=poll_default
+                    if poll_default is not None
+                    else DEFAULT_POLL_INTERVAL_SECONDS
+                ),
+            ): DURATION_SELECTOR,
             vol.Optional(
                 "staging_mode",
                 default=d.get("staging_mode", DEFAULT_STAGING_MODE),
             ): cv.boolean,
         }
-        if d.get(CONF_GRACE_SECONDS) is not None:
+        commute_grace = _duration_to_seconds(value=d.get(CONF_GRACE_SECONDS))
+        if commute_grace is not None:
             advanced_dict[
                 vol.Optional(
                     CONF_GRACE_SECONDS,
-                    description={"suggested_value": d.get(CONF_GRACE_SECONDS)},
+                    description={
+                        "suggested_value": _seconds_to_duration(
+                            total_seconds=commute_grace
+                        )
+                    },
                 )
-            ] = cv.positive_int
+            ] = DURATION_SELECTOR
         else:
-            advanced_dict[vol.Optional(CONF_GRACE_SECONDS)] = cv.positive_int
+            advanced_dict[vol.Optional(CONF_GRACE_SECONDS)] = DURATION_SELECTOR
 
         if d.get(CONF_GRACE_FRACTION) is not None:
             advanced_dict[
@@ -552,6 +645,9 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     route_id = f"{base_route_id}_{suffix}"
                     suffix += 1
 
+                boarding_walk_sec = _duration_to_seconds(
+                    value=flat.get("boarding_walk_seconds")
+                )
                 route_dict: dict[str, Any] = {
                     CONF_ROUTE_ID: (self._pending_route.get(CONF_ROUTE_ID) or route_id),
                     CONF_PROVIDER: provider_id,
@@ -559,11 +655,16 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     CONF_LINE: line,
                     CONF_DIRECTION: RouteDirection.FROM_HOME.value,
                     CONF_BOARDING_STOP: resolved_stop_id or boarding_stop,
-                    CONF_BOARDING_WALK_SECONDS: flat.get("boarding_walk_seconds", 300),
+                    CONF_BOARDING_WALK_SECONDS: (
+                        boarding_walk_sec if boarding_walk_sec is not None else 300
+                    ),
                 }
 
-                if _has_input_value(flat=flat, key=CONF_GRACE_SECONDS):
-                    route_dict[CONF_GRACE_SECONDS] = int(flat[CONF_GRACE_SECONDS])
+                parsed_route_grace = _duration_to_seconds(
+                    value=flat.get(CONF_GRACE_SECONDS)
+                )
+                if parsed_route_grace is not None:
+                    route_dict[CONF_GRACE_SECONDS] = parsed_route_grace
                 elif _has_input_value(flat=flat, key=CONF_GRACE_FRACTION):
                     route_dict[CONF_GRACE_FRACTION] = float(flat[CONF_GRACE_FRACTION])
 
@@ -576,23 +677,21 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     route_dict[CONF_DESTINATION] = dest_override
                 if alighting_stop:
                     route_dict[CONF_ALIGHTING_STOP] = alighting_stop
-                transit_dur = int(
-                    flat.get("transit_duration_seconds")
-                    or (
-                        user_input.get("alighting_walk", {}).get(
-                            "transit_duration_seconds"
-                        )
-                        if isinstance(user_input.get("alighting_walk"), dict)
-                        else 0
+                raw_transit_dur = flat.get("transit_duration_seconds")
+                if raw_transit_dur is None and isinstance(
+                    user_input.get("alighting_walk"), dict
+                ):
+                    raw_transit_dur = user_input["alighting_walk"].get(
+                        "transit_duration_seconds"
                     )
-                    or 0
-                )
+                transit_dur = _duration_to_seconds(value=raw_transit_dur) or 0
                 if transit_dur > 0:
                     route_dict[CONF_TRANSIT_DURATION_SECONDS] = transit_dur
-                if flat.get("alighting_walk_seconds") is not None:
-                    route_dict[CONF_ALIGHTING_WALK_SECONDS] = flat[
-                        "alighting_walk_seconds"
-                    ]
+                parsed_alighting_walk = _duration_to_seconds(
+                    value=flat.get("alighting_walk_seconds")
+                )
+                if parsed_alighting_walk is not None:
+                    route_dict[CONF_ALIGHTING_WALK_SECONDS] = parsed_alighting_walk
 
                 if self._editing_route_index is not None and self._pending_route:
                     if CONF_CORRIDOR_STOPS in self._pending_route:
@@ -732,21 +831,29 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
         else:
             boarding_dict[vol.Required("boarding_stop")] = cv.string
 
+        walk_default = _duration_to_seconds(value=d.get("boarding_walk_seconds", 300))
         boarding_dict[
             vol.Optional(
                 "boarding_walk_seconds",
-                default=d.get("boarding_walk_seconds", 300),
+                default=_seconds_to_duration(
+                    total_seconds=walk_default if walk_default is not None else 300
+                ),
             )
-        ] = cv.positive_int
-        if d.get(CONF_GRACE_SECONDS) is not None:
+        ] = DURATION_SELECTOR
+        route_grace = _duration_to_seconds(value=d.get(CONF_GRACE_SECONDS))
+        if route_grace is not None:
             boarding_dict[
                 vol.Optional(
                     CONF_GRACE_SECONDS,
-                    description={"suggested_value": d.get(CONF_GRACE_SECONDS)},
+                    description={
+                        "suggested_value": _seconds_to_duration(
+                            total_seconds=route_grace
+                        )
+                    },
                 )
-            ] = cv.positive_int
+            ] = DURATION_SELECTOR
         else:
-            boarding_dict[vol.Optional(CONF_GRACE_SECONDS)] = cv.positive_int
+            boarding_dict[vol.Optional(CONF_GRACE_SECONDS)] = DURATION_SELECTOR
 
         if d.get(CONF_GRACE_FRACTION) is not None:
             boarding_dict[
@@ -769,35 +876,27 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
         else:
             alighting_dict[vol.Optional("alighting_stop")] = cv.string
 
+        raw_transit_default = d.get("transit_duration_seconds")
+        if raw_transit_default is None and isinstance(d.get("alighting_walk"), dict):
+            raw_transit_default = d["alighting_walk"].get("transit_duration_seconds")
+        transit_default = _duration_to_seconds(value=raw_transit_default) or 0
         alighting_dict[
             vol.Optional(
                 "transit_duration_seconds",
-                default=int(
-                    d.get("transit_duration_seconds")
-                    or (
-                        d.get("alighting_walk", {}).get("transit_duration_seconds")
-                        if isinstance(d.get("alighting_walk"), dict)
-                        else 0
-                    )
-                    or 0
-                ),
+                default=_seconds_to_duration(total_seconds=transit_default),
             )
-        ] = cv.positive_int
+        ] = DURATION_SELECTOR
 
+        raw_alight_walk = d.get("alighting_walk_seconds")
+        if raw_alight_walk is None and isinstance(d.get("alighting_walk"), dict):
+            raw_alight_walk = d["alighting_walk"].get("alighting_walk_seconds")
+        alight_walk_default = _duration_to_seconds(value=raw_alight_walk) or 0
         alighting_dict[
             vol.Optional(
                 "alighting_walk_seconds",
-                default=int(
-                    d.get("alighting_walk_seconds")
-                    or (
-                        d.get("alighting_walk", {}).get("alighting_walk_seconds")
-                        if isinstance(d.get("alighting_walk"), dict)
-                        else 0
-                    )
-                    or 0
-                ),
+                default=_seconds_to_duration(total_seconds=alight_walk_default),
             )
-        ] = cv.positive_int
+        ] = DURATION_SELECTOR
 
         route_schema = vol.Schema(
             {
@@ -1060,8 +1159,9 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
 
                 lead_key = f"lead_{slugify(sid)}"
                 raw_lead = flat.get(lead_key)
-                if raw_lead is not None and str(raw_lead).strip() != "":
-                    lead_seconds[sid] = int(raw_lead)
+                parsed_lead = _duration_to_seconds(value=raw_lead)
+                if parsed_lead is not None and parsed_lead > 0:
+                    lead_seconds[sid] = parsed_lead
                 elif not lead_section_submitted:
                     if sid in existing_leads and existing_leads[sid] is not None:
                         lead_seconds[sid] = int(existing_leads[sid])
@@ -1145,11 +1245,15 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                     lead_fields[
                         vol.Optional(
                             lead_key,
-                            description={"suggested_value": int(saved_lead)},
+                            description={
+                                "suggested_value": _seconds_to_duration(
+                                    total_seconds=int(saved_lead)
+                                )
+                            },
                         )
-                    ] = cv.positive_int
+                    ] = DURATION_SELECTOR
                 else:
-                    lead_fields[vol.Optional(lead_key)] = cv.positive_int
+                    lead_fields[vol.Optional(lead_key)] = DURATION_SELECTOR
 
         default_hidden = [sid for sid in chosen_ids if sid in existing_hidden]
         schema_dict: dict[Any, Any] = {
@@ -1263,7 +1367,7 @@ class CommuteTrackerConfigFlow(
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            flat = _flatten_input(user_input)
+            flat = _normalise_commute_durations(flat=_flatten_input(user_input))
             commute_name = str(flat.get("name", "")).strip()
             active_sensor = str(flat.get("active_sensor", "")).strip()
 
@@ -1284,7 +1388,10 @@ class CommuteTrackerConfigFlow(
                 return await self.async_step_routes()
 
         defaults = (
-            {**self._commute_data, **_flatten_input(user_input)}
+            {
+                **self._commute_data,
+                **_normalise_commute_durations(flat=_flatten_input(user_input)),
+            }
             if user_input is not None
             else self._commute_data
         )
@@ -1374,7 +1481,7 @@ class CommuteTrackerOptionsFlow(CommuteFlowHandlerMixin, config_entries.OptionsF
         self._ensure_loaded()
 
         if user_input is not None:
-            flat = _flatten_input(user_input)
+            flat = _normalise_commute_durations(flat=_flatten_input(user_input))
             commute_name = str(flat.get("name", "")).strip()
             active_sensor = str(flat.get("active_sensor", "")).strip()
 
@@ -1398,7 +1505,10 @@ class CommuteTrackerOptionsFlow(CommuteFlowHandlerMixin, config_entries.OptionsF
                 return self._async_finish_flow()
 
         defaults = (
-            {**self._commute_data, **_flatten_input(user_input)}
+            {
+                **self._commute_data,
+                **_normalise_commute_durations(flat=_flatten_input(user_input)),
+            }
             if user_input is not None
             else self._commute_data
         )
@@ -1417,8 +1527,85 @@ class CommuteTrackerOptionsFlow(CommuteFlowHandlerMixin, config_entries.OptionsF
         route_label = _format_route_summary_label(route=self._pending_route)
         return self.async_show_menu(
             step_id="route_menu",
-            menu_options=["route", "edit_corridor", "edit_corridor_names", "routes"],
+            menu_options=[
+                "route",
+                "edit_corridor",
+                "edit_corridor_names",
+                "test_route",
+                "routes",
+            ],
             description_placeholders={"route_name": route_label},
+        )
+
+    async def async_step_test_route(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Fetch one live telemetry sample for the selected route as a dry-run."""
+        self._ensure_loaded()
+        if user_input is not None:
+            return await self.async_step_route_menu()
+
+        route_label = _format_route_summary_label(route=self._pending_route)
+        corridor_count = len(self._pending_route.get(CONF_CORRIDOR_STOPS, []))
+        summary_lines = [
+            f"- **Service**: {self._pending_route.get(CONF_MODE, '')} "
+            f"`{self._pending_route.get(CONF_LINE, '')}`",
+            f"- **Boarding Stop**: `{self._pending_route.get(CONF_BOARDING_STOP, '')}`",
+            f"- **Corridor Stops**: {corridor_count}",
+        ]
+
+        try:
+            preview_data = {
+                **self._commute_data,
+                CONF_ROUTES: [self._pending_route],
+            }
+            preview_cfg = CommuteConfig.from_dict(data=preview_data)
+            registry = await self._async_get_registry()
+            session = async_get_clientsession(self.hass)
+            engine = CommuteEngine(
+                config=preview_cfg,
+                registry=registry,
+                session=session,
+            )
+            state = await engine.async_evaluate_commute(reference_time=dt_util.now())
+            route_id = preview_cfg.routes[0].route_id
+            child = state.child_routes.get(route_id)
+            if child is None:
+                summary_lines.append("- **Result**: Standby (no telemetry returned)")
+            else:
+                status_label = (
+                    child.line_status.status_label
+                    if child.line_status is not None
+                    else "Unknown"
+                )
+                summary_lines.append(f"- **Line Status**: {status_label}")
+                if child.expected_boarding_time:
+                    summary_lines.extend(
+                        [
+                            f"- **Next Departure**: {child.expected_boarding_time} "
+                            f"to {child.destination or 'Unknown'}",
+                            f"- **Leave By**: {child.leave_by_time or 'N/A'} "
+                            f"({child.urgency_stage.value})",
+                            f"- **Alighting ETA**: "
+                            f"{child.expected_alighting_time or 'N/A'}",
+                            f"- **Corridor**: {child.corridor_location or 'N/A'} "
+                            f"(progress {child.corridor_progress})",
+                        ]
+                    )
+                else:
+                    summary_lines.append(
+                        "- **Next Departure**: Standby (no live departures scheduled)"
+                    )
+        except Exception as err:
+            summary_lines.append(f"- **Preview Error**: Standby ({err})")
+
+        return self.async_show_form(
+            step_id="test_route",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "route_name": route_label,
+                "preview_summary": "\n".join(summary_lines),
+            },
         )
 
     async def async_step_edit_corridor(

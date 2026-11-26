@@ -29,14 +29,14 @@
           "active_sensor": "Active Commute Sensor",
           "destination": "Commute Destination",
           "target_destination_time": "Target Destination Time",
-          "prep_seconds": "Preparation Buffer (seconds)",
-          "prepare_threshold_seconds": "Prepare Stage Threshold (seconds)",
-          "amber_threshold_seconds": "Amber Pill Threshold (seconds)",
+          "prep_seconds": "Preparation Buffer",
+          "prepare_threshold_seconds": "Prepare Stage Threshold",
+          "amber_threshold_seconds": "Amber Pill Threshold",
           "rollup_strategy": "Rollup Strategy",
-          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
-          "poll_interval": "Poll Interval (seconds)",
+          "route_late_buffer_seconds": "Late Route Buffer",
+          "poll_interval": "Poll Interval",
           "staging_mode": "Staging Mode",
-          "grace_seconds": "Default Grace Period (seconds)",
+          "grace_seconds": "Default Grace Period",
           "grace_fraction": "Default Grace Fraction"
         },
         "data_description": {
@@ -93,12 +93,12 @@
           "app_id": "Application ID",
           "app_key": "Application Key",
           "boarding_stop": "Boarding Stop",
-          "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
-          "grace_seconds": "Grace Period (seconds)",
+          "boarding_walk_seconds": "Walk to Boarding Stop",
+          "grace_seconds": "Grace Period",
           "grace_fraction": "Grace Fraction",
-          "transit_duration_seconds": "In-Transit Duration (Seconds)",
+          "transit_duration_seconds": "In-Transit Duration",
           "alighting_stop": "Alighting Stop",
-          "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
+          "alighting_walk_seconds": "Walk from Alighting Stop to Destination"
         },
         "data_description": {
           "provider": "Transit authority or data feed for this route.",
@@ -145,8 +145,8 @@
             "description": "Set concise human-readable names for corridor stations."
           },
           "stop_lead_times": {
-            "name": "Stop Lead Times (seconds)",
-            "description": "Optional scheduled travel time in seconds from each upstream stop to the boarding stop."
+            "name": "Stop Lead Times",
+            "description": "Optional scheduled travel duration from each upstream stop to the boarding stop."
           }
         }
       }
@@ -208,14 +208,14 @@
           "active_sensor": "Active Commute Sensor",
           "destination": "Commute Destination",
           "target_destination_time": "Target Destination Time",
-          "prep_seconds": "Preparation Buffer (seconds)",
-          "prepare_threshold_seconds": "Prepare Stage Threshold (seconds)",
-          "amber_threshold_seconds": "Amber Pill Threshold (seconds)",
+          "prep_seconds": "Preparation Buffer",
+          "prepare_threshold_seconds": "Prepare Stage Threshold",
+          "amber_threshold_seconds": "Amber Pill Threshold",
           "rollup_strategy": "Rollup Strategy",
-          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
-          "poll_interval": "Poll Interval (seconds)",
+          "route_late_buffer_seconds": "Late Route Buffer",
+          "poll_interval": "Poll Interval",
           "staging_mode": "Staging Mode",
-          "grace_seconds": "Default Grace Period (seconds)",
+          "grace_seconds": "Default Grace Period",
           "grace_fraction": "Default Grace Fraction"
         },
         "data_description": {
@@ -242,8 +242,13 @@
           "route": "Edit details, walk times & timings",
           "edit_corridor": "Edit corridor stops",
           "edit_corridor_names": "Edit stop names, hidden labels & lead times",
+          "test_route": "Test route (live preview)",
           "routes": "Back to routes"
         }
+      },
+      "test_route": {
+        "title": "Live Route Preview: {route_name}",
+        "description": "Single live telemetry sample for this route:\n\n{preview_summary}\n\nSubmit to return to the route menu."
       },
       "routes": {
         "title": "Commute Routes",
@@ -282,12 +287,12 @@
           "app_id": "Application ID",
           "app_key": "Application Key",
           "boarding_stop": "Boarding Stop",
-          "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
-          "grace_seconds": "Grace Period (seconds)",
+          "boarding_walk_seconds": "Walk to Boarding Stop",
+          "grace_seconds": "Grace Period",
           "grace_fraction": "Grace Fraction",
-          "transit_duration_seconds": "In-Transit Duration (Seconds)",
+          "transit_duration_seconds": "In-Transit Duration",
           "alighting_stop": "Alighting Stop",
-          "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
+          "alighting_walk_seconds": "Walk from Alighting Stop to Destination"
         },
         "data_description": {
           "provider": "Transit authority or data feed for this route.",
@@ -334,8 +339,8 @@
             "description": "Set concise human-readable names for corridor stations."
           },
           "stop_lead_times": {
-            "name": "Stop Lead Times (seconds)",
-            "description": "Optional scheduled travel time in seconds from each upstream stop to the boarding stop."
+            "name": "Stop Lead Times",
+            "description": "Optional scheduled travel duration from each upstream stop to the boarding stop."
           }
         }
       }
