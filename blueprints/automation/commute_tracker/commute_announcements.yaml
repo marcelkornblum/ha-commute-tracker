@@ -1,0 +1,99 @@
+blueprint:
+  name: Commute Tracker Announcements
+  description: >
+    Announce debounced commute lifecycle events (amber warnings, leave-now
+    deadlines, route switches, rollovers, and disruptions) using a Home
+    Assistant TTS entity and/or custom notification actions.
+  domain: automation
+  source_url: https://github.com/marcelkornblum/ha-commute-tracker/blob/main/blueprints/automation/commute_tracker/commute_announcements.yaml
+  input:
+    commute_event_entity:
+      name: Commute Event Entity
+      description: The Commute Tracker lifecycle event entity (event.commute_*).
+      selector:
+        entity:
+          filter:
+            - domain: event
+              integration: commute_tracker
+    event_types:
+      name: Lifecycle Events to Announce
+      description: Choose which commute lifecycle transitions trigger announcements.
+      default:
+        - amber_warning
+        - leave_now
+        - disrupted
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Prepare
+              value: prepare
+            - label: Amber Warning
+              value: amber_warning
+            - label: Leave Now
+              value: leave_now
+            - label: Route Switched
+              value: route_switched
+            - label: Service Rollover
+              value: rollover
+            - label: Line Disrupted
+              value: disrupted
+    tts_entity:
+      name: TTS Entity (Optional)
+      description: Home Assistant Text-to-Speech entity used with tts.speak.
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: tts
+    media_player:
+      name: Target Media Player (Optional)
+      description: Speaker or media_player entity for TTS announcements.
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+    extra_actions:
+      name: Additional Actions (Optional)
+      description: >
+        Optional mobile notifications (notify.*) or custom actions. The event
+        payload is available via trigger.to_state.attributes (including
+        default_message, mode, route_label, expected_boarding_time, and
+        leave_in_minutes).
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max: 10
+
+variables:
+  selected_event_types: !input event_types
+  tts_target: !input tts_entity
+  player_target: !input media_player
+
+triggers:
+  - trigger: state
+    entity_id: !input commute_event_entity
+
+conditions:
+  - condition: template
+    value_template: >
+      {{ trigger.to_state is not none
+         and trigger.to_state.state not in ['unknown', 'unavailable']
+         and trigger.to_state.attributes.get('event_type') in selected_event_types }}
+
+actions:
+  - if:
+      - condition: template
+        value_template: "{{ tts_target != '' and player_target != '' }}"
+    then:
+      - action: tts.speak
+        target:
+          entity_id: !input tts_entity
+        data:
+          media_player_entity_id: !input media_player
+          message: "{{ trigger.to_state.attributes.get('default_message', '') }}"
+  - choose: []
+    default: !input extra_actions

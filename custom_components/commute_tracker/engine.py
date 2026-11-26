@@ -12,6 +12,8 @@ from datetime import datetime
 from typing import Any
 
 from custom_components.commute_tracker.const import (
+    DEFAULT_AMBER_THRESHOLD_SECONDS,
+    DEFAULT_PREPARE_THRESHOLD_SECONDS,
     DEFAULT_ROUTE_LATE_BUFFER_SECONDS,
 )
 from custom_components.commute_tracker.corridor import (
@@ -84,6 +86,8 @@ class MasterRollupState:
 
     active_option: str
     urgency_stage: UrgencyStage
+    mode: str = ""
+    vehicle_id: str | None = None
     leave_by_time: str = ""
     expected_boarding_time: str = ""
     expected_destination_time: str = ""
@@ -99,6 +103,8 @@ class MasterRollupState:
     line_status: LineStatus | None = None
     next_summary: str = "None scheduled"
     pill_badge: PillBadge | None = None
+    prepare_threshold_seconds: int = DEFAULT_PREPARE_THRESHOLD_SECONDS
+    amber_threshold_seconds: int = DEFAULT_AMBER_THRESHOLD_SECONDS
     is_active: bool = True
 
 
@@ -121,6 +127,8 @@ class CandidateRoute:
     leave_by_time: str = ""
     next_summary: str = "None scheduled"
     pill_badge: PillBadge | None = None
+    prepare_threshold_seconds: int = DEFAULT_PREPARE_THRESHOLD_SECONDS
+    amber_threshold_seconds: int = DEFAULT_AMBER_THRESHOLD_SECONDS
 
 
 @dataclass(slots=True)
@@ -455,6 +463,8 @@ class CommuteEngine:
                         leave_by_time=leave_by,
                         next_summary=next_summary,
                         pill_badge=pill_badge,
+                        prepare_threshold_seconds=thresholds.prepare_threshold_seconds,
+                        amber_threshold_seconds=thresholds.amber_threshold_seconds,
                     )
                 )
 
@@ -631,6 +641,8 @@ class CommuteEngine:
         return MasterRollupState(
             active_option=winner.route_id,
             urgency_stage=winner.urgency_stage,
+            mode=winning_route.mode.value,
+            vehicle_id=winner.departure.vehicle_id,
             leave_by_time=winner.leave_by_time,
             expected_boarding_time=winner.expected_boarding_time,
             expected_destination_time=winner.expected_destination_time,
@@ -651,4 +663,6 @@ class CommuteEngine:
             line_status=winner.telemetry.line_status,
             next_summary=winner.next_summary,
             pill_badge=winner.pill_badge,
+            prepare_threshold_seconds=winner.prepare_threshold_seconds,
+            amber_threshold_seconds=winner.amber_threshold_seconds,
         )

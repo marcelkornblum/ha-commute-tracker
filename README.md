@@ -23,7 +23,7 @@ Whether your commute involves choosing between alternative direct buses or train
 
 ## Architectural Principles
 
-1. **Entity Minimalism**: Intermediary raw API polling sensors are kept within internal Python state, eliminating entity clutter. Only the Master Rollup and Child Route sensors are registered with Home Assistant.
+1. **Entity Minimalism**: Intermediary raw API polling sensors are kept within internal Python state, eliminating entity clutter. Only the Master Rollup sensor, Child Route sensors, and one Lifecycle `event` entity per commute are registered with Home Assistant.
 2. **Universal Transit Provider Architecture**: Decoupled, mode-agnostic provider interfaces supporting buses, trains, trams, tube, and ferries.
 3. **External Polling Triggers (Sleep/Wake)**: Polling intervals are strictly driven by observing the state of a user-configured binary sensor. No internal cron loops or polling while idle.
 4. **Red/Green Test-Driven Development**: Domain logic is written in pure Python first, verified against frozen API response fixtures before Home Assistant plumbing is introduced.
@@ -63,6 +63,18 @@ template:
           {{ is_state('person.marcel', 'home') and
              today_at('07:30') <= now() < today_at('09:00') and
              now().weekday() in range(0, 5) }}
+```
+
+---
+
+## Voice & Push Announcements (Blueprint)
+
+Each configured commute registers a native `event.commute_<id>` entity emitting debounced lifecycle transitions (`prepare`, `amber_warning`, `leave_now`, `route_switched`, `rollover`, `disrupted`) with a ready-to-speak `default_message` attribute and structured timing metadata.
+
+An optional Home Assistant Automation Blueprint is included at [`blueprints/automation/commute_tracker/commute_announcements.yaml`](blueprints/automation/commute_tracker/commute_announcements.yaml). Because HACS does not automatically install blueprint files into `/config/blueprints/`, import it directly in Home Assistant under **Settings -> Automations & Scenes -> Blueprints -> Import Blueprint** using:
+
+```text
+https://github.com/marcelkornblum/ha-commute-tracker/blob/main/blueprints/automation/commute_tracker/commute_announcements.yaml
 ```
 
 ---

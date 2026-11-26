@@ -7,7 +7,7 @@ All core domain logic (`engine.py`, `timeliness.py`, `providers/`) must be devel
 Code goes exclusively into `custom_components/commute_tracker/`.
 
 ## 3. Entity Minimalism
-Do not register intermediary API state. Stick strictly to Master Rollup and Child Route sensors. Use attributes for metadata like timeliness.
+Do not register intermediary API state. Stick strictly to Master Rollup sensors, Child Route sensors, and one Lifecycle `event` entity per commute. Use attributes for metadata like timeliness.
 
 ## 4. Git Workflow
 - **PR-Only Mandate (No Direct Commits to `main`):** All changes (tracks, bug fixes, chores, and documentation) must be made on a dedicated branch off `main` and submitted via a Pull Request. Never commit or push directly to `main`.

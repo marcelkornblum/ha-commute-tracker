@@ -379,6 +379,23 @@
     }
   },
   "entity": {
+    "event": {
+      "commute_lifecycle": {
+        "name": "Commute Lifecycle",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "prepare": "Prepare",
+              "amber_warning": "Amber Warning",
+              "leave_now": "Leave Now",
+              "route_switched": "Route Switched",
+              "rollover": "Service Rollover",
+              "disrupted": "Line Disrupted"
+            }
+          }
+        }
+      }
+    },
     "sensor": {
       "master_rollup": {
         "name": "Master Rollup",
