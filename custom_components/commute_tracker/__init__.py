@@ -32,7 +32,7 @@ from custom_components.commute_tracker.providers.base import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.EVENT]
 
 __all__ = [
     "CONFIG_SCHEMA",
@@ -83,13 +83,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         coordinators[commute_cfg.commute_id] = coordinator
 
     hass.data[DOMAIN]["coordinators"] = coordinators
-    await async_load_platform(
-        hass,
-        Platform.SENSOR,
-        DOMAIN,
-        {},
-        config,
-    )
+    for platform in PLATFORMS:
+        await async_load_platform(
+            hass,
+            platform,
+            DOMAIN,
+            {},
+            config,
+        )
     return True
 
 
@@ -143,9 +144,7 @@ async def async_unload_entry(
     coordinators: dict[str, CommuteCoordinator] = domain_data.get("coordinators", {})
 
     if entry is not None:
-        unload_ok = await hass.config_entries.async_forward_entry_unload(
-            entry, Platform.SENSOR
-        )
+        unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         if unload_ok:
             coordinator = coordinators.pop(entry.entry_id, None)
             if coordinator is not None:

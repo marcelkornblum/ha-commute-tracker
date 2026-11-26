@@ -76,7 +76,7 @@ def derive_child_unique_id(
     return base
 
 
-def _format_display_commute_name(
+def format_display_commute_name(
     commute_title: str,
     staging_mode: bool = False,
 ) -> str:
@@ -173,7 +173,7 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
         super().__init__(coordinator=coordinator)
         cfg = coordinator.commute_config
         commute_title = cfg.commute_title or cfg.commute_id
-        self._attr_name = _format_display_commute_name(
+        self._attr_name = format_display_commute_name(
             commute_title=commute_title,
             staging_mode=cfg.staging_mode,
         )
@@ -187,7 +187,7 @@ class CommuteMasterRollupSensor(CoordinatorEntity[CommuteCoordinator], SensorEnt
         """Resolve child route entity IDs from registry with slug fallback."""
         cfg = self.coordinator.commute_config
         commute_title = cfg.commute_title or cfg.commute_id
-        base_master_name = _format_display_commute_name(
+        base_master_name = format_display_commute_name(
             commute_title=commute_title,
             staging_mode=False,
         )
@@ -339,7 +339,7 @@ class CommuteChildRouteSensor(CoordinatorEntity[CommuteCoordinator], SensorEntit
         self.route_config = route_config
         cfg = coordinator.commute_config
         commute_title = cfg.commute_title or cfg.commute_id
-        base_master_name = _format_display_commute_name(
+        base_master_name = format_display_commute_name(
             commute_title=commute_title,
             staging_mode=False,
         )

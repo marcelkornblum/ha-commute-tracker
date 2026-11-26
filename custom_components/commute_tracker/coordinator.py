@@ -1,6 +1,7 @@
 """DataUpdateCoordinator managing transit telemetry and sleep/wake polling."""
 
 import logging
+from collections import deque
 from datetime import timedelta
 
 from homeassistant.core import (
@@ -18,6 +19,10 @@ from custom_components.commute_tracker.engine import (
     CommuteEngine,
     CommuteState,
     MasterRollupState,
+)
+from custom_components.commute_tracker.lifecycle import (
+    CommuteLifecycleEvent,
+    CommuteLifecycleTracker,
 )
 from custom_components.commute_tracker.models import (
     CommuteConfig,
@@ -123,6 +128,9 @@ class CommuteCoordinator(DataUpdateCoordinator[CommuteState]):
         self.poll_interval: int = config.poll_interval
         self._unsub_active_listener: CALLBACK_TYPE | None = None
         self._is_active: bool = False
+        self.lifecycle_tracker = CommuteLifecycleTracker()
+        self._event_seq: int = 0
+        self._event_history: deque[tuple[int, CommuteLifecycleEvent]] = deque(maxlen=50)
 
         super().__init__(
             hass=hass,
@@ -136,6 +144,37 @@ class CommuteCoordinator(DataUpdateCoordinator[CommuteState]):
     def is_active(self) -> bool:
         """Return whether the coordinator is actively polling transit APIs."""
         return self._is_active
+
+    def _resolve_person_name(self) -> str | None:
+        """Resolve commuter display name from linked person entity or static config."""
+        cfg = self.commute_config
+        if cfg.person and self.hass is not None:
+            person_state = self.hass.states.get(cfg.person)
+            if person_state is not None:
+                friendly = person_state.attributes.get("friendly_name")
+                return str(friendly or person_state.name)
+        return cfg.person_name
+
+    def _record_lifecycle_events(self, state: CommuteState) -> None:
+        """Evaluate lifecycle transitions and append newly emitted events."""
+        cfg = self.commute_config
+        commute_title = cfg.commute_title or cfg.commute_id
+        emitted = self.lifecycle_tracker.evaluate(
+            state=state,
+            is_active=self._is_active,
+            commute_title=commute_title,
+            person_name=self._resolve_person_name(),
+        )
+        for lifecycle_event in emitted:
+            self._event_seq += 1
+            self._event_history.append((self._event_seq, lifecycle_event))
+
+    def get_events_since(
+        self, last_seq: int
+    ) -> tuple[int, list[CommuteLifecycleEvent]]:
+        """Return lifecycle events emitted after last_seq with updated cursor."""
+        pending = [ev for seq, ev in self._event_history if seq > last_seq]
+        return self._event_seq, pending
 
     async def async_setup(self) -> None:
         """Register active sensor state listener and set initial sleep/wake state."""
@@ -175,18 +214,22 @@ class CommuteCoordinator(DataUpdateCoordinator[CommuteState]):
 
         self._is_active = False
         self.update_interval = None
+        self.lifecycle_tracker.reset()
         idle_state = create_idle_commute_state(config=self.commute_config)
         self.async_set_updated_data(data=idle_state)
 
     async def _async_update_data(self) -> CommuteState:
         """Fetch live telemetry and evaluate commute state."""
         if not self._is_active:
+            self.lifecycle_tracker.reset()
             return create_idle_commute_state(config=self.commute_config)
 
         try:
-            return await self.engine.async_evaluate_commute(
+            state = await self.engine.async_evaluate_commute(
                 reference_time=dt_util.now()
             )
+            self._record_lifecycle_events(state=state)
+            return state
         except Exception as err:
             raise UpdateFailed(f"Transit update failed: {err}") from err
 
