@@ -29,13 +29,15 @@
           "active_sensor": "Active Commute Sensor",
           "destination": "Commute Destination",
           "target_destination_time": "Target Destination Time",
-          "prep_seconds": "Preparation Buffer (seconds)",
-          "prepare_threshold_seconds": "Prepare Stage Threshold (seconds)",
-          "amber_threshold_seconds": "Amber Pill Threshold (seconds)",
+          "prep_seconds": "Preparation Buffer",
+          "prepare_threshold_seconds": "Prepare Stage Threshold",
+          "amber_threshold_seconds": "Amber Pill Threshold",
           "rollup_strategy": "Rollup Strategy",
-          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
-          "poll_interval": "Poll Interval (seconds)",
-          "staging_mode": "Staging Mode"
+          "route_late_buffer_seconds": "Late Route Buffer",
+          "poll_interval": "Poll Interval",
+          "staging_mode": "Staging Mode",
+          "grace_seconds": "Default Grace Period",
+          "grace_fraction": "Default Grace Fraction"
         },
         "data_description": {
           "person": "Home Assistant Person entity. Commuter name and picture are resolved dynamically from this person.",
@@ -49,7 +51,9 @@
           "rollup_strategy": "Strategy used to choose the optimal route.",
           "route_late_buffer_seconds": "Time margin to allow for a fallback route to be viable when using the Late with Buffer strategy.",
           "poll_interval": "Seconds between live transit feed refreshes while active.",
-          "staging_mode": "Enable staging mode to run with simulated or testing data."
+          "staging_mode": "Enable staging mode to run with simulated or testing data.",
+          "grace_seconds": "Default rushing leeway in seconds applied across routes. Leave blank to use Grace Fraction (defaults to 25% of walk time).",
+          "grace_fraction": "Default fraction of boarding walk time (0.0 to 0.95, default 0.25 = 25%) used as rushing leeway when Grace Period is blank."
         }
       },
       "routes": {
@@ -89,11 +93,12 @@
           "app_id": "Application ID",
           "app_key": "Application Key",
           "boarding_stop": "Boarding Stop",
-          "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
-          "grace_seconds": "Grace Period (seconds)",
-          "transit_duration_seconds": "In-Transit Duration (Seconds)",
+          "boarding_walk_seconds": "Walk to Boarding Stop",
+          "grace_seconds": "Grace Period",
+          "grace_fraction": "Grace Fraction",
+          "transit_duration_seconds": "In-Transit Duration",
           "alighting_stop": "Alighting Stop",
-          "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
+          "alighting_walk_seconds": "Walk from Alighting Stop to Destination"
         },
         "data_description": {
           "provider": "Transit authority or data feed for this route.",
@@ -106,7 +111,8 @@
           "app_key": "Optional API Key credentials.",
           "boarding_stop": "Station name or stop identifier code where you board.",
           "boarding_walk_seconds": "Comfortable walk time in seconds from home to the boarding stop.",
-          "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing.",
+          "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing. Leave blank to apply Grace Fraction (defaults to 25% of walk time).",
+          "grace_fraction": "Fraction of boarding walk time (0.0 to 0.95, default 0.25 = 25%) used as rushing leeway when Grace Period is blank. Cannot be set together with Grace Period.",
           "transit_duration_seconds": "Fallback journey time on the vehicle between boarding and alighting stops (e.g., 600 for 10 mins). Used when live provider telemetry does not include leg duration.",
           "alighting_stop": "Station name or stop identifier code where you disembark.",
           "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
@@ -139,8 +145,8 @@
             "description": "Set concise human-readable names for corridor stations."
           },
           "stop_lead_times": {
-            "name": "Stop Lead Times (seconds)",
-            "description": "Optional scheduled travel time in seconds from each upstream stop to the boarding stop."
+            "name": "Stop Lead Times",
+            "description": "Optional scheduled travel duration from each upstream stop to the boarding stop."
           }
         }
       }
@@ -168,8 +174,16 @@
   "options": {
     "step": {
       "init": {
+        "title": "Configure Commute",
+        "description": "Choose whether to edit commute-level settings or manage individual transit routes.",
+        "menu_options": {
+          "commute_settings": "Edit commute settings (save immediately)",
+          "routes": "Manage routes"
+        }
+      },
+      "commute_settings": {
         "title": "Commute Settings",
-        "description": "Adjust timing thresholds and settings for this commute.",
+        "description": "Adjust timing thresholds and settings for this commute. Submitting saves changes immediately.",
         "sections": {
           "overview": {
             "name": "Commute Overview",
@@ -185,7 +199,7 @@
           },
           "advanced_settings": {
             "name": "Advanced Settings",
-            "description": "Technical polling and staging controls."
+            "description": "Technical polling, default grace, and staging controls."
           }
         },
         "data": {
@@ -194,13 +208,15 @@
           "active_sensor": "Active Commute Sensor",
           "destination": "Commute Destination",
           "target_destination_time": "Target Destination Time",
-          "prep_seconds": "Preparation Buffer (seconds)",
-          "prepare_threshold_seconds": "Prepare Stage Threshold (seconds)",
-          "amber_threshold_seconds": "Amber Pill Threshold (seconds)",
+          "prep_seconds": "Preparation Buffer",
+          "prepare_threshold_seconds": "Prepare Stage Threshold",
+          "amber_threshold_seconds": "Amber Pill Threshold",
           "rollup_strategy": "Rollup Strategy",
-          "route_late_buffer_seconds": "Late Route Buffer (seconds)",
-          "poll_interval": "Poll Interval (seconds)",
-          "staging_mode": "Staging Mode"
+          "route_late_buffer_seconds": "Late Route Buffer",
+          "poll_interval": "Poll Interval",
+          "staging_mode": "Staging Mode",
+          "grace_seconds": "Default Grace Period",
+          "grace_fraction": "Default Grace Fraction"
         },
         "data_description": {
           "person": "Home Assistant Person entity. Commuter name and picture are resolved dynamically from this person.",
@@ -214,8 +230,25 @@
           "rollup_strategy": "Strategy used to choose the optimal route.",
           "route_late_buffer_seconds": "Time margin to allow for a fallback route to be viable when using the Late with Buffer strategy.",
           "poll_interval": "Seconds between live transit feed refreshes while active.",
-          "staging_mode": "Enable staging mode to run with simulated or testing data."
+          "staging_mode": "Enable staging mode to run with simulated or testing data.",
+          "grace_seconds": "Default rushing leeway in seconds applied across routes. Leave blank to use Grace Fraction (defaults to 25% of walk time).",
+          "grace_fraction": "Default fraction of boarding walk time (0.0 to 0.95, default 0.25 = 25%) used as rushing leeway when Grace Period is blank."
         }
+      },
+      "route_menu": {
+        "title": "Edit Route: {route_name}",
+        "description": "Choose which part of this route to edit. Editing timings or stop labels skips remote corridor discovery.",
+        "menu_options": {
+          "route": "Edit details, walk times & timings",
+          "edit_corridor": "Edit corridor stops",
+          "edit_corridor_names": "Edit stop names, hidden labels & lead times",
+          "test_route": "Test route (live preview)",
+          "routes": "Back to routes"
+        }
+      },
+      "test_route": {
+        "title": "Live Route Preview: {route_name}",
+        "description": "Single live telemetry sample for this route:\n\n{preview_summary}\n\nSubmit to return to the route menu."
       },
       "routes": {
         "title": "Commute Routes",
@@ -254,11 +287,12 @@
           "app_id": "Application ID",
           "app_key": "Application Key",
           "boarding_stop": "Boarding Stop",
-          "boarding_walk_seconds": "Walk to Boarding Stop (seconds)",
-          "grace_seconds": "Grace Period (seconds)",
-          "transit_duration_seconds": "In-Transit Duration (Seconds)",
+          "boarding_walk_seconds": "Walk to Boarding Stop",
+          "grace_seconds": "Grace Period",
+          "grace_fraction": "Grace Fraction",
+          "transit_duration_seconds": "In-Transit Duration",
           "alighting_stop": "Alighting Stop",
-          "alighting_walk_seconds": "Walk from Alighting Stop to Destination (seconds)"
+          "alighting_walk_seconds": "Walk from Alighting Stop to Destination"
         },
         "data_description": {
           "provider": "Transit authority or data feed for this route.",
@@ -271,7 +305,8 @@
           "app_key": "Optional API Key credentials.",
           "boarding_stop": "Station name or stop identifier code where you board.",
           "boarding_walk_seconds": "Comfortable walk time in seconds from home to the boarding stop.",
-          "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing.",
+          "grace_seconds": "Maximum time in seconds you can shave off the walk by rushing. Leave blank to apply Grace Fraction (defaults to 25% of walk time).",
+          "grace_fraction": "Fraction of boarding walk time (0.0 to 0.95, default 0.25 = 25%) used as rushing leeway when Grace Period is blank. Cannot be set together with Grace Period.",
           "transit_duration_seconds": "Fallback journey time on the vehicle between boarding and alighting stops (e.g., 600 for 10 mins). Used when live provider telemetry does not include leg duration.",
           "alighting_stop": "Station name or stop identifier code where you disembark.",
           "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
@@ -304,11 +339,24 @@
             "description": "Set concise human-readable names for corridor stations."
           },
           "stop_lead_times": {
-            "name": "Stop Lead Times (seconds)",
-            "description": "Optional scheduled travel time in seconds from each upstream stop to the boarding stop."
+            "name": "Stop Lead Times",
+            "description": "Optional scheduled travel duration from each upstream stop to the boarding stop."
           }
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to transit provider.",
+      "invalid_auth": "Invalid authentication credentials.",
+      "invalid_name": "Please enter a valid commute name.",
+      "invalid_sensor": "Please select a valid entity for the active commute sensor.",
+      "invalid_line": "Line identifier not recognised by provider.",
+      "invalid_boarding_stop": "Boarding stop not found along this line.",
+      "invalid_alighting_stop": "Alighting stop not found along this line.",
+      "invalid_lead_times": "Upstream stop lead times must strictly decrease towards the boarding stop.",
+      "mutual_grace": "Cannot specify both grace_seconds and grace_fraction.",
+      "no_routes": "At least one route must be configured.",
+      "unknown": "Unexpected error occurred."
     }
   },
   "selector": {
@@ -336,6 +384,23 @@
     }
   },
   "entity": {
+    "event": {
+      "commute_lifecycle": {
+        "name": "Commute Lifecycle",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "prepare": "Prepare",
+              "amber_warning": "Amber Warning",
+              "leave_now": "Leave Now",
+              "route_switched": "Route Switched",
+              "rollover": "Service Rollover",
+              "disrupted": "Line Disrupted"
+            }
+          }
+        }
+      }
+    },
     "sensor": {
       "master_rollup": {
         "name": "Master Rollup",
