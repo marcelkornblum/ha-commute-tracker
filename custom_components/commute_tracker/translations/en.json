@@ -118,6 +118,18 @@
           "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
         }
       },
+      "select_stops": {
+        "title": "Select Matching Stops",
+        "description": "Multiple stops matched your search. Choose the exact stop for this route.",
+        "data": {
+          "boarding_stop": "Boarding Stop",
+          "alighting_stop": "Alighting Stop"
+        },
+        "data_description": {
+          "boarding_stop": "Select the exact station or stop where you board.",
+          "alighting_stop": "Select the exact station or stop where you alight."
+        }
+      },
       "corridor": {
         "title": "Corridor Tracking Stops",
         "description": "Select which upstream stops along the line branch to track approaching vehicles towards your boarding stop.",
@@ -310,6 +322,18 @@
           "transit_duration_seconds": "Fallback journey time on the vehicle between boarding and alighting stops (e.g., 600 for 10 mins). Used when live provider telemetry does not include leg duration.",
           "alighting_stop": "Station name or stop identifier code where you disembark.",
           "alighting_walk_seconds": "Walk time in seconds from the alighting stop to your final destination."
+        }
+      },
+      "select_stops": {
+        "title": "Select Matching Stops",
+        "description": "Multiple stops matched your search. Choose the exact stop for this route.",
+        "data": {
+          "boarding_stop": "Boarding Stop",
+          "alighting_stop": "Alighting Stop"
+        },
+        "data_description": {
+          "boarding_stop": "Select the exact station or stop where you board.",
+          "alighting_stop": "Select the exact station or stop where you alight."
         }
       },
       "corridor": {

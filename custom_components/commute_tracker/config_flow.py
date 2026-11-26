@@ -219,6 +219,8 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
     _chosen_corridor_stops: list[str]
     _discovered_lead_times: dict[str, int]
     _resolved_stop_names: dict[str, str]
+    _boarding_stop_candidates: list[CorridorStop]
+    _alighting_stop_candidates: list[CorridorStop]
     _providers_config: dict[str, Any]
 
     async def _async_get_registry(self) -> TransitProviderRegistry:
@@ -601,6 +603,9 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 )
             )
             resolved_stop_id: str | None = None
+            resolved_alighting_id: str | None = None
+            boarding_candidates: list[CorridorStop] = []
+            alighting_candidates: list[CorridorStop] = []
 
             if not errors and not skip_remote_discovery:
                 try:
@@ -616,17 +621,58 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 if not is_line_valid:
                     errors["line"] = "invalid_line"
 
-                (
-                    is_stop_valid,
-                    resolved_stop_id,
-                    _,
-                ) = await provider_instance.async_validate_stop(
+                search_boarding = await provider_instance.async_search_stops(
+                    query=boarding_stop,
                     line_id=line,
-                    stop_id_or_name=boarding_stop,
                     mode=mode,
                 )
-                if not is_stop_valid:
-                    errors["boarding_stop"] = "invalid_boarding_stop"
+                exact_boarding = next(
+                    (
+                        stop
+                        for stop in search_boarding
+                        if stop.id.strip().upper() == boarding_stop.upper()
+                    ),
+                    None,
+                )
+                if exact_boarding is not None:
+                    resolved_stop_id = exact_boarding.id
+                elif len(search_boarding) == 1:
+                    resolved_stop_id = search_boarding[0].id
+                elif len(search_boarding) > 1:
+                    boarding_candidates = search_boarding
+                else:
+                    (
+                        is_stop_valid,
+                        resolved_stop_id,
+                        _,
+                    ) = await provider_instance.async_validate_stop(
+                        line_id=line,
+                        stop_id_or_name=boarding_stop,
+                        mode=mode,
+                    )
+                    if not is_stop_valid:
+                        errors["boarding_stop"] = "invalid_boarding_stop"
+
+                if alighting_stop and not errors:
+                    search_alighting = await provider_instance.async_search_stops(
+                        query=alighting_stop,
+                        line_id=line,
+                        mode=mode,
+                    )
+                    exact_alighting = next(
+                        (
+                            stop
+                            for stop in search_alighting
+                            if stop.id.strip().upper() == alighting_stop.upper()
+                        ),
+                        None,
+                    )
+                    if exact_alighting is not None:
+                        resolved_alighting_id = exact_alighting.id
+                    elif len(search_alighting) == 1:
+                        resolved_alighting_id = search_alighting[0].id
+                    elif len(search_alighting) > 1:
+                        alighting_candidates = search_alighting
 
             if not errors:
                 existing_route_name = self._pending_route.get(
@@ -676,7 +722,9 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 if dest_override:
                     route_dict[CONF_DESTINATION] = dest_override
                 if alighting_stop:
-                    route_dict[CONF_ALIGHTING_STOP] = alighting_stop
+                    route_dict[CONF_ALIGHTING_STOP] = (
+                        resolved_alighting_id or alighting_stop
+                    )
                 raw_transit_dur = flat.get("transit_duration_seconds")
                 if raw_transit_dur is None and isinstance(
                     user_input.get("alighting_walk"), dict
@@ -720,30 +768,16 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
                 if provider_instance is None:
                     provider_instance = registry.get_provider(provider_id=provider_id)
 
-                discovered = await provider_instance.async_get_corridor_stops(
-                    line_id=line,
-                    boarding_stop=boarding_stop,
-                    mode=mode,
-                    target_time_window_seconds=None,
-                    alighting_stop=alighting_stop,
+                if boarding_candidates or alighting_candidates:
+                    self._pending_route = route_dict
+                    self._boarding_stop_candidates = boarding_candidates
+                    self._alighting_stop_candidates = alighting_candidates
+                    return await self.async_step_select_stops()
+
+                return await self._async_resolve_route_corridor(
+                    route_dict=route_dict,
+                    provider_instance=provider_instance,
                 )
-
-                self._pending_route = route_dict
-                self._discovered_corridor_stops = discovered
-
-                if discovered:
-                    return await self.async_step_corridor()
-
-                # If no corridor sequence discovered, proceed to routes overview
-                self._pending_route[CONF_CORRIDOR_STOPS] = []
-                self._pending_route[CONF_CORRIDOR_STOP_NAMES] = {}
-                if self._editing_route_index is not None:
-                    self._routes[self._editing_route_index] = self._pending_route
-                else:
-                    self._routes.append(self._pending_route)
-                self._pending_route = {}
-                self._editing_route_index = None
-                return await self.async_step_routes()
 
         d = self._pending_route or {}
         if user_input is not None:
@@ -919,6 +953,103 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
             errors=errors,
         )
 
+    async def _async_resolve_route_corridor(
+        self,
+        route_dict: dict[str, Any],
+        provider_instance: TransitProvider,
+    ) -> ConfigFlowResult:
+        """Discover corridor stops for a validated route and continue flow."""
+        line = str(route_dict.get(CONF_LINE, "")).strip()
+        boarding_stop = str(route_dict.get(CONF_BOARDING_STOP, "")).strip()
+        alighting_stop = route_dict.get(CONF_ALIGHTING_STOP)
+        mode = TransitMode(route_dict.get(CONF_MODE, TransitMode.BUS.value))
+
+        discovered = await provider_instance.async_get_corridor_stops(
+            line_id=line,
+            boarding_stop=boarding_stop,
+            mode=mode,
+            target_time_window_seconds=None,
+            alighting_stop=alighting_stop,
+        )
+
+        self._pending_route = route_dict
+        self._discovered_corridor_stops = discovered
+
+        if discovered:
+            return await self.async_step_corridor()
+
+        self._pending_route[CONF_CORRIDOR_STOPS] = []
+        self._pending_route[CONF_CORRIDOR_STOP_NAMES] = {}
+        if self._editing_route_index is not None:
+            self._routes[self._editing_route_index] = self._pending_route
+        else:
+            self._routes.append(self._pending_route)
+        self._pending_route = {}
+        self._editing_route_index = None
+        return await self.async_step_routes()
+
+    async def async_step_select_stops(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Screen 3b: Disambiguate boarding and/or alighting stops from matches."""
+        boarding_candidates = getattr(self, "_boarding_stop_candidates", [])
+        alighting_candidates = getattr(self, "_alighting_stop_candidates", [])
+
+        if user_input is not None:
+            if "boarding_stop" in user_input:
+                self._pending_route[CONF_BOARDING_STOP] = str(
+                    user_input["boarding_stop"]
+                ).strip()
+            if "alighting_stop" in user_input:
+                self._pending_route[CONF_ALIGHTING_STOP] = str(
+                    user_input["alighting_stop"]
+                ).strip()
+            self._boarding_stop_candidates = []
+            self._alighting_stop_candidates = []
+
+            registry = await self._async_get_registry()
+            provider_id = str(
+                self._pending_route.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+            ).strip()
+            provider_instance = registry.get_provider(provider_id=provider_id)
+            return await self._async_resolve_route_corridor(
+                route_dict=self._pending_route,
+                provider_instance=provider_instance,
+            )
+
+        fields: dict[Any, Any] = {}
+        if boarding_candidates:
+            boarding_options = [
+                selector.SelectOptionDict(
+                    value=stop.id,
+                    label=f"{stop.name} ({stop.id})",
+                )
+                for stop in boarding_candidates
+            ]
+            fields[vol.Required("boarding_stop", default=boarding_candidates[0].id)] = (
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=boarding_options)
+                )
+            )
+        if alighting_candidates:
+            alighting_options = [
+                selector.SelectOptionDict(
+                    value=stop.id,
+                    label=f"{stop.name} ({stop.id})",
+                )
+                for stop in alighting_candidates
+            ]
+            fields[
+                vol.Required("alighting_stop", default=alighting_candidates[0].id)
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=alighting_options)
+            )
+
+        return self.async_show_form(
+            step_id="select_stops",
+            data_schema=vol.Schema(fields),
+        )
+
     async def async_step_corridor(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -931,10 +1062,49 @@ class CommuteFlowHandlerMixin(config_entries.ConfigEntryBaseFlow):
             extra = str(user_input.get("extra_stops", "")).strip()
             extra_ids: list[str] = []
             if extra:
+                provider_instance: TransitProvider | None = None
+                route_line = str(self._pending_route.get(CONF_LINE, "")).strip() or None
+                route_mode_raw = self._pending_route.get(CONF_MODE)
+                route_mode = TransitMode(route_mode_raw) if route_mode_raw else None
                 for sid in extra.split(","):
                     clean_sid = sid.strip()
-                    if clean_sid and clean_sid not in extra_ids:
-                        extra_ids.append(clean_sid)
+                    if not clean_sid:
+                        continue
+                    resolved_extra_id = clean_sid
+                    try:
+                        if provider_instance is None:
+                            registry = await self._async_get_registry()
+                            provider_id = str(
+                                self._pending_route.get(CONF_PROVIDER, DEFAULT_PROVIDER)
+                            ).strip()
+                            provider_instance = registry.get_provider(
+                                provider_id=provider_id
+                            )
+                        matches = await provider_instance.async_search_stops(
+                            query=clean_sid,
+                            line_id=route_line,
+                            mode=route_mode,
+                        )
+                        exact = next(
+                            (
+                                s
+                                for s in matches
+                                if s.id.strip().upper() == clean_sid.upper()
+                            ),
+                            None,
+                        )
+                        chosen_match = exact or (
+                            matches[0] if len(matches) == 1 else None
+                        )
+                        if chosen_match is not None:
+                            resolved_extra_id = chosen_match.id
+                            self._resolved_stop_names.setdefault(
+                                chosen_match.id, chosen_match.name
+                            )
+                    except Exception:
+                        pass
+                    if resolved_extra_id not in extra_ids:
+                        extra_ids.append(resolved_extra_id)
 
             # Resolve target stop identifiers (boarding stop)
             target_ids: set[str] = set()
@@ -1358,6 +1528,8 @@ class CommuteTrackerConfigFlow(
         self._chosen_corridor_stops: list[str] = []
         self._discovered_lead_times: dict[str, int] = {}
         self._resolved_stop_names: dict[str, str] = {}
+        self._boarding_stop_candidates: list[CorridorStop] = []
+        self._alighting_stop_candidates: list[CorridorStop] = []
         self._providers_config: dict[str, Any] = {}
 
     async def async_step_user(
@@ -1438,6 +1610,8 @@ class CommuteTrackerOptionsFlow(CommuteFlowHandlerMixin, config_entries.OptionsF
         self._chosen_corridor_stops: list[str] = []
         self._discovered_lead_times: dict[str, int] = {}
         self._resolved_stop_names: dict[str, str] = {}
+        self._boarding_stop_candidates: list[CorridorStop] = []
+        self._alighting_stop_candidates: list[CorridorStop] = []
         self._providers_config: dict[str, Any] = {}
 
     @property
