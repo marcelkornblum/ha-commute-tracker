@@ -29,6 +29,9 @@ _STAGE_ORDER: tuple[CommuteEventType, ...] = (
     CommuteEventType.AMBER_WARNING,
     CommuteEventType.LEAVE_NOW,
 )
+_URGENT_STAGES: frozenset[CommuteEventType] = frozenset(
+    {CommuteEventType.AMBER_WARNING, CommuteEventType.LEAVE_NOW}
+)
 _ROUTE_SWITCH_CONFIRMATION_POLLS = 2
 
 
@@ -136,6 +139,10 @@ def _build_event(
         "expected_destination_time": master.expected_destination_time,
         "seconds_to_leave": master.seconds_to_leave,
         "leave_in_minutes": leave_in_minutes,
+        "expected_destination_margin_seconds": (
+            master.expected_destination_margin_seconds
+        ),
+        "is_last_on_time_or_late": master.is_last_on_time_or_late,
         "timeliness": master.timeliness,
         "will_arrive_on_time": master.will_arrive_on_time,
         "default_message": default_message,
@@ -227,7 +234,7 @@ class CommuteLifecycleTracker:
                     )
                 )
                 emitted_transition = True
-                if reached_stage is not None:
+                if reached_stage is not None and reached_stage not in _URGENT_STAGES:
                     self._latch_through_stage(dep_key=dep_key, stage=reached_stage)
             else:
                 self._confirmed_option = master.active_option
@@ -253,10 +260,13 @@ class CommuteLifecycleTracker:
                 )
             )
             emitted_transition = True
-            if reached_stage is not None:
+            if reached_stage is not None and reached_stage not in _URGENT_STAGES:
                 self._latch_through_stage(dep_key=dep_key, stage=reached_stage)
 
-        if not emitted_transition and reached_stage is not None:
+        should_emit_stage = reached_stage is not None and (
+            not emitted_transition or reached_stage in _URGENT_STAGES
+        )
+        if should_emit_stage and reached_stage is not None:
             latch_key = (dep_key[0], dep_key[1], reached_stage)
             if latch_key not in self._latched_stages:
                 events.append(

@@ -222,6 +222,11 @@ def test_announcement_blueprint_yaml_is_valid() -> None:
     assert "tts_entity" in inputs
     assert "media_player" in inputs
     assert "extra_actions" in inputs
+    assert inputs["only_last_on_time_or_late"]["default"] is True
+    assert inputs["max_early_arrival_minutes"]["default"] == 0
     cond_template = parsed["conditions"][0]["value_template"]
     assert "trigger.from_state is not none" in cond_template
     assert "trigger.to_state.state != trigger.from_state.state" in cond_template
+    assert "is_last_on_time_or_late" in cond_template
+    assert "expected_destination_margin_seconds" in cond_template
+    assert "'disrupted'" in cond_template
