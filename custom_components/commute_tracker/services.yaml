@@ -1,0 +1,29 @@
+get_status:
+  name: Get Commute Status
+  description: >
+    Return structured commute status, recommended departure details, per-route
+    breakdowns, and a natural-language summary suitable for Assist and
+    automations.
+  fields:
+    commute_id:
+      name: Commute ID
+      description: Optional commute identifier to filter results (returns all commutes if omitted).
+      example: kolya_school
+      selector:
+        text:
+    entity_id:
+      name: Master Commute Sensor
+      description: Optional master commute sensor entity to target.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: commute_tracker
+    force_refresh:
+      name: Force Live Refresh
+      description: >
+        Fetch a one-shot live transit check even when outside the configured
+        active_sensor window, without altering polling or emitting events.
+      default: false
+      selector:
+        boolean:
