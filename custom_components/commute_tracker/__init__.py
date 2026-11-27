@@ -10,6 +10,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.discovery import async_load_platform
 from homeassistant.helpers.typing import ConfigType
 
+from custom_components.commute_tracker.assist import (
+    async_register_assist,
+    async_unregister_assist,
+)
 from custom_components.commute_tracker.config_validation import (
     COMMUTE_TRACKER_SCHEMA,
     CONFIG_SCHEMA,
@@ -83,6 +87,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         coordinators[commute_cfg.commute_id] = coordinator
 
     hass.data[DOMAIN]["coordinators"] = coordinators
+    async_register_assist(hass=hass)
     for platform in PLATFORMS:
         await async_load_platform(
             hass,
@@ -130,6 +135,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     coordinators[entry.entry_id] = coordinator
     coordinators[commute_cfg.commute_id] = coordinator
+    async_register_assist(hass=hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_update_options))
@@ -150,12 +156,15 @@ async def async_unload_entry(
             if coordinator is not None:
                 coordinator.async_unload()
                 coordinators.pop(coordinator.commute_config.commute_id, None)
+            if not coordinators:
+                async_unregister_assist(hass=hass)
             return True
         return False
 
     for coordinator in list(coordinators.values()):
         coordinator.async_unload()
     coordinators.clear()
+    async_unregister_assist(hass=hass)
     return True
 
 
