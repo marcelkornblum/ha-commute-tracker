@@ -372,3 +372,137 @@ def test_arbitration_tie_breaker_slack() -> None:
 
     assert commute_state.master_rollup.active_option == "route_2"
     assert commute_state.master_rollup.expected_destination_margin_seconds > 0
+
+
+def test_is_last_on_time_or_late_false_when_follower_also_on_time() -> None:
+    route_cfg = RouteConfig(
+        route_id="bus_315",
+        mode=TransitMode.BUS,
+        line="315",
+        provider="mock",
+        boarding_walk_seconds=240,
+        prep_seconds=60,
+        transit_duration_seconds=900,
+        alighting_walk_seconds=180,
+    )
+    telemetry = RouteTelemetry(
+        route_id="bus_315",
+        line_id="315",
+        mode=TransitMode.BUS,
+        departures=[
+            DeparturePrediction(
+                vehicle_id="BUS1",
+                destination="School",
+                expected_time="2026-09-15T08:06:00Z",
+                seconds_to_arrival=360,
+            ),
+            DeparturePrediction(
+                vehicle_id="BUS2",
+                destination="School",
+                expected_time="2026-09-15T08:16:00Z",
+                seconds_to_arrival=960,
+            ),
+        ],
+    )
+    config = CommuteConfig(
+        commute_id="test_commute",
+        routes=[route_cfg],
+        target_destination_time="08:45",
+    )
+    engine = CommuteEngine(config=config, registry=TransitProviderRegistry())
+    state = engine.evaluate_commute(
+        telemetries={"bus_315": telemetry},
+        reference_time=datetime(2026, 9, 15, 8, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert state.child_routes["bus_315"].will_arrive_on_time is True
+    assert state.child_routes["bus_315"].is_last_on_time_or_late is False
+    assert state.master_rollup.is_last_on_time_or_late is False
+
+
+def test_is_last_on_time_or_late_true_when_follower_is_late_or_missing() -> None:
+    route_cfg = RouteConfig(
+        route_id="bus_315",
+        mode=TransitMode.BUS,
+        line="315",
+        provider="mock",
+        boarding_walk_seconds=240,
+        prep_seconds=60,
+        transit_duration_seconds=900,
+        alighting_walk_seconds=180,
+    )
+    telemetry_last_on_time = RouteTelemetry(
+        route_id="bus_315",
+        line_id="315",
+        mode=TransitMode.BUS,
+        departures=[
+            DeparturePrediction(
+                vehicle_id="BUS1",
+                destination="School",
+                expected_time="2026-09-15T08:20:00Z",
+                seconds_to_arrival=1200,
+            ),
+            DeparturePrediction(
+                vehicle_id="BUS2",
+                destination="School",
+                expected_time="2026-09-15T08:32:00Z",
+                seconds_to_arrival=1920,
+            ),
+        ],
+    )
+    telemetry_no_follower = RouteTelemetry(
+        route_id="bus_315",
+        line_id="315",
+        mode=TransitMode.BUS,
+        departures=[
+            DeparturePrediction(
+                vehicle_id="BUS1",
+                destination="School",
+                expected_time="2026-09-15T08:06:00Z",
+                seconds_to_arrival=360,
+            ),
+        ],
+    )
+    telemetry_active_late = RouteTelemetry(
+        route_id="bus_315",
+        line_id="315",
+        mode=TransitMode.BUS,
+        departures=[
+            DeparturePrediction(
+                vehicle_id="BUS1",
+                destination="School",
+                expected_time="2026-09-15T08:32:00Z",
+                seconds_to_arrival=1920,
+            ),
+            DeparturePrediction(
+                vehicle_id="BUS2",
+                destination="School",
+                expected_time="2026-09-15T08:42:00Z",
+                seconds_to_arrival=2520,
+            ),
+        ],
+    )
+    config = CommuteConfig(
+        commute_id="test_commute",
+        routes=[route_cfg],
+        target_destination_time="08:45",
+    )
+    engine = CommuteEngine(config=config, registry=TransitProviderRegistry())
+    ref = datetime(2026, 9, 15, 8, 0, 0, tzinfo=timezone.utc)
+
+    state_last = engine.evaluate_commute(
+        telemetries={"bus_315": telemetry_last_on_time}, reference_time=ref
+    )
+    assert state_last.master_rollup.will_arrive_on_time is True
+    assert state_last.master_rollup.is_last_on_time_or_late is True
+
+    state_missing = engine.evaluate_commute(
+        telemetries={"bus_315": telemetry_no_follower}, reference_time=ref
+    )
+    assert state_missing.master_rollup.is_last_on_time_or_late is True
+
+    state_late = engine.evaluate_commute(
+        telemetries={"bus_315": telemetry_active_late}, reference_time=ref
+    )
+    assert state_late.master_rollup.will_arrive_on_time is False
+    assert state_late.master_rollup.is_last_on_time_or_late is True

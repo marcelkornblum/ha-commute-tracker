@@ -67,6 +67,7 @@ class ChildRouteState:
     seconds_to_board: int | None = None
     expected_destination_margin_seconds: int | None = None
     will_arrive_on_time: bool = True
+    is_last_on_time_or_late: bool = True
     timeliness: str = "on_time"
     corridor_location: str = ""
     corridor_progress: float = 0.0
@@ -99,6 +100,7 @@ class MasterRollupState:
     route_color: str | None = None
     destination: str = ""
     will_arrive_on_time: bool = True
+    is_last_on_time_or_late: bool = True
     timeliness: str = "on_time"
     strategy: RollupStrategy = RollupStrategy.LATE_WITH_BUFFER
     line_status: LineStatus | None = None
@@ -121,6 +123,7 @@ class CandidateRoute:
     route_config: RouteConfig
     telemetry: RouteTelemetry
     will_arrive_on_time: bool = True
+    is_last_on_time_or_late: bool = True
     expected_destination_margin_seconds: int = 0
     timeliness: str = "on_time"
     expected_boarding_time: str = ""
@@ -359,15 +362,34 @@ class CommuteEngine:
                 else (active_dep.duration_seconds or 0)
             )
 
+            target_time_str = (
+                thresholds.target_destination_time or self._target_destination_time
+            )
             margin_sec, will_arrive, timeliness_label = calculate_destination_margin(
-                target_destination_time_str=thresholds.target_destination_time
-                or self._target_destination_time,
+                target_destination_time_str=target_time_str,
                 seconds_to_board=active_dep.seconds_to_arrival,
                 transit_duration_seconds=transit_dur,
                 alighting_walk_seconds=route_cfg.alighting_walk_seconds or 0,
                 reference_time=ref_dt,
                 line_status=telemetry.line_status,
             )
+
+            is_last_on_time_or_late = True
+            if target_time_str and will_arrive and follower_dep is not None:
+                follower_transit_dur = (
+                    route_cfg.transit_duration_seconds
+                    if route_cfg.transit_duration_seconds
+                    else (follower_dep.duration_seconds or transit_dur)
+                )
+                _, follower_will_arrive, _ = calculate_destination_margin(
+                    target_destination_time_str=target_time_str,
+                    seconds_to_board=follower_dep.seconds_to_arrival,
+                    transit_duration_seconds=follower_transit_dur,
+                    alighting_walk_seconds=route_cfg.alighting_walk_seconds or 0,
+                    reference_time=ref_dt,
+                    line_status=telemetry.line_status,
+                )
+                is_last_on_time_or_late = not follower_will_arrive
 
             leave_by = calculate_leave_by_time(
                 seconds_to_leave=seconds_to_leave,
@@ -418,6 +440,7 @@ class CommuteEngine:
                 seconds_to_board=active_dep.seconds_to_arrival,
                 expected_destination_margin_seconds=margin_sec,
                 will_arrive_on_time=will_arrive,
+                is_last_on_time_or_late=is_last_on_time_or_late,
                 timeliness=timeliness_label,
                 corridor_location=corridor_loc,
                 corridor_progress=progress,
@@ -448,6 +471,7 @@ class CommuteEngine:
                         route_config=route_cfg,
                         telemetry=telemetry,
                         will_arrive_on_time=will_arrive,
+                        is_last_on_time_or_late=is_last_on_time_or_late,
                         expected_destination_margin_seconds=margin_sec or 0,
                         timeliness=timeliness_label,
                         expected_boarding_time=board_time,
@@ -650,6 +674,7 @@ class CommuteEngine:
                 or ""
             ),
             will_arrive_on_time=winner.will_arrive_on_time,
+            is_last_on_time_or_late=winner.is_last_on_time_or_late,
             timeliness=winner.timeliness,
             strategy=strategy,
             line_status=winner.telemetry.line_status,

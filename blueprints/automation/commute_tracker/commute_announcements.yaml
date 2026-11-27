@@ -38,6 +38,29 @@ blueprint:
               value: rollover
             - label: Line Disrupted
               value: disrupted
+    only_last_on_time_or_late:
+      name: Only Last On-Time Service (and Late Services)
+      description: >
+        Suppress announcements when a later vehicle on the same route would
+        still arrive before target_destination_time. Disrupted events always
+        announce.
+      default: true
+      selector:
+        boolean: {}
+    max_early_arrival_minutes:
+      name: Maximum Minutes Early to Announce (Optional)
+      description: >
+        Suppress non-disrupted announcements for services arriving more than
+        this many minutes before target_destination_time. Set to 0 to disable.
+        Late services always announce.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 180
+          step: 1
+          unit_of_measurement: min
+          mode: box
     tts_entity:
       name: TTS Entity (Optional)
       description: Home Assistant Text-to-Speech entity used with tts.speak.
@@ -70,6 +93,8 @@ max: 10
 
 variables:
   selected_event_types: !input event_types
+  only_last_on_time: !input only_last_on_time_or_late
+  max_early_minutes: !input max_early_arrival_minutes
   tts_target: !input tts_entity
   player_target: !input media_player
 
@@ -80,11 +105,23 @@ triggers:
 conditions:
   - condition: template
     value_template: >
+      {% set ev_type = trigger.to_state.attributes.get('event_type') if trigger.to_state is not none else none %}
+      {% set prev_type = trigger.from_state.attributes.get('event_type') if trigger.from_state is not none else none %}
+      {% set is_last_or_late = trigger.to_state.attributes.get('is_last_on_time_or_late', true) if trigger.to_state is not none else true %}
+      {% set margin_sec = trigger.to_state.attributes.get('expected_destination_margin_seconds', 0) if trigger.to_state is not none else 0 %}
+      {% set max_early_sec = (max_early_minutes | int(0)) * 60 %}
       {{ trigger.from_state is not none
          and trigger.to_state is not none
-         and trigger.to_state.state != trigger.from_state.state
+         and (trigger.to_state.state != trigger.from_state.state or ev_type != prev_type)
          and trigger.to_state.state not in ['unknown', 'unavailable']
-         and trigger.to_state.attributes.get('event_type') in selected_event_types }}
+         and ev_type in selected_event_types
+         and (
+           ev_type == 'disrupted'
+           or (
+             (not only_last_on_time or is_last_or_late)
+             and (max_early_sec == 0 or margin_sec <= max_early_sec)
+           )
+         ) }}
 
 actions:
   - if:

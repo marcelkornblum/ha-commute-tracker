@@ -28,6 +28,8 @@ def _make_state(
     expected_destination_time: str = "08:40",
     seconds_to_leave: int = 600,
     seconds_to_board: int = 1200,
+    expected_destination_margin_seconds: int = 600,
+    is_last_on_time_or_late: bool = True,
     amber_threshold_seconds: int = 210,
     prepare_threshold_seconds: int = 480,
     timeliness: str = "on_time",
@@ -47,6 +49,8 @@ def _make_state(
             expected_destination_time=expected_destination_time,
             seconds_to_leave=seconds_to_leave,
             seconds_to_board=seconds_to_board,
+            expected_destination_margin_seconds=expected_destination_margin_seconds,
+            is_last_on_time_or_late=is_last_on_time_or_late,
             route_label=route_label,
             will_arrive_on_time=will_arrive_on_time,
             timeliness=timeliness,
@@ -471,3 +475,141 @@ def test_lifecycle_route_switched_fires_from_leave_now_to_relaxed() -> None:
     )
     assert [e.event_type for e in switched] == [CommuteEventType.ROUTE_SWITCHED]
     assert switched[0].data["active_option"] == "southern"
+
+
+def test_lifecycle_route_switched_into_leave_now_emits_both_and_latches() -> None:
+    tracker = CommuteLifecycleTracker()
+    train_prepare = _make_state(
+        active_option="southern",
+        mode="train",
+        route_label="Southern",
+        expected_boarding_time="07:32",
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=468,
+    )
+    bus_leave_now = _make_state(
+        active_option="bus_315",
+        mode="bus",
+        route_label="315",
+        vehicle_id="BUS315",
+        expected_boarding_time="07:12",
+        urgency_stage=UrgencyStage.LEAVE_NOW,
+        seconds_to_leave=-64,
+        expected_destination_margin_seconds=2400,
+        is_last_on_time_or_late=False,
+    )
+
+    tracker.evaluate(
+        state=train_prepare,
+        is_active=True,
+        commute_title="Kolya School",
+        person_name="Kolya",
+    )
+    assert (
+        tracker.evaluate(
+            state=bus_leave_now,
+            is_active=True,
+            commute_title="Kolya School",
+            person_name="Kolya",
+        )
+        == []
+    )
+    switched = tracker.evaluate(
+        state=bus_leave_now,
+        is_active=True,
+        commute_title="Kolya School",
+        person_name="Kolya",
+    )
+    assert [e.event_type for e in switched] == [
+        CommuteEventType.ROUTE_SWITCHED,
+        CommuteEventType.LEAVE_NOW,
+    ]
+    assert switched[1].data["expected_destination_margin_seconds"] == 2400
+    assert switched[1].data["is_last_on_time_or_late"] is False
+
+    assert (
+        tracker.evaluate(
+            state=bus_leave_now,
+            is_active=True,
+            commute_title="Kolya School",
+            person_name="Kolya",
+        )
+        == []
+    )
+
+
+def test_lifecycle_route_switched_into_amber_emits_both_then_escalates() -> None:
+    tracker = CommuteLifecycleTracker()
+    train_prepare = _make_state(
+        active_option="southern",
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=400,
+    )
+    bus_amber = _make_state(
+        active_option="bus_322",
+        mode="bus",
+        route_label="322",
+        vehicle_id="BUS1",
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=150,
+    )
+    bus_leave = _make_state(
+        active_option="bus_322",
+        mode="bus",
+        route_label="322",
+        vehicle_id="BUS1",
+        urgency_stage=UrgencyStage.LEAVE_NOW,
+        seconds_to_leave=-5,
+    )
+
+    tracker.evaluate(state=train_prepare, is_active=True, commute_title="School")
+    assert (
+        tracker.evaluate(state=bus_amber, is_active=True, commute_title="School") == []
+    )
+    switched = tracker.evaluate(state=bus_amber, is_active=True, commute_title="School")
+    assert [e.event_type for e in switched] == [
+        CommuteEventType.ROUTE_SWITCHED,
+        CommuteEventType.AMBER_WARNING,
+    ]
+    assert (
+        tracker.evaluate(state=bus_amber, is_active=True, commute_title="School") == []
+    )
+    escalated = tracker.evaluate(
+        state=bus_leave, is_active=True, commute_title="School"
+    )
+    assert [e.event_type for e in escalated] == [CommuteEventType.LEAVE_NOW]
+
+
+def test_lifecycle_rollover_into_amber_or_leave_now_emits_both() -> None:
+    tracker = CommuteLifecycleTracker()
+    bus_1 = _make_state(
+        active_option="bus_322",
+        mode="bus",
+        route_label="322",
+        vehicle_id="BUS1",
+        expected_boarding_time="08:10",
+        urgency_stage=UrgencyStage.LEAVE_NOW,
+        seconds_to_leave=-20,
+        seconds_to_board=220,
+    )
+    bus_2_amber = _make_state(
+        active_option="bus_322",
+        mode="bus",
+        route_label="322",
+        vehicle_id="BUS2",
+        expected_boarding_time="08:15",
+        urgency_stage=UrgencyStage.PREPARE,
+        seconds_to_leave=120,
+        seconds_to_board=360,
+    )
+
+    tracker.evaluate(state=bus_1, is_active=True, commute_title="School")
+    rolled = tracker.evaluate(state=bus_2_amber, is_active=True, commute_title="School")
+    assert [e.event_type for e in rolled] == [
+        CommuteEventType.ROLLOVER,
+        CommuteEventType.AMBER_WARNING,
+    ]
+    assert (
+        tracker.evaluate(state=bus_2_amber, is_active=True, commute_title="School")
+        == []
+    )
